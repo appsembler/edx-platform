@@ -1,1 +1,3 @@
 python-intercom==0.2.13
+-e file:///edx/django-db-multitenant
+django-threadlocals==0.8

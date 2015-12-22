@@ -6,6 +6,7 @@ from xmodule.contentstore.content import XASSET_LOCATION_TAG
 
 import logging
 
+from db_multitenant.utils import get_mongo_db_name
 from .content import StaticContent, ContentStore, StaticContentStream
 from xmodule.exceptions import NotFoundError
 from fs.osfs import OSFS
@@ -29,6 +30,8 @@ class MongoContentStore(ContentStore):
 
         # Remove the replicaSet parameter.
         kwargs.pop('replicaSet', None)
+
+        db = get_mongo_db_name()
 
         _db = pymongo.database.Database(
             pymongo.MongoClient(

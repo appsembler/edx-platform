@@ -36,6 +36,8 @@ from opaque_keys.edx.locator import CourseLocator, LibraryLocator
 from xblock.core import XBlock
 from xblock.exceptions import InvalidScopeError
 from xblock.fields import Scope, ScopeIds, Reference, ReferenceList, ReferenceValueDict
+
+from db_multitenant.utils import get_mongo_db_name
 from xblock.runtime import KvsFieldData
 
 from xmodule.assetstore import AssetMetadata, CourseAssetsFromStorage
@@ -560,6 +562,8 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
             """
             # Remove the replicaSet parameter.
             kwargs.pop('replicaSet', None)
+
+            db = get_mongo_db_name()
 
             self.database = MongoProxy(
                 pymongo.database.Database(

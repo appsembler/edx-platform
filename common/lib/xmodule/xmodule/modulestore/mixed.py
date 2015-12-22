@@ -153,6 +153,7 @@ class MixedModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase):
                 fs_service=fs_service,
                 user_service=user_service,
                 signal_handler=signal_handler,
+                db=kwargs.get('db')
             )
             # replace all named pointers to the store into actual pointers
             for course_key, store_name in self.mappings.iteritems():
