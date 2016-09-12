@@ -1,4 +1,3 @@
-from django.contrib.sites.models import Site
 from rest_framework import serializers
 from .models import SiteConfiguration
 from .utils import sass_to_dict, dict_to_sass
