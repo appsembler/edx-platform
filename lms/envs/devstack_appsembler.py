@@ -20,7 +20,10 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 MICROSITE_BACKEND = 'microsite_configuration.backends.database.DatabaseMicrositeBackend'
 
-INSTALLED_APPS += ('appsembler_lms',)
+INSTALLED_APPS += (
+    'appsembler_lms',
+    'openedx.core.djangoapps.appsembler.sites',
+)
 
 CORS_ORIGIN_ALLOW_ALL = True
 

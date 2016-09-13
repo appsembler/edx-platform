@@ -16,7 +16,7 @@ from django.dispatch import receiver
 from django_extensions.db.models import TimeStampedModel
 from jsonfield.fields import JSONField
 
-from .utils import get_initial_sass_variables, get_initial_page_elements
+from openedx.core.djangoapps.appsembler.sites.utils import get_initial_sass_variables, get_initial_page_elements
 
 from logging import getLogger
 logger = getLogger(__name__)  # pylint: disable=invalid-name

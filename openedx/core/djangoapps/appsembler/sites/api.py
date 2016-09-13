@@ -3,7 +3,7 @@ from rest_framework import views, viewsets
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
-from .models import SiteConfiguration
+from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 from .serializers import SiteConfigurationSerializer, SiteConfigurationListSerializer
 
 
