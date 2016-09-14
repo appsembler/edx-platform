@@ -9,6 +9,6 @@ router.register(r'sites', SiteConfigurationViewSet)
 # The API URLs are now determined automatically by the router.
 # Additionally, we include the login URLs for the browsable API.
 urlpatterns = [
-    url(r'^sites/upload_file/', FileUploadView.as_view()),
+    url(r'^upload_file/', FileUploadView.as_view()),
     url(r'^', include(router.urls)),
 ]
