@@ -42,7 +42,8 @@ import track.views
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.django import modulestore
 from opaque_keys.edx.locations import SlashSeparatedCourseKey
-
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
+from search.search_engine_base import SearchEngine
 
 log = logging.getLogger(__name__)
 
@@ -588,6 +589,26 @@ class Courses(SysadminDashboardView):
                              u"{0} = {1} ({2})</font>".format(
                                  cdir, course.id, course.display_name))
 
+                # fire signal for delete course overview and course search index
+                try:
+                    CourseOverview.objects.filter(id=course.id).delete()
+                    self.msg += (u"<br><font color='red'><b>Course overview successfully deleted</b></font>")
+                except:
+                    self.msg += (u"<br><font color='red'><b>Error deleting course overview</b></font>")
+                # delete the course from search index
+                try:
+                    searcher = SearchEngine.get_search_engine("courseware_index")
+                    if searcher:
+                        response = searcher.search(
+                            doc_type="course_info",
+                            field_dictionary={'course': course_id, 'org': course.org}
+                        )
+                        result_ids = [result["data"]["id"] for result in response["results"]]
+                        searcher.remove("course_info", result_ids)
+                    self.msg += (u"<br><font color='red'><b>Course deleted from search successfully</b></font>")
+                except:
+                    self.msg += (u"<br><font color='red'><b>Error deleting course from search</b></font>")
+
             elif course_found and not is_xml_course:
                 # delete course that is stored with mongodb backend
                 self.def_ms.delete_course(course.id, request.user.id)
@@ -595,6 +616,25 @@ class Courses(SysadminDashboardView):
                 self.msg += \
                     u"<font color='red'>{0} {1} = {2} ({3})</font>".format(
                         _('Deleted'), course.location.to_deprecated_string(), course.id.to_deprecated_string(), course.display_name)
+                # fire signal for delete course overview and course search index
+                try:
+                    CourseOverview.objects.filter(id=course.id).delete()
+                    self.msg += (u"<br><font color='red'><b>Course overview successfully deleted</b></font>")
+                except:
+                    self.msg += (u"<br><font color='red'><b>Error deleting course overview</b></font>")
+                # delete the course from search index
+                try:
+                    searcher = SearchEngine.get_search_engine("courseware_index")
+                    if searcher:
+                        response = searcher.search(
+                            doc_type="course_info",
+                            field_dictionary={'course': course_id, 'org': course.org}
+                        )
+                        result_ids = [result["data"]["id"] for result in response["results"]]
+                        searcher.remove("course_info", result_ids)
+                    self.msg += (u"<br><font color='red'><b>Course deleted from search successfully</b></font>")
+                except:
+                    self.msg += (u"<br><font color='red'><b>Error deleting course from search</b></font>")
 
         context = {
             'datatable': self.make_datatable(),
