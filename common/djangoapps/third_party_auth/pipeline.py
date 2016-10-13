@@ -672,3 +672,21 @@ def associate_by_email_if_login_api(auth_entry, backend, details, user, *args, *
             # email address and the legitimate user would now login to the illegitimate
             # account.
             return association_response
+
+@partial.partial
+def update_user_attributes(backend=None, user=None, strategy=None, auth_entry=None, *args, **kwargs):
+    """
+    This behaviour is controled in the ProviderConfig, if the update_full_name_on_login
+    attr=True and the user's full_name is different from the IdP's full_name will be updated,
+    if the update_email_on_login attr =True and the user's email is different from the IdP's
+    email will be updated too.
+    """
+    if user:
+        current_provider = provider.Registry.get_from_pipeline({'backend': backend.name, 'kwargs': kwargs})
+        provier_user_data = kwargs['details']
+        if current_provider.update_full_name_on_login and user.profile.name != provier_user_data['fullname']:
+            user.profile.name = provier_user_data['fullname']
+            user.profile.save()
+        if current_provider.update_email_on_login and user.email != provier_user_data['email']:
+            user.email = provier_user_data['email']
+            user.save()

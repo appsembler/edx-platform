@@ -99,6 +99,22 @@ class ProviderConfig(ConfigurationModel):
             "email, and their account will be activated immediately upon registration."
         ),
     )
+    update_full_name_on_login = models.BooleanField(
+        default=False,
+        help_text=_(
+            "If this option is selected, user's full name will be compared "
+            "against the IdP on every login, and if is different, will be "
+            "updated with IdP's new one"
+        ),
+    )
+    update_email_on_login = models.BooleanField(
+        default=False,
+        help_text=_(
+            "If this option is selected, user's full name will be compared "
+            "against the IdP on every login, and if is different, will be "
+            "updated with IdP's new one"
+        ),
+    )
     prefix = None  # used for provider_id. Set to a string value in subclass
     backend_name = None  # Set to a field or fixed value in subclass
     accepts_logins = True  # Whether to display a sign-in button when the provider is enabled
