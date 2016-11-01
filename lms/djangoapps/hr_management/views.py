@@ -1,9 +1,14 @@
+
 import logging
+from urlparse import urlparse
+import re
+import sys
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.db import transaction
@@ -14,6 +19,7 @@ from django.views.decorators.http import require_POST
 from ipware.ip import get_ip
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.locations import SlashSeparatedCourseKey
+from organizations import api as orgsApi
 from organizations.models import Organization
 
 from course_modes.models import CourseMode
@@ -29,25 +35,123 @@ from xmodule.modulestore.django import modulestore
 from .models import HrManager, CourseAccessRequest, CourseCCASettings
 from hr_management.tasks import send_email_to_user
 
+from .utils import generate_microsite_vo, create_microsite
+
+
 log = logging.getLogger(__name__)
+
+log.setLevel(logging.INFO)
+
+"""
+Comments:
+
+subdomain resolution may be a challenge if the hostname is an IP instead of a 
+domain name
+"""
 
 @login_required
 def index(request):
     user = request.user
     domain = request.META.get('HTTP_HOST', None)
-    microsite = Microsite.get_microsite_for_domain(domain)
-    organizations = microsite.get_organizations()
-    organization = organizations[0]
+    # domain will be the domain as showin in the browser URL bar
+    # ex for localhost: "localhost:8000" or "127.0.0.1:8000"
+    log.info("hr-management#index domain = {}".format(domain))
 
-    _user_has_access(user,organization)
+    microsite = Microsite.get_microsite_for_domain(domain)        
+    organization = None
+    if microsite:
+        log.info("our microsite = {}".format(microsite))
+        organizations = microsite.get_organizations()
+        #
+        if organizations:
+            organization = organizations[0]
 
-    context = {
-        'message': 'hr index',
-        'user': user,
-        'microsite': microsite,
-        'organization': organization
-    }
-    return render_to_response('hr_management/index.html', context)
+        # TODO: Handle when there is no organization
+        _user_has_access(user,organization)
+
+        context = {
+            'message': 'hr index',
+            'user': user,
+            'microsite': microsite,
+            'organization': organization
+        }
+        return render_to_response('hr_management/index.html', context)            
+    else:
+        # Serve up the 'manage microsites page'
+        # We don't have to worry about pagination *yet*
+        # https://docs.djangoproject.com/en/1.8/topics/pagination/
+        url = urlparse(request.build_absolute_uri())
+
+        log.info("Host full url={}".format(url))
+        log.info("hostname = {}".format(url.hostname))
+        log.info("port = {}".format(url.port))
+
+        # We're making an assumtion that we are in our site TLD (not a microsite url)
+        # Because a TLD could be:
+        # * localhost
+        # * example.com
+        # * example.co.uk
+        # * learning.nyif.com (where we will have microsites like 
+        #   micro1.learning.nyif.com)
+        #
+        microsites = [
+            generate_microsite_vo(obj, url.port) for obj in Microsite.objects.all().order_by('key')
+        ]
+
+        context = {
+            'message': 'manage microsites',
+            'user': user,
+            'microsites': microsites,
+            'hostname': url.hostname,
+        }
+
+        return render_to_response('hr_management/manage_microsites.html', context)
+
+
+# TODO: We need to set proper authorizataion for this call
+@login_required
+@require_POST
+def add_microsite(request):
+    domain=request.POST.get('hostname')
+    org_long_name=request.POST.get('org_long_name')
+    org_short_name=request.POST.get('org_short_name')
+    org_description=request.POST.get('org_description')
+    subdomain_name=request.POST.get('subdomain_name')
+
+    all_valid = True
+    slug_re = re.compile("^[A-Za-z0-9-_]+$")
+
+    if org_long_name is None or org_long_name.strip() == '':
+        messages.error(request, "Organization long name cannot be empty")
+        all_valid = False
+    if not slug_re.match(org_short_name):
+        messages.error(request,
+            "Organization short name '{}' is not valid. ".format(org_short_name))
+        all_valid = False
+    if not slug_re.match(subdomain_name):
+        messages.error(request,
+            "Subdomain name '{}' is not valid. ".format(subdomain_name))
+        all_valid = False
+
+    user = request.user
+
+    if all_valid:
+        try:
+            data = create_microsite(
+                domain=domain,
+                org_long_name=org_long_name,
+                org_short_name=org_short_name,
+                org_description=org_description,
+                subdomain_name=subdomain_name,
+            )
+            messages.info(request, "Microsite {} succesfully created".format(data.key))
+        except:
+            e = sys.exc_info()[0]
+            messages.error(request, "Error creating microsite: {}".format(e))
+
+    # TODO: Help the user by passing variables back to template. Maybe Django
+    # Forms does this automatically
+    return redirect('index')
 
 @login_required
 def user_list(request):

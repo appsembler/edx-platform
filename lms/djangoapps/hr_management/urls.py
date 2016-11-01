@@ -13,4 +13,5 @@ urlpatterns = patterns(
     url(r'^require-course-access', 'require_course_access', name='require_course_access'),
     url(r'^change-course-access', 'change_course_access', name='change_course_access'),
     url(r'^change-course-cca-settings', 'change_course_cca_settings', name='change_course_cca_settings'),
+    url(r'^add-microsite', 'add_microsite', name='add_microsite'),
 )

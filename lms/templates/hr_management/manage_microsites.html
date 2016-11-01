@@ -1,0 +1,73 @@
+<%inherit file="../main.html" />
+<%namespace name='static' file='../static_content.html'/>
+<%!
+from django.core.urlresolvers import reverse
+%>
+<link rel="stylesheet" href="${static.url("css/hr-management.css")}" type="text/css" media="all" />
+<%block name="pagetitle">Microsite Management</%block>
+<section class="hr-management hr-management__wrapper2">
+  % if messages:
+    <ul class="hr-management__notifications">
+      % for message in messages:
+        <li
+          % if message.tags:
+            class="${message.tags}"
+          % endif
+          >
+            <span>
+              ${message}
+            </span>
+          </li>
+      % endfor
+    </ul>
+  % endif
+  <div class="hr-management__container2">
+    <h1>Create a microsite</h1>
+    <form action="${reverse('add_microsite')}" method="POST" class="microsite-manager-form">
+      <div class="microsite-manager_group-row">
+      <!-- contain our grouped inputs -->
+        <div class="microsite-manager_group-col">
+          <div class="group-header">Organization details:</div>
+          <label>Organization long name</label>
+          <input id="org_long_name" type="text" name="org_long_name"
+            placeholder="ex: My Organization (required)">
+          <label>Organization short name (No spaces or special characters)</label>
+          <input id="org_short_name" type="text" name="org_short_name"
+            placeholder="ex: MyOrg (required)">
+          <label>Organization description</label>
+          <input id="org_description" type="text" name="org_description"
+            placeholder="add some description (optional)">
+        </div>
+        <div class="microsite-manager_group-col">
+          <div class="group-header">Microsite details:</div>
+          <label>Microsite subdomain name:</label>
+          <div class="subdomain-input">
+            <input id="subdomain_name" type="text" name="subdomain_name"
+              style="text-transform: lowercase; "
+              placeholder="ex: mysubdomain (required)">
+            <div class="domain-fragment">${ "."+hostname }</div>
+          </div>
+        </div>
+      </div>
+      <div class="microsite-manager_group-row">
+      <!-- contain our form buttons -->
+        <input type="hidden" name="hostname" value="${ hostname }" />
+        <input type="hidden" name="csrfmiddlewaretoken" value="${ csrf_token }" />
+        <input type="submit" value="OK">
+      </div>
+    </form>  
+  </div>
+  <div class="hr-management__container2">
+    <h1>Available Microsites</h1>
+    <div class="mm-microsite-list">
+      <ul>
+        % for microsite in microsites:
+          <li>
+            <span class="microsite-link"><a href="${microsite.home_url.href}" target="_blank">${microsite.home_url.label}</a></span>
+            <span class="microsite-mgr-link">[ <a href="${microsite.management_url.href}" target="_blank"> ${microsite.management_url.label} ]</a></span>
+          </li>
+        % endfor
+      </ul>
+    </div>
+  </div>
+</section>
