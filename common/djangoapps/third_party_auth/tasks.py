@@ -70,8 +70,8 @@ def fetch_saml_metadata():
 
             for entity_id in entity_ids:
                 log.info(u"Processing IdP with entityID %s", entity_id)
-                public_key, sso_url, expires_at = _parse_metadata_xml(xml, entity_id)
-                changed = _update_data(entity_id, public_key, sso_url, expires_at)
+                public_key, sso_url, slo_url, expires_at = _parse_metadata_xml(xml, entity_id)
+                changed = _update_data(entity_id, public_key, sso_url, slo_url, expires_at)
                 if changed:
                     log.info(u"→ Created new record for SAMLProviderData")
                     num_changed += 1
@@ -123,16 +123,23 @@ def _parse_metadata_xml(xml, entity_id):
         raise MetadataParseError("Public Key missing. Expected an <X509Certificate>")
     public_key = public_key.replace(" ", "")
     binding_elements = sso_desc.iterfind("./{}".format(etree.QName(SAML_XML_NS, "SingleSignOnService")))
+    binding_elements_slo = sso_desc.iterfind("./{}".format(etree.QName(SAML_XML_NS, "SingleLogoutService")))
     sso_bindings = {element.get('Binding'): element.get('Location') for element in binding_elements}
+    slo_bindings = {element.get('Binding'): element.get('Location') for element in binding_elements_slo}
     try:
         # The only binding supported by python-saml and python-social-auth is HTTP-Redirect:
         sso_url = sso_bindings['urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect']
     except KeyError:
         raise MetadataParseError("Unable to find SSO URL with HTTP-Redirect binding.")
-    return public_key, sso_url, expires_at
+    try:
+        # The only binding supported by python-saml and python-social-auth is HTTP-Redirect:
+        slo_url = slo_bindings['urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect']
+    except KeyError:
+        raise MetadataParseError("Unable to find SLO URL with HTTP-Redirect binding.")
+    return public_key, sso_url, slo_url, expires_at
 
 
-def _update_data(entity_id, public_key, sso_url, expires_at):
+def _update_data(entity_id, public_key, sso_url, slo_url, expires_at):
     """
     Update/Create the SAMLProviderData for the given entity ID.
     Return value:
@@ -141,7 +148,7 @@ def _update_data(entity_id, public_key, sso_url, expires_at):
     """
     data_obj = SAMLProviderData.current(entity_id)
     fetched_at = datetime.datetime.now()
-    if data_obj and (data_obj.public_key == public_key and data_obj.sso_url == sso_url):
+    if data_obj and (data_obj.public_key == public_key and data_obj.sso_url == sso_url and data_obj.slo_url == slo_url):
         data_obj.expires_at = expires_at
         data_obj.fetched_at = fetched_at
         data_obj.save()
@@ -152,6 +159,7 @@ def _update_data(entity_id, public_key, sso_url, expires_at):
             fetched_at=fetched_at,
             expires_at=expires_at,
             sso_url=sso_url,
+            slo_url=slo_url,
             public_key=public_key,
         )
         return True

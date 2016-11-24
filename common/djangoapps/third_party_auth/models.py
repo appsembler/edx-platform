@@ -391,6 +391,7 @@ class SAMLProviderConfig(ProviderConfig):
             raise AuthNotConfigured(provider_name=self.name)
         conf['x509cert'] = data.public_key
         conf['url'] = data.sso_url
+        conf['slo_url'] = data.slo_url
         return SAMLIdentityProvider(self.idp_slug, **conf)
 
 
@@ -499,6 +500,7 @@ class SAMLProviderData(models.Model):
 
     entity_id = models.CharField(max_length=255, db_index=True)  # This is the key for lookups in this table
     sso_url = models.URLField(verbose_name="SSO URL")
+    slo_url = models.URLField(verbose_name="SLO URL", null=True)
     public_key = models.TextField()
 
     class Meta(object):

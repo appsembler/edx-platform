@@ -127,6 +127,9 @@ from notification_prefs.views import enable_notifications
 from openedx.core.djangoapps.user_api.preferences import api as preferences_api
 from openedx.core.djangoapps.programs.utils import get_programs_for_dashboard
 
+import third_party_auth
+from third_party_auth import pipeline
+
 
 log = logging.getLogger("edx.student")
 AUDIT_LOG = logging.getLogger("audit")
@@ -1299,7 +1302,12 @@ def logout_user(request):
     if settings.FEATURES.get('AUTH_USE_CAS'):
         target = reverse('cas-logout')
     else:
-        target = '/'
+        try:
+            tpa_idp = third_party_auth.provider.Registry.accepting_logins()[0]
+            custom_logout_url = pipeline.get_logout_url(tpa_idp.provider_id, pipeline.AUTH_ENTRY_REGISTER)
+            target = custom_logout_url
+        except:
+            target = '/'
     response = redirect(target)
 
     delete_logged_in_cookies(response)

@@ -337,6 +337,34 @@ def get_login_url(provider_id, auth_entry, redirect_url=None):
         extra_params=enabled_provider.get_url_params(),
     )
 
+def get_logout_url(provider_id, auth_entry, redirect_url=None):
+    """Gets URL for the endpoint that starts the SLO process.
+
+    Args:
+        provider_id: string identifier of the models.ProviderConfig child you want
+            to disconnect from.
+        auth_entry: string. Query argument specifying the desired entry point
+            for the auth pipeline. Used by the pipeline for later branching.
+            Must be one of _AUTH_ENTRY_CHOICES.
+
+    Keyword Args:
+        redirect_url (string): If provided, redirect to this URL at the end
+            of the authentication process.
+
+    Returns:
+        String. URL that starts the SLO process.
+
+    Raises:
+        ValueError: if no provider is enabled with the given ID.
+    """
+    enabled_provider = _get_enabled_provider(provider_id)
+    return _get_url(
+        'social:end',
+        enabled_provider.backend_name,
+        auth_entry=auth_entry,
+        redirect_url=redirect_url,
+        extra_params=enabled_provider.get_url_params(),
+    )
 
 def get_duplicate_provider(messages):
     """Gets provider from message about social account already in use.
