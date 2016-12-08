@@ -3,7 +3,9 @@ from rest_framework import serializers
 from organizations import api as organizations_api
 from organizations.models import Organization
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
-from .utils import sass_to_dict, dict_to_sass, bootstrap_site
+
+from .utils import sass_to_dict, dict_to_sass
+from .tasks import bootstrap_site
 
 
 class SASSDictField(serializers.DictField):
@@ -44,8 +46,8 @@ class SiteSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         site = super(SiteSerializer, self).create(validated_data)
-        organization, site, user = bootstrap_site(site)
-        return site
+        task = bootstrap_site.delay(site)
+        return {'task_id': task.id}
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -67,9 +69,8 @@ class RegistrationSerializer(serializers.Serializer):
         site = Site.objects.create(**site_data)
         organization_data = validated_data.pop('organization')
         user_email = validated_data.pop('user_email', None)
-        organization, _, user = bootstrap_site(site, organization_data.get('name'), user_email)
+        task = bootstrap_site.delay(site, organization_data.get('name'), user_email)
         return {
-            'site': site,
-            'organization': organization,
-            'user_email': user.email
+            'task_id': task.id,
         }
+

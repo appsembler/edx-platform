@@ -1,4 +1,5 @@
 # devstack_appsembler.py
+import os
 
 from .devstack import *
 from .appsembler import *
@@ -59,3 +60,13 @@ SITE_ID = 1
 
 #DATABASES['default']['ENGINE'] = 'db_multitenant.db.backends.mysql'
 AUTHENTICATION_BACKENDS = ('organizations.backends.OrganizationMemberBackend',) + AUTHENTICATION_BACKENDS
+
+if os.environ.get('WITH_CELERY', False):
+    # Require a separate celery worker
+    CELERY_ALWAYS_EAGER = False
+
+    # Disable transaction management because we are using a worker. Views
+    # that request a task and wait for the result will deadlock otherwise.
+    for database_name in DATABASES:
+        DATABASES[database_name]['ATOMIC_REQUESTS'] = False
+
