@@ -9,6 +9,8 @@ import os
 import re
 import shutil
 
+from six import text_type
+
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
@@ -19,6 +21,8 @@ from django.http import Http404, HttpResponse, HttpResponseNotFound
 from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
+from django.core.files.temp import NamedTemporaryFile
+
 from opaque_keys.edx.keys import CourseKey
 from opaque_keys.edx.locator import LibraryLocator
 from path import Path as path
@@ -26,15 +30,18 @@ from six import text_type
 from user_tasks.conf import settings as user_tasks_settings
 from user_tasks.models import UserTaskArtifact, UserTaskStatus
 
+from xmodule.contentstore.django import contentstore
+from xmodule.modulestore.xml_exporter import export_course_to_xml, export_library_to_xml
 from contentstore.storage import course_import_export_storage
 from contentstore.tasks import CourseExportTask, CourseImportTask, create_export_tarball, export_olx, import_olx
-from contentstore.utils import reverse_course_url, reverse_library_url
+from contentstore.utils import reverse_course_url, reverse_library_url, reverse_usage_url
 from edxmako.shortcuts import render_to_response
 from student.auth import has_course_author_access
 from util.json_request import JsonResponse
 from util.views import ensure_valid_course_key
 from xmodule.exceptions import SerializationError
 from xmodule.modulestore.django import modulestore
+
 
 __all__ = [
     'import_handler', 'import_status_handler',
@@ -255,6 +262,46 @@ def import_status_handler(request, course_key_string, filename=None):
     task_status = task_status.order_by(u'-created').first()
     if task_status is None:
         # The task hasn't been initialized yet; did we store info in the session already?
+        try:
+            session_status = request.session["import_status"]
+            status = session_status[course_key_string + filename]
+        except KeyError:
+            status = 0
+    elif task_status.state == UserTaskStatus.SUCCEEDED:
+        status = 4
+    elif task_status.state in (UserTaskStatus.FAILED, UserTaskStatus.CANCELED):
+        status = max(-(task_status.completed_steps + 1), -3)
+    else:
+        status = min(task_status.completed_steps + 1, 3)
+
+    return JsonResponse({"ImportStatus": status})
+
+
+def create_export_tarball(course_module, course_key, context):
+    """
+    Generates the export tarball, or returns None if there was an error.
+
+    Updates the context with any error information if applicable.
+    """
+    name = course_module.url_name
+    export_file = NamedTemporaryFile(prefix=name + '.', suffix=".tar.gz")
+    root_dir = path(mkdtemp())
+
+    try:
+        if isinstance(course_key, LibraryLocator):
+            export_library_to_xml(modulestore(), contentstore(), course_key, root_dir, name)
+        else:
+            export_course_to_xml(modulestore(), contentstore(), course_module.id, root_dir, name)
+
+        logging.debug(u'tar file being generated at %s', export_file.name)
+        with tarfile.open(name=export_file.name, mode='w:gz') as tar_file:
+            tar_file.add(root_dir / name, arcname=name)
+
+    except SerializationError as exc:
+        log.exception(u'There was an error exporting %s', course_key)
+        unit = None
+        failed_item = None
+        parent = None
         try:
             session_status = request.session["import_status"]
             status = session_status[course_key_string + filename]

@@ -5,6 +5,7 @@ from __future__ import absolute_import
 
 import base64
 import json
+import logging
 import os
 import shutil
 import tarfile
@@ -37,6 +38,8 @@ from contentstore.utils import initialize_permissions, reverse_usage_url
 from course_action_state.models import CourseRerunState
 from models.settings.course_metadata import CourseMetadata
 from openedx.core.djangoapps.embargo.models import CountryAccessRule, RestrictedCourse
+from opaque_keys.edx.keys import CourseKey
+from opaque_keys.edx.locator import LibraryLocator
 from openedx.core.lib.extract_tar import safetar_extractall
 from student.auth import has_course_author_access
 from xmodule.contentstore.django import contentstore
@@ -327,7 +330,6 @@ def create_export_tarball(course_module, course_key, context, status=None):
             shutil.rmtree(root_dir / name)
 
     return export_file
-
 
 class CourseImportTask(UserTask):  # pylint: disable=abstract-method
     """
