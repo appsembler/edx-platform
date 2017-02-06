@@ -48,6 +48,13 @@ class CourseOverview(TimeStampedModel):
     # IMPORTANT: Bump this whenever you modify this model and/or add a migration.
     VERSION = 4
 
+    PACING_SELF = 'self'
+    PACING_INSTRUCTOR = 'instructor'
+    PACING_CHOICES = [
+        (PACING_SELF, PACING_SELF),
+        (PACING_INSTRUCTOR, PACING_INSTRUCTOR),
+    ]
+
     # Cache entry versioning.
     version = IntegerField()
 
@@ -565,7 +572,7 @@ class CourseOverview(TimeStampedModel):
             self: Self-paced courses
             instructor: Instructor-led courses
         """
-        return 'self' if self.self_paced else 'instructor'
+        return self.PACING_SELF if self.self_paced else self.PACING_INSTRUCTOR
 
     def apply_cdn_to_urls(self, image_urls):
         """

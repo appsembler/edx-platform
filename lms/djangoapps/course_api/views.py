@@ -152,6 +152,10 @@ class CourseListView(DeveloperErrorViewMixin, ListAPIView):
             If specified, only visible `CourseOverview` objects that are
             designated as mobile_available are returned.
 
+        pacing (optional):
+            If specified, only visible `CourseOverview` objects with provided
+            pacing "self" or "instructor" are returned.
+
     **Returns**
 
         * 200 on success, with a list of course discovery objects as returned
@@ -182,6 +186,7 @@ class CourseListView(DeveloperErrorViewMixin, ListAPIView):
                 "name": "Example Course",
                 "number": "example",
                 "org": "edX",
+                "pacing": "instructor",
                 "start": "2015-07-17T12:00:00Z",
                 "start_display": "July 17, 2015",
                 "start_type": "timestamp"
