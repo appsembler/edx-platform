@@ -75,14 +75,14 @@ class CourseListGetForm(UsernameValidatorMixin, Form):
             if cleaned_data.get(supported_filter.param_name) is not None:
                 filter_[supported_filter.field_name] = cleaned_data[supported_filter.param_name]
 
-        # adapt pacing to filter on self_paced
-        if 'pacing' in self.cleaned_data and self.cleaned_data['pacing']:
+        # adapt pacing to filter on self_paced boolean field
+        if 'pacing' in self.cleaned_data:
             pacing = self.cleaned_data['pacing']
             if pacing == CourseOverview.PACING_SELF:
                 filter_['self_paced'] = True
             elif pacing == CourseOverview.PACING_INSTRUCTOR:
                 filter_['self_paced'] = False
-            # else ignore, do not filter on self_paced
+            # else ignore since adapting to boolean field
 
         cleaned_data['filter_'] = filter_ or None
 
