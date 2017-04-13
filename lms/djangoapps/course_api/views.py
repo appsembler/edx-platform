@@ -51,8 +51,13 @@ class CourseDetailView(DeveloperErrorViewMixin, RetrieveAPIView):
             * `"string"`: manually set by the course author
             * `"timestamp"`: generated from the `start` timestamp
             * `"empty"`: no start date is specified
-        * pacing: Course pacing. Possible values: instructor, self
-
+        * pacing: Course pacing. Possible values: instructor, self,
+	* certificates_display_behavior: end,
+        * certificates_show_before_end: false,
+        * cert_html_view_enabled': true,
+        * has_any_active_web_certificate': false,
+        * cert_name_short': '',
+        * cert_name_long': '',
         Deprecated fields:
 
         * blocks_url: Used to fetch the course blocks
@@ -96,7 +101,13 @@ class CourseDetailView(DeveloperErrorViewMixin, RetrieveAPIView):
                 "start": "2015-07-17T12:00:00Z",
                 "start_display": "July 17, 2015",
                 "start_type": "timestamp",
-                "pacing": "instructor"
+                "pacing": "instructor",
+		"certificates_display_behavior': "end",
+                "certificates_show_before_end': false,
+                "cert_html_view_enabled': true,
+                "has_any_active_web_certificate': false,
+                "cert_name_short': "",
+                "cert_name_long': "",
             }
     """
 

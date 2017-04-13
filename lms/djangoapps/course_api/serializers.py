@@ -71,7 +71,12 @@ class CourseSerializer(serializers.Serializer):  # pylint: disable=abstract-meth
     start_display = serializers.CharField()
     start_type = serializers.CharField()
     pacing = serializers.CharField()
-
+    certificates_display_behavior = serializers.CharField()
+    certificates_show_before_end = serializers.BooleanField()
+    cert_html_view_enabled = serializers.BooleanField()
+    has_any_active_web_certificate = serializers.BooleanField()
+    cert_name_short = serializers.CharField()
+    cert_name_long = serializers.CharField()
     # 'course_id' is a deprecated field, please use 'id' instead.
     course_id = serializers.CharField(source='id', read_only=True)
 
