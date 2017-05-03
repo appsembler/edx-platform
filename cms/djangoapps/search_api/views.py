@@ -1,4 +1,5 @@
 
+import functools
 import json
 
 from django.conf import settings 
@@ -29,7 +30,34 @@ Appembler Open edX search api.
 Opens up access to Open edX'sa search infrastructure via HTTP (REST) API interfaces.
 """
 
-class SearchIndex(APIView):
+def cors_headers(original_function=None,
+    allow_origin=ALLOWED_ORIGIN,
+    allow_methods='GET, POST, OPTIONS',
+    allow_headers='*'):
+    """ Decorator to simplify and dry up the code.
+
+    TODO: Review for replacement by a popular library or move this somewhere
+    that makes sense for common use
+
+    """
+    def decorator(function):
+        @functools.wraps(function)
+        def wrapper(*args, **kwargs):
+            response = function(*args, **kwargs)
+            response['Access-Control-Allow-Origin'] = allow_origin
+            response['Access-Control-Allow-Methods'] = allow_methods
+            response['Access-Control-Allow-Headers'] = allow_headers
+            return response
+        return wrapper
+    return decorator(original_function) if original_function else decorator
+
+
+class OptionsMixin(object):
+    @cors_headers(allow_headers='Content-Type')
+    def options(self, request, format=None):
+        return Response()
+
+class SearchBaseAPIView(APIView):
     authentication_classes = (
         BasicAuthentication,
         SessionAuthentication,
@@ -37,26 +65,24 @@ class SearchIndex(APIView):
     )
 
     permission_classes = ( IsAuthenticated, IsStaffUser, )
+
+
+class SearchIndex(SearchBaseAPIView):
+
     def get(self, request, format=None):
         return Response({
             'message': 'CMS Search API',
             })
 
 
-class CourseIndexer(APIView):
-    authentication_classes = (
-        BasicAuthentication,
-        SessionAuthentication,
-        TokenAuthentication
-    )
+class CourseIndexer(OptionsMixin, SearchBaseAPIView):
 
-    permission_classes = ( IsAuthenticated, IsStaffUser, )
-    
     def get(self, request, format=None):
         return Response({
             'message': 'Course Indexer',
             })
 
+    @cors_headers
     def post(self, request, format=None):
 
         request_data = json.loads(request.body)
@@ -69,11 +95,8 @@ class CourseIndexer(APIView):
                 'message': 'course reindex initiated',
                 'results': results,
             }
-            response = Response(response_data)
-            response['Access-Control-Allow-Origin'] = ALLOWED_ORIGIN
-            response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-            response['Access-Control-Allow-Headers'] = '*'
-            return response
+            return Response(response_data)
+
         except Exception as e:
             if isinstance(e, InvalidKeyError):
                 message = 'InvalidKeyError: Cannot find key for course string ' + \
@@ -88,10 +111,27 @@ class CourseIndexer(APIView):
                     'message': message,
                 }), status=status)
 
-    def options(self, request, format=None):
-        response = Response()
-        response['Access-Control-Allow-Origin'] = ALLOWED_ORIGIN
-        response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        # Options do not allow wildcard for access-control-allow-headers
-        response['Access-Control-Allow-Headers'] = 'Content-Type'
-        return response
+
+class FacetRegister(OptionsMixin, SearchBaseAPIView):
+
+    @cors_headers
+    def post(self, request, format=None):
+
+        request_data = json.loads(request.body)
+        facet_slug = request_data.get('facet_slug')
+        try:
+            about_info_obj = api.register_facet(facet_slug=facet_slug)
+            response_data = {
+                'facet_slug': facet_slug,
+                'status': 'OK',
+                'message': 'Facet registered',
+            }
+            return Response(response_data)
+
+        except Exception as e:
+            message = 'Exception "{}" msg: {}'.format(e.__class__, e.message)
+            return Response(json.dumps({
+                    'facet_slug': facet_slug,
+                    'status': 'ERROR',
+                    'message': message,
+                }), status=500)

@@ -534,7 +534,9 @@ class AboutInfo(object):
         course = kwargs.get('course', None)
         if not course:
             raise ValueError("Context dictionary does not contain expected argument 'course'")
-        course_facet_value = CourseFacetValue.objects.filter(course_id=course.id, facet_value__facet__slug=self.property_name).values_list('facet_value__value', flat=True)
+        course_facet_value = CourseFacetValue.objects.filter(
+            course_id=course.id, facet_value__facet__slug=self.property_name
+            ).values_list('facet_value__value', flat=True)
         return list(course_facet_value)
 
     # Source location options - either from the course or the about info
@@ -588,6 +590,33 @@ class CourseAboutSearchIndexer(object):
         for f in facets:
             ABOUT_INFORMATION_TO_INCLUDE.append(AboutInfo(f.slug, AboutInfo.PROPERTY, AboutInfo.FROM_TAXOMAN))
 
+    @classmethod
+    def find_facet(cls, slug):
+        """Returns the facet AboutInfo object if found, None otherwise"""
+        about_list = filter(lambda x: x.property_name == slug,
+            cls.ABOUT_INFORMATION_TO_INCLUDE)
+        # Should be only one AboutInfo object
+        return about_list[0] if about_list else None
+
+    @classmethod
+    def add_facet(cls, facet_info):
+        """
+        Does not update existing facet
+        """
+        slug = facet_info.get('slug')
+        if not slug:
+            raise Exception("CourseAboutSearchIndexer.add_facet: facet_info missing slug attribute")
+        about_info_obj = cls.find_facet(slug)
+        if not about_info_obj:
+            about_info_obj = AboutInfo(slug,
+                AboutInfo.PROPERTY, AboutInfo.FROM_TAXOMAN)
+            cls.ABOUT_INFORMATION_TO_INCLUDE.append(about_info_obj)
+        return about_info_obj
+
+    @classmethod
+    def remove_facet(cls, facet_slug):
+        """ Placeholder - Method to remove the specified facet from the AboutInfo list"""
+        pass
 
     @classmethod
     def index_about_information(cls, modulestore, course):

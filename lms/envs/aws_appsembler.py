@@ -28,7 +28,6 @@ if FEATURES.get('ENABLE_TAXOMAN', False):
         'BUNDLE_DIR_NAME': taxoman.settings.bundle_dir_name,
         'STATS_FILE': taxoman.settings.stats_file,
     }
-    COURSE_DISCOVERY_FILTERS += list(Facet.objects.all().values_list('slug', flat=True))
 
 # SENTRY
 SENTRY_DSN = AUTH_TOKENS.get('SENTRY_DSN', False)
