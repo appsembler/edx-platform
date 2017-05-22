@@ -5,6 +5,7 @@ as enrolling in a certain number, completing a certain number, or completing a s
 
 from badges.models import CourseEventBadgesConfiguration, BadgeClass
 from badges.utils import requires_badges_enabled
+from badges.events.course_complete import evidence_url
 
 
 def award_badge(config, count, user):
@@ -71,11 +72,22 @@ def course_group_check(user, course_key):
                 course_id__in=keys,
             )
             if len(certs) == len(keys):
-                awards.append(slug)
+                # course_complete Assertions are not working correctly
+                # yet with Badgr.io, while course group is working.
+                # so we use course groups with a single course,
+                # in which case we can provide an evidence URL
+                # to the HTML cert for the one coursee 
+                if len(keys) == 1:
+                    evidence = evidence_url(user.id, course_key)
+                    awards.append((slug, evidence))
 
-    for slug in awards:
+    for award in awards:
         badge_class = BadgeClass.get_badge_class(
-            slug=slug, issuing_component='openedx__course', create=False,
+            slug=award[0], issuing_component='openedx__course', create=False,
         )
         if badge_class and not badge_class.get_for_user(user):
-            badge_class.award(user)
+            if award[1]:
+                badge_class.award(user, evidence_url=award[1])
+            else:
+                badge_class.award(user)
+
