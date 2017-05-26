@@ -9,7 +9,9 @@ define(['backbone'], function (Backbone) {
             facet: '',
             term: '',
             count: 0,
-            selected: false
+            selected: false,
+            display_order: null,
+            fv_display_order: null
         }
     });
 
