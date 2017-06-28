@@ -1,6 +1,8 @@
 define(['jquery', 'backbone', 'xblock/runtime.v1', 'URI', 'gettext', 'js/utils/modal',
-        'common/js/components/views/feedback_notification'],
-    function($, Backbone, XBlock, URI, gettext, ModalUtils, NotificationView) {
+        'js/views/validation', 'jquery.smoothScroll',
+        'common/js/components/views/feedback_notification',
+        'common/js/components/views/feedback_alert'],
+    function($, Backbone, XBlock, URI, gettext, ModalUtils, validation, smoothScroll, NotificationView, AlertView) {
         'use strict';
 
         var __hasProp = {}.hasOwnProperty,
@@ -48,6 +50,7 @@ define(['jquery', 'backbone', 'xblock/runtime.v1', 'URI', 'gettext', 'js/utils/m
                 this.listenTo('save', this._handleSave);
                 this.listenTo('cancel', this._handleCancel);
                 this.listenTo('error', this._handleError);
+                this.listenTo('show-saved-bar', this._handleShowSavedBar);
                 this.listenTo('modal-shown', function(data) {
                     this.modal = data;
                 });
@@ -91,6 +94,35 @@ define(['jquery', 'backbone', 'xblock/runtime.v1', 'URI', 'gettext', 'js/utils/m
                 }
             };
 
+            v1.prototype._handleShowSavedBar = function(data) {
+                var message, title, closeIcon, maxShown;
+                title = data.title || gettext('Your changes have been saved.');
+                message = data.message || gettext('');
+
+                if (this.modal && this.modal.onSave) {
+                  // Notify the modal that the save has completed so that it can hide itself
+                  // and then refresh the xblock.
+                  this.modal.onSave();
+                } else if (data.element) {
+                  // ... else ask it to refresh the newly saved xblock
+                  this.refreshXBlock(data.element);
+                }
+
+                this.saved = new AlertView.Confirmation({
+                  title: title,
+                  message: message,
+                  closeIcon: closeIcon
+                });
+
+                this.saved.show();
+
+                $.smoothScroll({
+                  offset: 0,
+                  easing: 'swing',
+                  speed: 1000
+                });
+            }
+
             v1.prototype._handleError = function(data) {
                 var message, title;
                 message = data.message || data.msg;
@@ -119,7 +151,6 @@ define(['jquery', 'backbone', 'xblock/runtime.v1', 'URI', 'gettext', 'js/utils/m
                 } else if (data.state === 'end') {
                     // Finished saving, so hide the notification and refresh appropriately
                     this._hideAlerts();
-
                     if (this.modal && this.modal.onSave) {
                         // Notify the modal that the save has completed so that it can hide itself
                         // and then refresh the xblock.

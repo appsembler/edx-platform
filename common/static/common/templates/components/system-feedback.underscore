@@ -40,8 +40,8 @@
 
     <% if(obj.closeIcon) { %>
     <a href="#" rel="view" class="action action-close action-<%= type %>-close">
-      <span class="icon fa fa-times-circle" aria-hidden="true"></span>
-      <span class="label">close <%= type %></span>
+      <span class="icon fa fa-times" aria-hidden="true"></span>
+      <span class="label">close</span>
     </a>
     <% } %>
   </div>
