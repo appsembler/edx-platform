@@ -1,4 +1,5 @@
 from django.conf.urls import patterns, url
+from django.conf import settings
 
 from appsembler_api import views
 
@@ -22,5 +23,13 @@ urlpatterns = patterns(
     # enrollment analytics API
     url(r'^analytics/accounts/batch', views.GetBatchUserDataView.as_view(), name="get_batch_user_data"),
     url(r'^analytics/enrollment/batch', views.GetBatchEnrollmentDataView.as_view(), name="get_batch_enrollment_data"),
-)
 
+    # Course-level permissions API
+    url(
+        r'^courses/{course_id_pattern}/roles'.format(
+            course_id_pattern=settings.COURSE_ID_PATTERN,
+        ),
+        views.CourseRolesView.as_view(),
+        name='course_roles_api',
+    ),
+)

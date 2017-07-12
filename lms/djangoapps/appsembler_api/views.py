@@ -5,15 +5,17 @@ import random
 
 from dateutil import parser
 
+from django.http import Http404
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.core.urlresolvers import reverse
-from django.contrib.auth.models import User
-from django.http import Http404
 from django.core.validators import validate_email
+from django.conf import settings
+from django.contrib.auth.models import User
 
-from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from util.bad_request_rate_limiter import BadRequestRateLimiter
 from util.disable_rate_limit import can_disable_rate_limit
@@ -29,8 +31,11 @@ from openedx.core.lib.api.permissions import (
 from student.views import create_account_with_params
 from student.models import CourseEnrollment, EnrollmentClosedError, \
     CourseFullError, AlreadyEnrolledError
+from student.roles import CourseStaffRole
+
 
 from course_modes.models import CourseMode
+from courseware.access import has_access
 from courseware.courses import get_course_by_id
 from enrollment.views import EnrollmentCrossDomainSessionAuth, \
     EnrollmentUserThrottle, ApiKeyPermissionMixIn
@@ -550,3 +555,37 @@ class GetBatchEnrollmentDataView(APIView):
             enrollment_list.append(enrollment_data)
 
         return Response(enrollment_list, status=200)
+
+
+class CourseRolesView(APIView):
+    authentication_classes = (OAuth2AuthenticationAllowInactiveUser,)
+    permission_classes = (IsAuthenticated,)
+    lookup_field = 'course_id'
+
+    def get_object(self):
+        try:
+            course_id = self.kwargs.get('course_id')
+            course_key = CourseKey.from_string(course_id)
+            course = get_course_by_id(course_key)
+            self.check_object_permissions(self.request, course)
+            return course
+        except ValueError:
+            raise Http404
+
+    def check_object_permissions(self, request, course):
+        """
+        Determines if the user is staff or an instructor for the course.
+        Always returns True if DEBUG mode is enabled.
+        """
+        return bool(
+            settings.DEBUG
+            or has_access(request.user, CourseStaffRole.ROLE, course)
+        )
+
+    def perform_authentication(self, request):
+        """
+        Ensures that the user is authenticated (e.g. not an AnonymousUser), unless DEBUG mode is enabled.
+        """
+        super(CourseViewMixin, self).perform_authentication(request)
+        if request.user.is_anonymous() and not settings.DEBUG:
+            raise AuthenticationFailed
