@@ -5,29 +5,36 @@ import random
 
 from dateutil import parser
 
-from django.http import Http404
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.core.urlresolvers import reverse
-from django.core.validators import validate_email
 from django.contrib.auth.models import User
 from django.db.models import Q
+from django.http import Http404
+from django.core.validators import validate_email
 
+from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from util.bad_request_rate_limiter import BadRequestRateLimiter
 from util.disable_rate_limit import can_disable_rate_limit
 
 from openedx.core.djangoapps.user_api.accounts.api import check_account_exists
-from openedx.core.lib.api.authentication import OAuth2AuthenticationAllowInactiveUser
+from openedx.core.lib.api.authentication import (
+    OAuth2AuthenticationAllowInactiveUser,
+)
 from openedx.core.lib.api.permissions import (
     IsStaffOrOwner, ApiKeyHeaderPermissionIsAuthenticated
 )
 
 from student.views import create_account_with_params
-from student.models import CourseEnrollment, EnrollmentClosedError, \
-    CourseFullError, AlreadyEnrolledError, CourseAccessRole
+from student.models import (
+    CourseEnrollment,
+    EnrollmentClosedError,
+    CourseFullError,
+    AlreadyEnrolledError,
+    CourseAccessRole,
+)
 from student.roles import CourseRole
 
 from course_modes.models import CourseMode
@@ -35,7 +42,8 @@ from courseware.courses import get_course_by_id
 from enrollment.views import EnrollmentCrossDomainSessionAuth, \
     EnrollmentUserThrottle, ApiKeyPermissionMixIn
 
-from instructor.views.api import save_registration_code, students_update_enrollment
+from instructor.views.api import save_registration_code, \
+    students_update_enrollment, require_level
 
 from shoppingcart.exceptions import RedemptionCodeError
 from shoppingcart.models import (
