@@ -11,8 +11,10 @@ from django.core.urlresolvers import reverse
 from django.core.validators import validate_email
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.db.models import Q
 
 from rest_framework import status
+from rest_framework.exceptions import APIException
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -23,6 +25,7 @@ from util.disable_rate_limit import can_disable_rate_limit
 from openedx.core.djangoapps.user_api.accounts.api import check_account_exists
 from openedx.core.lib.api.authentication import (
     OAuth2AuthenticationAllowInactiveUser,
+    AuthenticationFailed,
 )
 from openedx.core.lib.api.permissions import (
     IsStaffOrOwner, ApiKeyHeaderPermissionIsAuthenticated
@@ -31,8 +34,11 @@ from openedx.core.lib.api.permissions import (
 from student.views import create_account_with_params
 from student.models import CourseEnrollment, EnrollmentClosedError, \
     CourseFullError, AlreadyEnrolledError
-from student.roles import CourseStaffRole
-
+from student.roles import (
+    REGISTERED_ACCESS_ROLES,
+    CourseRole,
+    CourseInstructorRole,
+)
 
 from course_modes.models import CourseMode
 from courseware.access import has_access
@@ -559,33 +565,128 @@ class GetBatchEnrollmentDataView(APIView):
 
 class CourseRolesView(APIView):
     authentication_classes = (OAuth2AuthenticationAllowInactiveUser,)
-    permission_classes = (IsAuthenticated,)
     lookup_field = 'course_id'
 
-    def get_object(self):
+    # TODO: Consider reusing some methods from `CourseViewMixin` for
+    #       this class instead of rolling my own.
+
+    # TODO: Make sure write operations are guarded i.e. transactional
+
+    @property
+    def course_roles(self):
+        return [
+            role_class for role_class in REGISTERED_ACCESS_ROLES.values()
+            if issubclass(role_class, CourseRole)
+        ]
+
+    def get_course(self):
         try:
             course_id = self.kwargs.get('course_id')
             course_key = CourseKey.from_string(course_id)
             course = get_course_by_id(course_key)
-            self.check_object_permissions(self.request, course)
+            self.check_course_permission(self.request, course)
+            return course
             return course
         except ValueError:
             raise Http404
 
-    def check_object_permissions(self, request, course):
+    def get(self, request, *args, **kwargs):
+        course = self.get_course()
+
+        course_users = {}
+        for role_class in self.course_roles:
+            role = role_class(course.id)
+            # TODO: Use a serializer!
+
+            course_users[role.ROLE] = [{
+                'id': user.id,
+                'email': user.email,
+                'username': user.username,
+                # TODO: Add a full name?
+            } for user in role.users_with_role()]
+
+        return Response({
+            'course': {
+                'id': unicode(course.id),
+                'name': course.display_name,
+            },
+            'roles': course_users,
+        }, status=status.HTTP_200_OK)
+
+    def put(self, request, *args, **kwargs):
+        course = self.get_course()
+        roles = request.data.get('roles')
+        if not roles or not type(roles) == dict:
+            return Response({
+                'detail': 'Invalid or missing `roles` parameter.',
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        for role_class in self.course_roles:
+            user_queries = roles.get(role_class.ROLE, [])
+            if not user_queries:
+                continue
+
+            users = []
+            for user_query in user_queries:
+                try:
+                    user = User.objects.get(Q(username=user_query) | Q(emai=user_query))
+                except User.DoesNotExist:
+                    # TODO: Consider verbosely ignore those users
+                    return Response({
+                        'detail': u'User `{}` was not found'.format(user_query),
+                    }, status=status.HTTP_404_NOT_FOUND)
+
+                users.append(user)
+
+            role_class(course.id).add_users(*users)
+
+        return Response({
+            'detail': 'Course roles has been updated.'
+        }, status=status.HTTP_200_OK)
+
+    def delete(self, request, *args, **kwargs):
+        # TODO: Refactor copypasta from the PUT method
+        course = self.get_course()
+        roles = request.data.get('roles')
+
+        for role_class in self.course_roles:
+            user_queries = roles.get(role_class.ROLE, [])
+            if not user_queries:
+                continue
+
+            users = []
+            for user_query in user_queries:
+                try:
+                    user = User.objects.get(Q(username=user_query) | Q(emai=user_query))
+                    users.append(user)
+                except User.DoesNotExist:
+                    # Delete is idempotent, so no worries about missing users
+                    pass
+
+            role_class(course.id).remove_users(*users)
+
+        return Response({
+            'detail': 'Course roles has been updated.'
+        }, status=status.HTTP_200_OK)
+
+    def check_course_permission(self, request, course):
         """
-        Determines if the user is staff or an instructor for the course.
+        Determines if the user is staff or the instructor for the course.
+
+        TODO: Note for Omar: Check if the `CourseInstructorRole` is the same as `Course Admin` in studio.
+
         Always returns True if DEBUG mode is enabled.
         """
         return bool(
             settings.DEBUG
-            or has_access(request.user, CourseStaffRole.ROLE, course)
+            or request.user.is_staff
+            or has_access(request.user, CourseInstructorRole.ROLE, course)
         )
 
     def perform_authentication(self, request):
         """
         Ensures that the user is authenticated (e.g. not an AnonymousUser), unless DEBUG mode is enabled.
         """
-        super(CourseViewMixin, self).perform_authentication(request)
+        super(CourseRolesView, self).perform_authentication(request)
         if request.user.is_anonymous() and not settings.DEBUG:
             raise AuthenticationFailed
