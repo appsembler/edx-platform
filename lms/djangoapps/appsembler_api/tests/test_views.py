@@ -1,10 +1,9 @@
 """
 Tests for the Appsembler API views.
 """
-from urllib import urlencode, quote
+from urllib import quote
 
 from django.core.urlresolvers import reverse
-from django.test.utils import override_settings
 from mock import patch
 from rest_framework import status
 import json
@@ -13,7 +12,6 @@ from rest_framework.permissions import AllowAny
 from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory
 
-from course_api.tests.test_views import CourseApiTestViewMixin
 from student.roles import REGISTERED_ACCESS_ROLES, CourseRole, CourseStaffRole, CourseInstructorRole
 from student.tests.factories import UserFactory
 from appsembler_api.views import CourseRolesView
