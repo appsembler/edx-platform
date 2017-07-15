@@ -586,7 +586,6 @@ class CourseRolesView(APIView):
             course = get_course_by_id(course_key)
             self.check_course_permission(self.request, course)
             return course
-            return course
         except ValueError:
             raise Http404
 
@@ -621,6 +620,7 @@ class CourseRolesView(APIView):
                 'detail': 'Invalid or missing `roles` parameter.',
             }, status=status.HTTP_400_BAD_REQUEST)
 
+        # TODO: Deduplicate
         for role_class in self.course_roles:
             user_queries = roles.get(role_class.ROLE, [])
             if not user_queries:
@@ -629,7 +629,7 @@ class CourseRolesView(APIView):
             users = []
             for user_query in user_queries:
                 try:
-                    user = User.objects.get(Q(username=user_query) | Q(emai=user_query))
+                    user = User.objects.get(Q(username=user_query) | Q(email=user_query))
                 except User.DoesNotExist:
                     # TODO: Consider verbosely ignore those users
                     return Response({
@@ -647,7 +647,7 @@ class CourseRolesView(APIView):
     def delete(self, request, *args, **kwargs):
         # TODO: Refactor copypasta from the PUT method
         course = self.get_course()
-        roles = request.data.get('roles')
+        roles = json.loads(request.GET.get('roles', '{}'))
 
         for role_class in self.course_roles:
             user_queries = roles.get(role_class.ROLE, [])
@@ -657,7 +657,7 @@ class CourseRolesView(APIView):
             users = []
             for user_query in user_queries:
                 try:
-                    user = User.objects.get(Q(username=user_query) | Q(emai=user_query))
+                    user = User.objects.get(Q(username=user_query) | Q(email=user_query))
                     users.append(user)
                 except User.DoesNotExist:
                     # Delete is idempotent, so no worries about missing users
