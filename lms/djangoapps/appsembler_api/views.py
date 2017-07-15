@@ -9,13 +9,10 @@ from django.http import Http404
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.core.urlresolvers import reverse
 from django.core.validators import validate_email
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models import Q
 
 from rest_framework import status
-from rest_framework.exceptions import APIException
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -23,31 +20,22 @@ from util.bad_request_rate_limiter import BadRequestRateLimiter
 from util.disable_rate_limit import can_disable_rate_limit
 
 from openedx.core.djangoapps.user_api.accounts.api import check_account_exists
-from openedx.core.lib.api.authentication import (
-    OAuth2AuthenticationAllowInactiveUser,
-    AuthenticationFailed,
-)
+from openedx.core.lib.api.authentication import OAuth2AuthenticationAllowInactiveUser
 from openedx.core.lib.api.permissions import (
     IsStaffOrOwner, ApiKeyHeaderPermissionIsAuthenticated
 )
 
 from student.views import create_account_with_params
 from student.models import CourseEnrollment, EnrollmentClosedError, \
-    CourseFullError, AlreadyEnrolledError
-from student.roles import (
-    REGISTERED_ACCESS_ROLES,
-    CourseRole,
-    CourseInstructorRole,
-)
+    CourseFullError, AlreadyEnrolledError, CourseAccessRole
+from student.roles import CourseRole
 
 from course_modes.models import CourseMode
-from courseware.access import has_access
 from courseware.courses import get_course_by_id
 from enrollment.views import EnrollmentCrossDomainSessionAuth, \
     EnrollmentUserThrottle, ApiKeyPermissionMixIn
 
-from instructor.views.api import save_registration_code, \
-    students_update_enrollment, require_level
+from instructor.views.api import save_registration_code, students_update_enrollment
 
 from shoppingcart.exceptions import RedemptionCodeError
 from shoppingcart.models import (
@@ -58,7 +46,7 @@ from shoppingcart.views import get_reg_code_validity
 from opaque_keys.edx.keys import CourseKey
 from certificates.models import GeneratedCertificate
 
-from .serializers import BulkEnrollmentSerializer
+from .serializers import COURSE_ROLES, BulkEnrollmentSerializer, CourseRolesSerializer
 from .utils import auto_generate_username, send_activation_email
 
 log = logging.getLogger(__name__)
@@ -67,7 +55,6 @@ log = logging.getLogger(__name__)
 class CreateUserAccountView(APIView):
     authentication_classes = OAuth2AuthenticationAllowInactiveUser,
     permission_classes = IsStaffOrOwner,
-
 
     def post(self, request):
         """
@@ -129,7 +116,6 @@ class CreateUserAccountView(APIView):
 class CreateUserAccountWithoutPasswordView(APIView):
     authentication_classes = OAuth2AuthenticationAllowInactiveUser,
     permission_classes = IsStaffOrOwner,
-
 
     def post(self, request):
         """
@@ -565,20 +551,8 @@ class GetBatchEnrollmentDataView(APIView):
 
 class CourseRolesView(APIView):
     authentication_classes = (OAuth2AuthenticationAllowInactiveUser,)
-    permission_classes = (IsAdminUser,)
-    # lookup_field = 'course_id'
-
-    # TODO: Consider reusing some methods from `CourseViewMixin` for
-    #       this class instead of rolling my own.
-
-    # TODO: Make sure write operations are guarded i.e. transactional
-
-    @property
-    def course_roles(self):
-        return [
-            role_class for role_class in REGISTERED_ACCESS_ROLES.values()
-            if issubclass(role_class, CourseRole)
-        ]
+    permission_classes = (IsStaffOrOwner,)
+    serializer_class = CourseRolesSerializer
 
     def get_course(self):
         try:
@@ -591,79 +565,55 @@ class CourseRolesView(APIView):
 
     def get(self, request, *args, **kwargs):
         course = self.get_course()
+        serializer = self.serializer_class()
+        return Response(serializer.to_representation(course), status=status.HTTP_200_OK)
 
-        course_users = {}
-        for role_class in self.course_roles:
-            role = role_class(course.id)
-            # TODO: Use a serializer!
-
-            course_users[role.ROLE] = [{
-                'id': user.id,
-                'email': user.email,
-                'username': user.username,
-                # TODO: Add a full name?
-            } for user in role.users_with_role()]
-
-        return Response({
-            'course': {
-                'id': unicode(course.id),
-                'name': course.display_name,
-            },
-            'roles': course_users,
-        }, status=status.HTTP_200_OK)
-
-    def put(self, request, *args, **kwargs):
-        course = self.get_course()
-        roles = request.data.get('roles')
-        if not roles or not type(roles) == dict:
-            return Response({
-                'detail': 'Invalid or missing `roles` parameter.',
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # TODO: Deduplicate
-        for role_class in self.course_roles:
-            user_queries = roles.get(role_class.ROLE, [])
+    def get_users_by_role(self, roles_param):
+        users_by_role = {}
+        for role_class in COURSE_ROLES:
+            user_queries = roles_param.get(role_class.ROLE, [])
             if not user_queries:
                 continue
 
-            users = []
-            for user_query in user_queries:
-                try:
-                    user = User.objects.get(Q(username=user_query) | Q(email=user_query))
-                except User.DoesNotExist:
-                    # TODO: Consider verbosely ignore those users
-                    return Response({
-                        'detail': u'User `{}` was not found'.format(user_query),
-                    }, status=status.HTTP_404_NOT_FOUND)
+            users = User.objects.filter(Q(username__in=user_queries) | Q(email__in=user_queries))
+            if not len(users):
+                continue
 
-                users.append(user)
+            users_by_role[role_class.ROLE] = users
 
-            role_class(course.id).add_users(*users)
+        return users_by_role
+
+    def put(self, request, *args, **kwargs):
+        course = self.get_course()
+        roles = request.data.get('roles', {})
+        users_by_role = self.get_users_by_role(roles)
+
+        users_to_deduplicate = [
+            item for sublist in users_by_role.values()
+            for item in sublist
+        ]
+
+        previous_roles = CourseAccessRole.objects.filter(
+            user__in=users_to_deduplicate,
+            course_id=course.id,
+            org=course.id.org,
+        )
+        previous_roles.delete()
+
+        for role_id, users in users_by_role.iteritems():
+            CourseRole(role_id, course.id).add_users(*users)
 
         return Response({
             'detail': 'Course roles has been updated.'
         }, status=status.HTTP_200_OK)
 
     def delete(self, request, *args, **kwargs):
-        # TODO: Refactor copypasta from the PUT method
         course = self.get_course()
         roles = json.loads(request.GET.get('roles', '{}'))
+        users_by_role = self.get_users_by_role(roles)
 
-        for role_class in self.course_roles:
-            user_queries = roles.get(role_class.ROLE, [])
-            if not user_queries:
-                continue
-
-            users = []
-            for user_query in user_queries:
-                try:
-                    user = User.objects.get(Q(username=user_query) | Q(email=user_query))
-                    users.append(user)
-                except User.DoesNotExist:
-                    # Delete is idempotent, so no worries about missing users
-                    pass
-
-            role_class(course.id).remove_users(*users)
+        for role_id, users in users_by_role.iteritems():
+            CourseRole(role_id, course.id).remove_users(*users)
 
         return Response({
             'detail': 'Course roles has been updated.'
