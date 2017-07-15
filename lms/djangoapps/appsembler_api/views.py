@@ -15,7 +15,7 @@ from django.db.models import Q
 
 from rest_framework import status
 from rest_framework.exceptions import APIException
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -565,7 +565,8 @@ class GetBatchEnrollmentDataView(APIView):
 
 class CourseRolesView(APIView):
     authentication_classes = (OAuth2AuthenticationAllowInactiveUser,)
-    lookup_field = 'course_id'
+    permission_classes = (IsAdminUser,)
+    # lookup_field = 'course_id'
 
     # TODO: Consider reusing some methods from `CourseViewMixin` for
     #       this class instead of rolling my own.
@@ -584,7 +585,6 @@ class CourseRolesView(APIView):
             course_id = self.kwargs.get('course_id')
             course_key = CourseKey.from_string(course_id)
             course = get_course_by_id(course_key)
-            self.check_course_permission(self.request, course)
             return course
         except ValueError:
             raise Http404
@@ -668,25 +668,3 @@ class CourseRolesView(APIView):
         return Response({
             'detail': 'Course roles has been updated.'
         }, status=status.HTTP_200_OK)
-
-    def check_course_permission(self, request, course):
-        """
-        Determines if the user is staff or the instructor for the course.
-
-        TODO: Note for Omar: Check if the `CourseInstructorRole` is the same as `Course Admin` in studio.
-
-        Always returns True if DEBUG mode is enabled.
-        """
-        return bool(
-            settings.DEBUG
-            or request.user.is_staff
-            or has_access(request.user, CourseInstructorRole.ROLE, course)
-        )
-
-    def perform_authentication(self, request):
-        """
-        Ensures that the user is authenticated (e.g. not an AnonymousUser), unless DEBUG mode is enabled.
-        """
-        super(CourseRolesView, self).perform_authentication(request)
-        if request.user.is_anonymous() and not settings.DEBUG:
-            raise AuthenticationFailed
