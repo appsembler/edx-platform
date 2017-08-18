@@ -20,4 +20,15 @@ INTERCOM_USER_EMAIL = APPSEMBLER_FEATURES.get('INTERCOM_USER_EMAIL', os.environ.
 
 AUTHENTICATION_BACKENDS = ('organizations.backends.OrganizationMemberMicrositeBackend', 'lti_provider.users.LtiBackend', )
 
+if FEATURES.get('ENABLE_THIRD_PARTY_AUTH'):
+    AUTHENTICATION_BACKENDS = (
+        ENV_TOKENS.get('THIRD_PARTY_AUTH_BACKENDS', [
+            'social.backends.google.GoogleOAuth2',
+            'social.backends.linkedin.LinkedinOAuth2',
+            'social.backends.facebook.FacebookOAuth2',
+            'third_party_auth.saml.SAMLAuthBackend',
+            'third_party_auth.lti.LTIAuthBackend',
+        ]) + list(AUTHENTICATION_BACKENDS)
+    )
+
 MICROSITE_BACKEND = 'microsite_configuration.backends.database.DatabaseMicrositeBackend'
