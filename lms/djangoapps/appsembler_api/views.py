@@ -8,6 +8,7 @@ from dateutil import parser
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.core.urlresolvers import reverse
 from django.contrib.auth.models import User
+from django.db.models import Q
 from django.http import Http404
 from django.core.validators import validate_email
 
@@ -27,8 +28,14 @@ from openedx.core.lib.api.permissions import (
 )
 
 from student.views import create_account_with_params
-from student.models import CourseEnrollment, EnrollmentClosedError, \
-    CourseFullError, AlreadyEnrolledError
+from student.models import (
+    CourseEnrollment,
+    EnrollmentClosedError,
+    CourseFullError,
+    AlreadyEnrolledError,
+    CourseAccessRole,
+)
+from student.roles import CourseRole
 
 from course_modes.models import CourseMode
 from courseware.courses import get_course_by_id
@@ -47,7 +54,7 @@ from shoppingcart.views import get_reg_code_validity
 from opaque_keys.edx.keys import CourseKey
 from certificates.models import GeneratedCertificate
 
-from .serializers import BulkEnrollmentSerializer
+from .serializers import COURSE_ROLES, BulkEnrollmentSerializer, CourseRolesSerializer
 from .utils import auto_generate_username, send_activation_email
 
 log = logging.getLogger(__name__)
@@ -56,7 +63,6 @@ log = logging.getLogger(__name__)
 class CreateUserAccountView(APIView):
     authentication_classes = OAuth2AuthenticationAllowInactiveUser,
     permission_classes = IsStaffOrOwner,
-
 
     def post(self, request):
         """
@@ -118,7 +124,6 @@ class CreateUserAccountView(APIView):
 class CreateUserAccountWithoutPasswordView(APIView):
     authentication_classes = OAuth2AuthenticationAllowInactiveUser,
     permission_classes = IsStaffOrOwner,
-
 
     def post(self, request):
         """
@@ -550,3 +555,74 @@ class GetBatchEnrollmentDataView(APIView):
             enrollment_list.append(enrollment_data)
 
         return Response(enrollment_list, status=200)
+
+
+class CourseRolesView(APIView):
+    authentication_classes = (OAuth2AuthenticationAllowInactiveUser,)
+    permission_classes = (IsStaffOrOwner,)
+    serializer_class = CourseRolesSerializer
+
+    def get_course(self):
+        try:
+            course_id = self.kwargs.get('course_id')
+            course_key = CourseKey.from_string(course_id)
+            course = get_course_by_id(course_key)
+            return course
+        except ValueError:
+            raise Http404
+
+    def get(self, request, *args, **kwargs):
+        course = self.get_course()
+        serializer = self.serializer_class()
+        return Response(serializer.to_representation(course), status=status.HTTP_200_OK)
+
+    def get_users_by_role(self, roles_param):
+        users_by_role = {}
+        for role_class in COURSE_ROLES:
+            user_queries = roles_param.get(role_class.ROLE, [])
+            if not user_queries:
+                continue
+
+            users = User.objects.filter(Q(username__in=user_queries) | Q(email__in=user_queries))
+            if not len(users):
+                continue
+
+            users_by_role[role_class.ROLE] = users
+
+        return users_by_role
+
+    def put(self, request, *args, **kwargs):
+        course = self.get_course()
+        roles = request.data.get('roles', {})
+        users_by_role = self.get_users_by_role(roles)
+
+        users_to_deduplicate = [
+            item for sublist in users_by_role.values()
+            for item in sublist
+        ]
+
+        previous_roles = CourseAccessRole.objects.filter(
+            user__in=users_to_deduplicate,
+            course_id=course.id,
+            org=course.id.org,
+        )
+        previous_roles.delete()
+
+        for role_id, users in users_by_role.iteritems():
+            CourseRole(role_id, course.id).add_users(*users)
+
+        return Response({
+            'detail': 'Course roles has been updated.'
+        }, status=status.HTTP_200_OK)
+
+    def delete(self, request, *args, **kwargs):
+        course = self.get_course()
+        roles = json.loads(request.GET.get('roles', '{}'))
+        users_by_role = self.get_users_by_role(roles)
+
+        for role_id, users in users_by_role.iteritems():
+            CourseRole(role_id, course.id).remove_users(*users)
+
+        return Response({
+            'detail': 'Course roles has been updated.'
+        }, status=status.HTTP_200_OK)
