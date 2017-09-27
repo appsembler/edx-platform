@@ -57,17 +57,33 @@ class CourseListGetForm(UsernameValidatorMixin, Form):
     ]
     mobile = ExtendedNullBooleanField(required=False)
 
+    pacing = CharField(required=False)
+
     def clean(self):
         """
         Return cleaned data, including additional filters.
         """
+        from openedx.core.djangoapps.content.course_overviews.models import \
+            CourseOverview
+
         cleaned_data = super(CourseListGetForm, self).clean()
 
         # create a filter for all supported filter fields
         filter_ = dict()
+
         for supported_filter in self.supported_filters:
             if cleaned_data.get(supported_filter.param_name) is not None:
                 filter_[supported_filter.field_name] = cleaned_data[supported_filter.param_name]
+
+        # adapt pacing to filter on self_paced boolean field
+        if 'pacing' in self.cleaned_data:
+            pacing = self.cleaned_data['pacing']
+            if pacing == CourseOverview.PACING_SELF:
+                filter_['self_paced'] = True
+            elif pacing == CourseOverview.PACING_INSTRUCTOR:
+                filter_['self_paced'] = False
+            # else ignore since adapting to boolean field
+
         cleaned_data['filter_'] = filter_ or None
 
         return cleaned_data

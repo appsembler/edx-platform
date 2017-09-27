@@ -10,6 +10,7 @@ from nose.plugins.attrib import attr
 from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase, ModuleStoreTestCase
 from .mixins import CourseApiFactoryMixin, TEST_PASSWORD
 from ..views import CourseDetailView
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 
 
 class CourseApiTestViewMixin(CourseApiFactoryMixin):
@@ -132,6 +133,49 @@ class CourseListViewTestCaseMultipleCourses(CourseApiTestViewMixin, ModuleStoreT
         self.assertTrue(
             all(course['org'] == self.course.org for course in filtered_response.data['results'])  # pylint: disable=no-member
         )
+
+    def test_filter_by_pacing(self):
+        '''Verify that CourseOverviews are filtered by the provided pacer key.'''
+        self.setup_user(self.staff_user)
+
+        course = CourseOverview.objects.get(id=self.course.id)
+        self.assertFalse(course.self_paced)  # model defaults to False
+
+        response = self.verify_response()
+        response_blank = self.verify_response(params={'pacing': ''})
+        response_self = self.verify_response(
+            params={'pacing': CourseOverview.PACING_SELF})
+        response_instructor = self.verify_response(
+            params={'pacing': CourseOverview.PACING_INSTRUCTOR})
+        response_ignored = self.verify_response(params={'pacing': 'x'})
+
+        self.assertEqual(1, len(response.data['results']))
+        self.assertEqual(1, len(response_blank.data['results']))
+        self.assertEqual(0, len(response_self.data['results']))
+        self.assertEqual(1, len(response_instructor.data['results']))
+        self.assertEqual(1, len(response_ignored.data['results']))
+
+        # create_course() returns xblock.internal.CourseDescriptorWithMixins
+        # need to set self_paced on CourseOverview
+        selfpaced_course_descriptor = self.create_course(course='selfpaced')
+        selfpaced_course = CourseOverview.objects.get(
+            id=selfpaced_course_descriptor.id)
+        selfpaced_course.self_paced = True
+        selfpaced_course.save()
+
+        response = self.verify_response()
+        response_blank = self.verify_response(params={'pacing': ''})
+        response_self = self.verify_response(
+            params={'pacing': CourseOverview.PACING_SELF})
+        response_instructor = self.verify_response(
+            params={'pacing': CourseOverview.PACING_INSTRUCTOR})
+        response_ignored = self.verify_response(params={'pacing': 'x'})
+
+        self.assertEqual(2, len(response.data['results']))
+        self.assertEqual(2, len(response_blank.data['results']))
+        self.assertEqual(1, len(response_self.data['results']))
+        self.assertEqual(1, len(response_instructor.data['results']))
+        self.assertEqual(2, len(response_ignored.data['results']))
 
     def test_filter(self):
         self.setup_user(self.staff_user)
