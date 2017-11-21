@@ -20,6 +20,8 @@ urlpatterns = patterns(
     url(r'^enrollment-codes/enroll-user', views.EnrollUserWithEnrollmentCodeView.as_view(), name="enroll_use_with_code_api"),
     url(r'^enrollment-codes/status', views.EnrollmentCodeStatusView.as_view(), name="enrollment_code_status_api"),
 
+    url(r'^search/course-discovery', views.CourseDiscoveryView.as_view(), name="appsembler_course_discovery"),
+
     # enrollment analytics API
     url(r'^analytics/accounts/batch', views.GetBatchUserDataView.as_view(), name="get_batch_user_data"),
     url(r'^analytics/enrollment/batch', views.GetBatchEnrollmentDataView.as_view(), name="get_batch_enrollment_data"),

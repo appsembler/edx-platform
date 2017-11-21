@@ -27,6 +27,8 @@ from openedx.core.lib.api.permissions import (
     IsStaffOrOwner, ApiKeyHeaderPermissionIsAuthenticated
 )
 
+from search.views import course_discovery
+
 from student.forms import get_registration_extension_form
 from student.views import create_account_with_params
 from student.models import CourseEnrollment, EnrollmentClosedError, \
@@ -581,6 +583,98 @@ class GetBatchUserDataView(APIView):
             user_list.append(user_data)
 
         return Response(user_list, status=200)
+
+
+class CourseDiscoveryView(APIView):
+    """
+    Search for courses.
+
+    Args:
+        request (required) - django request object
+
+    Returns:
+      http json response with the following fields
+        "took" - how many seconds the operation took
+        "total" - how many results were found
+        "max_score" - maximum score from these resutls
+        "results" - json array of result documents
+
+      OR
+
+      "error" - displayable information about an error that occured on the server
+
+    POST Params:
+      "search_string" (optional) - text with which to search for courses
+      "page_size" (optional)- how many results to return per page (defaults to 20, with maximum cutoff at 100)
+      "page_index" (optional) - for which page (zero-indexed) to include results (defaults to 0)
+
+        $ curl -X POST http://localhost:8000/appsembler_api/v0/search/course-discovery -d search_string=data
+        {
+          "facets": {
+            "org": {
+              "total": 1,
+              "terms": {
+                "edX": 1
+              },
+              "other": 0
+            },
+            "modes": {
+              "total": 1,
+              "terms": {
+                "audit": 1
+              },
+              "other": 0
+            },
+            "language": {
+              "total": 1,
+              "terms": {
+                "en": 1
+              },
+              "other": 0
+            }
+          },
+          "total": 1,
+          "max_score": 1.60771,
+          "took": 3,
+          "results": [
+            {
+              "_type": "course_info",
+              "score": 1.60771,
+              "_index": "courseware_index",
+              "_score": 1.60771,
+              "_id": "course-v1:edX+DemoX+Demo_Course",
+              "data": {
+                "modes": [
+                  "audit"
+                ],
+                "language": "en",
+                "course": "course-v1:edX+DemoX+Demo_Course",
+                "number": "DemoX",
+                "content": {
+                  "short_description": "Explore the fundamental data modeling techniques and statistical knowledge at the heart of effective data analysis, and learn to use the advanced features of industry-standard tools and cloud services.",
+                  "overview": " About This Course This course is the first course in the Certificate in Data Analytics: Techniques for Decision Making. Before you can register for the course, you must apply and be accepted to the certificate program. To apply, visit the Certificate in Data Analytics: Techniques for Decision Making page on the UW Professional & Continuing Education website. Course Description For a description of this course, visit the Data Analysis Essentials page on the UW Professional & Continuing Education website. Completing the Course This course is offered 100 percent online, with no class meetings. You have up to four months to complete it. Once you have successfully completed the course, you can register for Data Visualization Essentials, the next course in the Certificate in Data Analytics: Techniques for Decision Making. Next Steps Make sure you have the following before you start this course: A laptop or desktop computer with a reliable internet connection. Access to Microsoft Excel Online* or a computer with Microsoft Excel 2016. Create a UW NetID, which will give you access to online library resources and other UW services and benefits. You\\u2019ll receive two separate emails within five business days of registering, or after the course start date, with directions for setting up your UW NetID. You\\u2019ll need info from each of these, so be sure to open both. Been enrolled at the UW before? If you\\u2019re a returning student but don\\u2019t remember your UW NetID, contact us for help at startlrn@uw.edu. Review the details found in the UW Start Learning Help Center. *If you don\\u2019t have Excel, you can access it by setting up a free account through Microsoft Excel Online. ",
+                  "display_name": "Data Analysis MASTER",
+                  "number": "DemoX"
+                },
+                "start": "2017-10-25T15:00:00+00:00",
+                "display_org_with_default": "edX",
+                "image_url": "/asset-v1:edX+DemoX+Demo_Course+type@asset+block@course-card-data-analysis-essentialsTest.jpg",
+                "catalog_visibility": "both",
+                "org": "edX",
+                "effort": "10-15 hours",
+                "id": "course-v1:edX+DemoX+Demo_Course"
+              }
+            }
+          ]
+        }
+    """
+
+    # Allow everyone to search
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        return course_discovery(request)
 
 
 class GetBatchEnrollmentDataView(APIView):
