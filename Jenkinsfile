@@ -10,7 +10,8 @@ def makeNode(suite, shard) {
                 
                 timeout(time: 55, unit: 'MINUTES') {
                     echo "Hi, it is me ${suite}:${shard} again, the worker just started!"
-                    sh """
+                    stage('installs') {
+                        sh """
 npm install
 source /tmp/ve/bin/activate
 # temporary fix for openssl/cryptography==1.5.3 incompatibility on debian stretch
@@ -23,8 +24,10 @@ pip install --exists-action w pbr==0.9.0
 pip install --exists-action w -r requirements/edx/base.txt
 pip install --exists-action w -r requirements/edx/post.txt
 """
+                    }
                     try {
                         if (suite == 'quality') {
+                            stage('quality') {
                             sh """
 export PYLINT_THRESHOLD=3600
 export ESLINT_THRESHOLD=9850
@@ -65,9 +68,11 @@ END
 
 exit \$EXIT
 """
+                            }
                         } else {
-                            try {
-                                sh """
+                            stage('tests') {
+                                try {
+                                    sh """
 # prepare environment for tests
 source /tmp/ve/bin/activate
 mkdir /tmp/mongodata
@@ -84,13 +89,14 @@ killall mongod
 curl -s https://codecov.io/bash > /tmp/codecov
 /bin/bash /tmp/codecov -t ${CODECOV_TOKEN}
 """
-                            } finally {
-                                archiveArtifacts 'reports/**, test_root/log/**'
-                                junit 'reports/**/*.xml'
+                                } finally {
+                                    archiveArtifacts 'reports/**, test_root/log/**'
+                                    junit 'reports/**/*.xml'
+                                }
                             }
+                        } finally {
+                            deleteDir()
                         }
-                    } finally {
-                        deleteDir()
                     }
                 }
             }
