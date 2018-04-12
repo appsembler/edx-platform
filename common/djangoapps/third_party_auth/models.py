@@ -232,7 +232,9 @@ class ProviderConfig(ConfigurationModel):
         # You can override this three in your settings.
         if settings.APPSEMBLER_FEATURES.get("ENABLE_THIRD_PARTY_AUTH_CLEAN_USERNAMES"):
             if not settings.TPA_CLEAN_USERNAMES_KEEP_DOMAIN_PART:
-                if len(re.findall(r'[^@]+@[^@]+\.[^@]+', suggested_username)) > 0:
+                if len(
+                    re.findall(r'[^@]+@[^@]+\.[^@]+', suggested_username)
+                    ) > 0:
                     suggested_username = suggested_username.split('@')[0]
 
             suggested_username = re.sub(
@@ -337,14 +339,14 @@ class OAuth2ProviderConfig(ProviderConfig):
                 return self.secret
             # To allow instances to avoid storing secrets in the DB, the secret can also be set via Django:
             return getattr(settings, 'SOCIAL_AUTH_OAUTH_SECRETS', {}).get(self.backend_name, '')
-        if self.other_settings and self.other_settings != '{}':
-            other_settings = json.loads(self.other_settings)
-            assert isinstance(other_settings, dict), "other_settings should be a JSON object (dictionary)"
-            return other_settings[name]
-        else:
+        if self.other_settings == '{}':
             if name == 'SOCIAL_AUTH_ISC_SERVER_CERT':
                 return str(getattr(settings, 'SOCIAL_AUTH_OAUTH_EXTRA_SETTINGS', {}).get(self.backend_name, '')[name])
             return getattr(settings, 'SOCIAL_AUTH_OAUTH_EXTRA_SETTINGS', {}).get(self.backend_name, '')[name]
+        if self.other_settings:
+            other_settings = json.loads(self.other_settings)
+            assert isinstance(other_settings, dict), "other_settings should be a JSON object (dictionary)"
+            return other_settings[name]
         raise KeyError
 
 
