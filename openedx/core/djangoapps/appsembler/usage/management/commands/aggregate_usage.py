@@ -128,8 +128,7 @@ class Command(BaseCommand):
                               .order_by('period_start') \
                               .first()
         if (d and d.period_start != options['subscription_start'] and
-            not options['force']
-        ):
+                not options['force']):
             raise CommandError("--subscription-start changed, use --force if you're sure.")
 
 

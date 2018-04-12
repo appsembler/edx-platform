@@ -60,7 +60,7 @@ class BadgeClass(models.Model):
     def __unicode__(self):
         return u"<Badge '{slug}' for '{issuing_component}', {course_id} {mode}>".format(
             slug=self.slug, issuing_component=self.issuing_component,
-            course_id = unicode(self.course_id), mode=self.mode
+            course_id=unicode(self.course_id), mode=self.mode
         )
 
     @classmethod

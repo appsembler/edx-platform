@@ -29,6 +29,18 @@ REINDEX_AGE = timedelta(0, 60)  # 60 seconds
 log = logging.getLogger('edx.modulestore')
 
 
+# Interim code to get courseware_index to work with Taxoman
+if hasattr(settings, 'FEATURES') and settings.FEATURES.get('ENABLE_TAXOMAN', False):
+    try:
+        from taxoman_api.models import Facet, FacetValue, CourseFacetValue
+        using_taxoman = True
+    except ImportError:
+        log.error('Taxoman enabled, but unable to import taxoman_api package (ImportError')
+        using_taxoman = False
+else:
+    using_taxoman = False
+
+
 def strip_html_content_to_text(html_content):
     """ Gets only the textual part for html content - useful for building text to be searched """
     # Removing HTML-encoded non-breaking space characters
@@ -527,10 +539,30 @@ class AboutInfo(object):
 
         return [mode.slug for mode in CourseMode.modes_for_course(course.id)]
 
+    def from_taxoman(self, **kwargs):
+        '''Fetches the assigned value to the facet in taxoman
+        '''
+        if using_taxoman:
+            course = kwargs.get('course', None)
+            if not course:
+                raise ValueError("Context dictionary does not contain expected argument 'course'")
+            course_facet_value = CourseFacetValue.objects.filter(
+                course_id=course.id,
+                facet_value__facet__slug=self.property_name).values_list(
+                'facet_value__value', flat=True)
+            return list(course_facet_value)
+        else:
+            # Interim hack: return an empty list, which should have a net zero
+            # effect if not enabling taxoman
+            return []
+
     # Source location options - either from the course or the about info
     FROM_ABOUT_INFO = from_about_dictionary
     FROM_COURSE_PROPERTY = from_course_property
     FROM_COURSE_MODE = from_course_mode
+
+    # Appsembler addition - Interim implementation
+    FROM_TAXOMAN = from_taxoman
 
 
 class CourseAboutSearchIndexer(object):
@@ -572,6 +604,14 @@ class CourseAboutSearchIndexer(object):
         AboutInfo("language", AboutInfo.PROPERTY, AboutInfo.FROM_COURSE_PROPERTY),
         AboutInfo("catalog_visibility", AboutInfo.PROPERTY, AboutInfo.FROM_COURSE_PROPERTY),
     ]
+
+    # Appsembler addition
+    if using_taxoman:
+        for facet in Facet.objects.all():
+            print("facet = {}".format(facet))
+            ABOUT_INFORMATION_TO_INCLUDE.append(
+                AboutInfo(facet.slug, AboutInfo.PROPERTY, AboutInfo.FROM_TAXOMAN)
+            )
 
     @classmethod
     def index_about_information(cls, modulestore, course):

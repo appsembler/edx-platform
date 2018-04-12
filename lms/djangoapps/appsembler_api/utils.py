@@ -10,6 +10,7 @@ from openedx.core.djangoapps.user_api.accounts.api import check_account_exists
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from student.forms import PasswordResetFormNoActive
 
+
 def auto_generate_username(email):
     """
     This functions generates a valid username based on the email, also checks if
@@ -24,7 +25,7 @@ def auto_generate_username(email):
     username = ''.join(e for e in email.split('@')[0] if e.isalnum())
 
     while check_account_exists(username=username):
-        username = ''.join(e for e in email.split('@')[0] if e.isalnum()) + str(randint(100,999))
+        username = ''.join(e for e in email.split('@')[0] if e.isalnum()) + str(randint(100, 999))
 
     return username
 
@@ -32,13 +33,14 @@ def auto_generate_username(email):
 def send_activation_email(request):
     form = PasswordResetFormNoActive(request.data)
     if form.is_valid():
-        form.save(use_https=request.is_secure(),
-                  from_email=configuration_helpers.get_value(
-                      'email_from_address', settings.DEFAULT_FROM_EMAIL),
-                  request=request,
-                  domain_override=request.get_host(),
-                  subject_template_name='appsembler_api/set_password_subject.txt',
-                  email_template_name='appsembler_api/set_password_email.html'
+        form.save(
+            use_https=request.is_secure(),
+            from_email=configuration_helpers.get_value(
+                'email_from_address', settings.DEFAULT_FROM_EMAIL),
+            request=request,
+            domain_override=request.get_host(),
+            subject_template_name='appsembler_api/set_password_subject.txt',
+            email_template_name='appsembler_api/set_password_email.html'
         )
         return True
     else:

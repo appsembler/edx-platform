@@ -4,11 +4,13 @@ import logging
 import json
 import urlparse
 from datetime import datetime
+import importlib
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ImproperlyConfigured
 from django.core.urlresolvers import reverse, resolve
 from django.http import (
     HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpRequest
@@ -18,6 +20,8 @@ from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from django_countries import countries
+
+
 from edxmako.shortcuts import render_to_response
 import pytz
 
@@ -49,9 +53,13 @@ from util.bad_request_rate_limiter import BadRequestRateLimiter
 from util.date_utils import strftime_localized
 from util.enterprise_helpers import set_enterprise_branding_filter_param
 
+from student_account.fields import AccountSettingsExtensionField
+
+
 AUDIT_LOG = logging.getLogger("audit")
 log = logging.getLogger(__name__)
 User = get_user_model()  # pylint:disable=invalid-name
+ERR_LOG = logging.getLogger(__name__)
 
 
 @require_http_methods(['GET'])
@@ -107,12 +115,25 @@ def login_and_registration_form(request, initial_mode="login"):
     if ext_auth_response is not None:
         return ext_auth_response
 
+    third_party_auth = _third_party_auth_context(request, redirect_to)
+    if not third_party_auth['currentProvider']:
+        if settings.APPSEMBLER_FEATURES.get('ENABLE_EXCLUSIVE_SSO_LOGISTRATION'):
+            urls_dict = configuration_helpers.get_value(
+                'EXCLUSIVE_SSO_LOGISTRATION_URL_MAP',
+                settings.EXCLUSIVE_SSO_LOGISTRATION_URL_MAP)
+
+            if initial_mode == 'register':
+                if 'register' in urls_dict:
+                    return redirect(urls_dict['register'])
+            else:
+                return redirect(urls_dict['login'])
+
     # Otherwise, render the combined login/registration page
     context = {
         'data': {
             'login_redirect_url': redirect_to,
             'initial_mode': initial_mode,
-            'third_party_auth': _third_party_auth_context(request, redirect_to),
+            'third_party_auth': third_party_auth,
             'third_party_auth_hint': third_party_auth_hint or '',
             'platform_name': configuration_helpers.get_value('PLATFORM_NAME', settings.PLATFORM_NAME),
             'support_link': configuration_helpers.get_value('SUPPORT_SITE_LINK', settings.SUPPORT_SITE_LINK),
@@ -471,6 +492,10 @@ def account_settings_context(request):
         'order_history': user_orders
     }
 
+    # extend to add keys to fields based on extension account settings fields
+    extension_field_config = _get_account_settings_extension_config(request)
+    context['extension_fields'] = extension_field_config
+
     if third_party_auth.is_enabled():
         # If the account on the third party provider is already connected with another edX account,
         # we display a message to the user.
@@ -499,3 +524,45 @@ def account_settings_context(request):
         } for state in auth_states if state.provider.display_for_login or state.has_account]
 
     return context
+
+
+def _get_account_settings_extension_config(request):
+    """ Return any optional configuration for additional account settings fields
+
+        Args:
+        request: The request object.
+
+        Returns:
+        list of dicts like ['field_name': {'options'|'url'}, ]
+
+    """
+    # TODO: be microsite middleware aware
+
+    # ACCOUNT_SETTINGS_EXTENSION_FIELDS should be defined like
+    # ['dotted_path_to_class', 'dotted_path_to_class' }]
+    # TODO: could potentially also have a case that just uses one of the
+    # 'meta_key': key defined in JSON 'meta' field on UserProfile model
+
+    # field class must subclass AccountSettingsExtensionField
+    # by which it will have methods to return options, api_url, etc.
+
+    extension_config = settings.ACCOUNT_SETTINGS_EXTENSION_FIELDS
+    ext_fields = []
+
+    for field in extension_config:
+        module, klass_str = field.rsplit('.', 1)
+        module = importlib.import_module(module)
+        try:
+            klass = getattr(module, klass_str)
+            assert issubclass(klass, AccountSettingsExtensionField)
+            ext_field = klass(request)
+            ext_fields.append(ext_field())
+        except (AssertionError, ImproperlyConfigured), e:
+            # AccountSettingsExtensionFields can raise
+            # ImproperlyConfigured if required configuration is missing
+            ERR_LOG.warn(
+                ("Skipping Account Settings extension field {} due to "
+                 "error:{}").format(klass.__name__, e.message)
+            )
+            continue
+    return ext_fields

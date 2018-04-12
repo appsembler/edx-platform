@@ -16,6 +16,7 @@ from openedx.core.djangoapps.appsembler.external_courses.models import ExternalC
 
 log = logging.getLogger(__name__)
 
+
 @task(name='openedx.core.djangoapps.appsembler.external_courses.tasks.fetch_courses')
 def fetch_courses():
 
@@ -47,8 +48,8 @@ def fetch_courses():
         }
         response = requests.get(
             '{api_url}api/v1/catalogs/{catalog_id}/courses/?limit=100&offset=0'.format(
-                api_url = settings.EDX_ORG_COURSE_API_URL,
-                catalog_id = catalog_id
+                api_url=settings.EDX_ORG_COURSE_API_URL,
+                catalog_id=catalog_id
             ),
             headers=headers)
 
@@ -76,7 +77,7 @@ def fetch_courses():
                 obj_course = ExternalCourseTile(course_key=course_key)
                 is_new = True
 
-            if len(course['course_runs']) < 1 or course['owners'] < 1: # assuming no run or no owners
+            if len(course['course_runs']) < 1 or course['owners'] < 1:  # assuming no run or no owners
                 if not is_new:
                     obj_course.delete()
                     num_deleted += 1
@@ -112,7 +113,6 @@ def fetch_courses():
                 num_failed += 1
 
     return (num_added, num_changed, num_failed, num_deleted, (num_added + num_changed + num_failed + num_deleted))
-
 
 
 def is_credit_eligible(course_run):

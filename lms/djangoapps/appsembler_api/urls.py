@@ -12,6 +12,9 @@ urlpatterns = patterns(
     url(r'^accounts/update_user', views.UpdateUserAccount.as_view(), name="user_account_update_user"),
     url(r'^accounts/get-user/(?P<username>[\w.+-]+)', views.GetUserAccountView.as_view(), name="get_user_account_api"),
 
+    # Just like CourseListView API, but with search
+    url(r'^search_courses', views.CourseListSearchView.as_view(), name="course_list_search"),
+
     # bulk enrollment API
     url(r'^bulk-enrollment/bulk-enroll', views.BulkEnrollView.as_view(), name="bulk_enrollment_api"),
 
@@ -24,4 +27,3 @@ urlpatterns = patterns(
     url(r'^analytics/accounts/batch', views.GetBatchUserDataView.as_view(), name="get_batch_user_data"),
     url(r'^analytics/enrollment/batch', views.GetBatchEnrollmentDataView.as_view(), name="get_batch_enrollment_data"),
 )
-

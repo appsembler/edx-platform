@@ -8,6 +8,7 @@ from django.conf import settings
 
 from openedx.core.djangoapps.appsembler.external_courses.tasks import fetch_courses
 
+
 class Command(BaseCommand):
     """
     manage.py commands to fetch courses
@@ -37,5 +38,3 @@ class Command(BaseCommand):
             )
         else:
             raise CommandError("Unknown argment: {}".format(subcommand))
-
-

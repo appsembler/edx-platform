@@ -1,16 +1,29 @@
 (function(define, undefined) {
     'use strict';
+
+    define('extension_deps', ['underscore'], function(_) {
+        return function(extensionFieldsData) {
+            var ext_deps = {};
+            _.each(extensionFieldsData, function(extfield) {
+                ext_deps[extfield.id] = extfield.js_model;
+            });
+            return ext_deps;
+        }
+    });
+
     define([
         'gettext', 'jquery', 'underscore', 'backbone', 'logger',
         'js/student_account/models/user_account_model',
         'js/student_account/models/user_preferences_model',
         'js/student_account/views/account_settings_fields',
         'js/student_account/views/account_settings_view',
+        'extension_deps',
         'edx-ui-toolkit/js/utils/string-utils'
     ], function(gettext, $, _, Backbone, Logger, UserAccountModel, UserPreferencesModel,
-                 AccountSettingsFieldViews, AccountSettingsView, StringUtils) {
+                 AccountSettingsFieldViews, AccountSettingsView, extension_deps, StringUtils) {
         return function(
             fieldsData,
+            extensionFieldsData,
             ordersHistoryData,
             authData,
             userAccountsApiUrl,
@@ -20,7 +33,8 @@
         ) {
             var accountSettingsElement, userAccountModel, userPreferencesModel, aboutSectionsData,
                 accountsSectionData, ordersSectionData, accountSettingsView, showAccountSettingsPage,
-                showLoadingError, orderNumber, getUserField, userFields, timeZoneDropdownField, countryDropdownField;
+                showLoadingError, orderNumber, getUserField, userFields, timeZoneDropdownField, countryDropdownField,
+                fetchAccountExtensionModels;
 
             accountSettingsElement = $('.wrapper-account-settings');
 
@@ -189,6 +203,7 @@
                         gettext('You can link your social media accounts to simplify signing in to {platform_name}.'),
                         {platform_name: platformName}
                     ),
+
                     fields: _.map(authData.providers, function(provider) {
                         return {
                             'view': new AccountSettingsFieldViews.AuthFieldView({
@@ -241,7 +256,56 @@
                 }
             ];
 
-            accountSettingsView = new AccountSettingsView({
+            // extension fields
+            var deps, ext_fields;
+            var ext_deps_config = extension_deps(extensionFieldsData);
+
+            // http://stackoverflow.com/a/17448869
+            RequireJS.require(_.values(ext_deps_config), function() {
+                // TODO: some defensive type checking
+                deps = _.object(_.keys(ext_deps_config), arguments);
+                ext_fields = _.map(extensionFieldsData, function(extfield) {
+                    var model_inst, field_view_class;
+                    model_inst = new deps[extfield.id]();
+                    model_inst.url = extfield.api_url;
+                    field_view_class = eval(extfield.js_field_view_class);
+                    return {
+                        'view': new field_view_class({
+                            model: model_inst,
+                            api_url: model_inst.url,
+                            title: extfield.title,
+                            valueAttribute: extfield.valueAttribute,
+                            options: extfield.options,
+                            persistChanges: extfield.persistChanges,
+                            helpMessage: extfield.helpMessage
+                            // TODO: screenReaderTitle
+                        })
+                    };
+                });
+                _.each(ext_fields, function(field) { 
+                    userFields.push(field); // add to basic information
+                });
+
+                // move the model fetching inside the 
+                // extension fields require() async call.
+                userAccountModel.fetch({
+                    success: function () {
+                        // Fetch the user preferences model
+                        userPreferencesModel.fetch({
+                            success: function() {                                
+                                fetchAccountExtensionModels();
+                                accountSettingsView.render();
+                                showAccountSettingsPage();                                
+                            },
+                            error: showLoadingError
+                        });
+                    },
+                    error: showLoadingError
+                });
+
+            });  // end of extension fields require() async
+
+            var accountSettingsView = new AccountSettingsView({
                 model: userAccountModel,
                 accountUserId: accountUserId,
                 el: accountSettingsElement,
@@ -253,7 +317,7 @@
                 userPreferencesModel: userPreferencesModel
             });
 
-            accountSettingsView.render();
+
 
             showAccountSettingsPage = function() {
                 // Record that the account settings page was viewed.
@@ -268,16 +332,14 @@
                 accountSettingsView.showLoadingError();
             };
 
-            userAccountModel.fetch({
-                success: function() {
-                    // Fetch the user preferences model
-                    userPreferencesModel.fetch({
-                        success: showAccountSettingsPage,
-                        error: showLoadingError
-                    });
-                },
-                error: showLoadingError
-            });
+
+            fetchAccountExtensionModels = function() {
+                //fetch each of the extension field models
+                _.each(ext_fields, function (el, index, list) {
+                    el.view.model.fetch({error: showLoadingError});
+                });
+            };
+            
 
             return {
                 userAccountModel: userAccountModel,

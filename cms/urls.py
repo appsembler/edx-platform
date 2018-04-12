@@ -210,3 +210,8 @@ urlpatterns += (
     url(r'^404$', handler404),
     url(r'^500$', handler500),
 )
+
+# Appsembler API extensions
+urlpatterns += (
+    url(r'^api/search/', include('search_api.urls')),
+)

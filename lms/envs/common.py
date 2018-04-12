@@ -2024,6 +2024,7 @@ INSTALLED_APPS = (
 
     # User API
     'rest_framework',
+    'rest_framework.authtoken',
     'openedx.core.djangoapps.user_api',
 
     # Shopping cart
@@ -3042,3 +3043,5 @@ DOC_LINK_BASE_URL = None
 ############## Settings for the Enterprise App ######################
 
 ENTERPRISE_ENROLLMENT_API_URL = LMS_ROOT_URL + "/api/enrollment/v1/"
+
+WEBPACK_LOADER = {}

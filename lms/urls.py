@@ -969,6 +969,6 @@ if settings.FEATURES.get('ENABLE_FINANCIAL_ASSISTANCE_FORM'):
 # allow inclusion of urls from arbitrary packages
 # as specified in ENV config.
 if 'appsembler' in settings.INSTALLED_APPS:
-    urlpatterns += ( 
+    urlpatterns += (
         url('', include('appsembler.urls')),
     )

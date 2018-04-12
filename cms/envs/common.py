@@ -959,6 +959,11 @@ INSTALLED_APPS = (
 
     # Unusual migrations
     'database_fixups',
+
+    # Appsembler API Extensions
+    'rest_framework',
+    'rest_framework.authtoken',
+    'search_api',
 )
 
 

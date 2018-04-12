@@ -76,7 +76,7 @@ def course_group_check(user, course_key):
                 # yet with Badgr.io, while course group is working.
                 # so we use course groups with a single course,
                 # in which case we can provide an evidence URL
-                # to the HTML cert for the one coursee 
+                # to the HTML cert for the one coursee
                 if len(keys) == 1:
                     evidence = evidence_url(user.id, course_key)
                     awards.append((slug, evidence))
@@ -92,4 +92,3 @@ def course_group_check(user, course_key):
                 badge_class.award(user, evidence_url=award[1])
             else:
                 badge_class.award(user)
-

@@ -369,6 +369,7 @@ def get_login_url(provider_id, auth_entry, redirect_url=None):
         extra_params=enabled_provider.get_url_params(),
     )
 
+
 def get_logout_url(provider_id, auth_entry, redirect_url=None):
     """Gets URL for the endpoint that starts the SLO process.
 
@@ -397,6 +398,7 @@ def get_logout_url(provider_id, auth_entry, redirect_url=None):
         redirect_url=redirect_url,
         extra_params=enabled_provider.get_url_params(),
     )
+
 
 def get_duplicate_provider(messages):
     """Gets provider from message about social account already in use.

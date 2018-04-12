@@ -3,6 +3,16 @@
 from .aws import *
 from .appsembler import *
 
+if FEATURES.get('ENABLE_TAXOMAN', False):
+    try:
+        import taxoman.settings
+        TAXOMAN_ENABLED = True
+    except ImportError:
+        TAXOMAN_ENABLED = False
+else:
+    TAXOMAN_ENABLED = False
+
+
 ENV_APPSEMBLER_FEATURES = ENV_TOKENS.get('APPSEMBLER_FEATURES', {})
 for feature, value in ENV_APPSEMBLER_FEATURES.items():
     APPSEMBLER_FEATURES[feature] = value
@@ -60,8 +70,7 @@ if APPSEMBLER_FEATURES.get('ENABLE_EXTERNAL_COURSES', False):
         }
 
 if (APPSEMBLER_FEATURES.get('ENABLE_USAGE_TRACKING', False) or
-    APPSEMBLER_FEATURES.get('ENABLE_USAGE_AGGREGATION', False)
-):
+        APPSEMBLER_FEATURES.get('ENABLE_USAGE_AGGREGATION', False)):
     # enable both apps for either feature flag, because
     #
     # * appsembler_usage depends on souvenirs models
@@ -89,8 +98,7 @@ if (APPSEMBLER_FEATURES.get('ENABLE_USAGE_TRACKING', False) or
 
     # operator can override DB auth for migrations
     if ('appsembler_usage' in DATABASES and
-        os.environ.get('APPSEMBLER_USAGE_DB_AUTH')
-    ):
+            os.environ.get('APPSEMBLER_USAGE_DB_AUTH')):
         _user, _password = os.environ['APPSEMBLER_USAGE_DB_AUTH'].split(':', 1)
         DATABASES['appsembler_usage'].update({
             'USER': _user,
@@ -122,6 +130,8 @@ if 'LMS_AUTHENTICATION_BACKENDS' in APPSEMBLER_FEATURES.keys():
     #default behavior is to replace the existing backends with those in APPSEMBLER_FEATURES
     AUTHENTICATION_BACKENDS = tuple(APPSEMBLER_FEATURES['LMS_AUTHENTICATION_BACKENDS'])
 
+EXCLUSIVE_SSO_LOGISTRATION_URL_MAP = ENV_TOKENS.get('EXCLUSIVE_SSO_LOGISTRATION_URL_MAP', {})
+
 #attempt to import model from our custom fork of edx-organizations
 # if it works, then also add the middleware
 try:
@@ -132,6 +142,13 @@ try:
 except ImportError:
     pass
 
+
 ##### Third-party auth options ################################################
 if FEATURES.get('ENABLE_THIRD_PARTY_AUTH'):
     SOCIAL_AUTH_OAUTH_EXTRA_SETTINGS = AUTH_TOKENS.get('SOCIAL_AUTH_OAUTH_EXTRA_SETTINGS', {})
+
+if TAXOMAN_ENABLED:
+    WEBPACK_LOADER['TAXOMAN_APP'] = {
+        'BUNDLE_DIR_NAME': taxoman.settings.bundle_dir_name,
+        'STATS_FILE': taxoman.settings.stats_file,
+    }

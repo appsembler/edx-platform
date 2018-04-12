@@ -7,6 +7,7 @@ class StringListField(serializers.ListField):
     def to_internal_value(self, data):
         return data.split(',')
 
+
 class BulkEnrollmentSerializer(serializers.Serializer):
     identifiers = serializers.CharField(required=True)
     courses = StringListField(required=True)

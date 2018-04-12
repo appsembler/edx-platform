@@ -3,6 +3,7 @@ Models for store external courses info to display on ui
 """
 from django.db import models
 
+
 class ExternalCourseTile(models.Model):
     """
     This class stores all the information for the course retrieved from the

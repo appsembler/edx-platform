@@ -232,9 +232,7 @@ class ProviderConfig(ConfigurationModel):
         # You can override this three in your settings.
         if settings.APPSEMBLER_FEATURES.get("ENABLE_THIRD_PARTY_AUTH_CLEAN_USERNAMES"):
             if not settings.TPA_CLEAN_USERNAMES_KEEP_DOMAIN_PART:
-                if len(
-                    re.findall(r'[^@]+@[^@]+\.[^@]+', suggested_username)
-                    ) > 0:
+                if len(re.findall(r'[^@]+@[^@]+\.[^@]+', suggested_username)) > 0:
                     suggested_username = suggested_username.split('@')[0]
 
             suggested_username = re.sub(

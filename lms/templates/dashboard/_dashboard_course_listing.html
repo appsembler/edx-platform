@@ -308,7 +308,9 @@ from student.helpers import (
       </div>
       % endif
 
-      % if course_overview.may_certify() and cert_status:
+      ## TODO: The below change to logic may not work in Ginkgo and onward due to refactoring.  
+      ## Ask Bryan W. (bryanlandia) if you have merge problems.
+      % if course_overview.may_certify() and cert_status and cert_status.get('status', None) != 'unavailable':
         <%include file='_dashboard_certificate_information.html' args='cert_status=cert_status,course_overview=course_overview, enrollment=enrollment, reverify_link=reverify_link'/>
       % endif
 

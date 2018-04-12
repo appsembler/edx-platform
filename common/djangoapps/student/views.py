@@ -130,7 +130,7 @@ from openedx.core.djangoapps.user_api.preferences import api as preferences_api
 from openedx.core.djangoapps.catalog.utils import get_programs_data
 
 # try to import appsembler fork of edx-organizations (if it's installed)
-try: 
+try:
     from organizations.models import Organization, UserOrganizationMapping
     from hr_management.views import send_microsite_request_email_to_managers
 except ImportError:
@@ -349,7 +349,8 @@ def _cert_info(user, course_overview, cert_status, course_mode):  # pylint: disa
         CertificateStatuses.unverified: 'unverified',
     }
 
-    default_status = 'processing'
+    # open-ended courses should not display the 'processing' message
+    default_status = 'unavailable' if not course_overview.end else 'processing'
 
     default_info = {
         'status': default_status,
@@ -1836,7 +1837,7 @@ def create_account_with_params(request, params):
             third_party_provider and third_party_provider.skip_email_verification and
             user.email == running_pipeline['kwargs'].get('details', {}).get('email')
         ) and
-        params.get('send_activation_email', True) == True
+        params.get('send_activation_email', True) is True
     )
     if send_email:
         dest_addr = user.email
@@ -1863,12 +1864,12 @@ def create_account_with_params(request, params):
     else:
         registration.activate()
         _enroll_user_in_pending_courses(user)  # Enroll student in any pending courses
-    
+
     #if using custom Appsembler backend from edx-organizations
     if u'organizations.backends.OrganizationMemberBackend' in settings.AUTHENTICATION_BACKENDS:
         org = configuration_helpers.get_value('course_org_filter')
         organization = Organization.objects.filter(name=org).first()
-        if organization: 
+        if organization:
             UserOrganizationMapping.objects.get_or_create(user=user, organization=organization, is_active=False)
             send_microsite_request_email_to_managers(request, user)
 
@@ -1876,7 +1877,7 @@ def create_account_with_params(request, params):
     # logged in until they close the browser. They can't log in again until they click
     # the activation link from the email.
     new_user = authenticate(username=user.username, password=params['password'])
-    
+
     if not settings.APPSEMBLER_FEATURES.get('SKIP_LOGIN_AFTER_REGISTRATION', False):
         login(request, new_user)
         request.session.set_expiry(0)
