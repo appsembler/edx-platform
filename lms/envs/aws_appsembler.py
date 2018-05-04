@@ -148,3 +148,7 @@ if TAXOMAN_ENABLED:
         'BUNDLE_DIR_NAME': taxoman.settings.bundle_dir_name,
         'STATS_FILE': taxoman.settings.stats_file,
     }
+
+################# Third-party auth options #################
+if FEATURES.get('ENABLE_THIRD_PARTY_AUTH'):
+    SOCIAL_AUTH_OAUTH_EXTRA_SETTINGS = AUTH_TOKENS.get('SOCIAL_AUTH_OAUTH_EXTRA_SETTINGS', {})
