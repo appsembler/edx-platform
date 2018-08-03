@@ -2,6 +2,7 @@
 </div>
 
 <form id="register" class="register-form" autocomplete="off" tabindex="-1" method="POST">
+
     <% if (!context.currentProvider) { %>
         <% if (context.providers.length > 0 || context.hasSecondaryProviders) { %>
             <div class="login-providers">
@@ -10,6 +11,7 @@
                         <span class="text"><%- gettext("Create an account using") %></span>
                     </h2>
                 </div>
+
                 <%
                 _.each( context.providers, function( provider) {
                     if ( provider.registerUrl ) { %>
@@ -31,17 +33,22 @@
                     </button>
                 <% } %>
             </div>
+
             <div class="section-title lines">
                 <h2>
                     <span class="text"><%- gettext("or create a new one here") %></span>
                 </h2>
             </div>
+            <div class="register-form-prologue"><%= context.prologue %></div>
+
         <% } else { %>
             <div class="section-title lines">
                 <h2>
                     <span class="text"><%- gettext("Create a new account") %></span>
                 </h2>
             </div>
+            <div class="register-form-prologue"><%= context.prologue %></div>
+
         <% } %>
     <% } %>
 
@@ -49,6 +56,9 @@
 
     <button type="submit" class="action action-primary action-update js-register register-button"><%- gettext("Create your account") %></button>
     <p class="note">* <%- gettext("Required field") %></p>
+
+    <div class="register-form-epilogue"><%= context.epilogue %></div>
+
 </form>
 
 <div class="toggle-form">

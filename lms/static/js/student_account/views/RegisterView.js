@@ -38,6 +38,9 @@
                     this.platformName = data.platformName;
                     this.autoSubmit = data.thirdPartyAuth.autoSubmitRegForm;
 
+                    this.prologue = data.prologue || '';
+                    this.epilogue = data.epilogue || '';
+
                     this.listenTo(this.model, 'sync', this.saveSuccess);
                 },
 
@@ -54,7 +57,9 @@
                             currentProvider: this.currentProvider,
                             providers: this.providers,
                             hasSecondaryProviders: this.hasSecondaryProviders,
-                            platformName: this.platformName
+                            platformName: this.platformName,
+                            prologue: this.prologue,
+                            epilogue: this.epilogue
                         }
                     }));
 

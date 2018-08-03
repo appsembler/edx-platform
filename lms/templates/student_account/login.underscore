@@ -18,6 +18,8 @@
         <%- gettext("If you do not yet have an account, use the button below to register.") %>
     </p>
 
+    <div class="login-form-prologue"><%= context.prologue %></div>
+
     <%= context.fields %>
 
     <button type="submit" class="action action-primary action-update js-login login-button"><%- gettext("Sign in") %></button>
@@ -51,7 +53,12 @@
         <% } %>
     </div>
     <% } %>
+
+    <div class="login-form-epilogue"><%= context.epilogue %></div>
+
 </form>
+
+
 
 <div class="toggle-form">
     <div class="section-title">

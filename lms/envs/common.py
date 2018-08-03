@@ -2976,6 +2976,15 @@ MAX_BOOKMARKS_PER_COURSE = 100
 
 REGISTRATION_EXTENSION_FORM = None
 
+### Registration form field overrides ###
+# Only used if combined login/registration is enabled.
+# This can be used to modify existing fields on the registration page; 
+# i.e., to change help text or placeholder value.
+# It must be a path to a class, in dot-separated syntax.
+# IE: custom_form_app.forms.RegistrationFieldOverrides
+
+REGISTRATION_FIELD_OVERRIDES = None
+
 # Identifier included in the User Agent from open edX mobile apps.
 MOBILE_APP_USER_AGENT_REGEXES = [
     r'edX/org.edx.mobile',

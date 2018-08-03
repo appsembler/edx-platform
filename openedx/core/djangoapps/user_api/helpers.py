@@ -117,7 +117,7 @@ class InvalidFieldError(Exception):
 class FormDescription(object):
     """Generate a JSON representation of a form. """
 
-    ALLOWED_TYPES = ["text", "email", "select", "textarea", "checkbox", "password"]
+    ALLOWED_TYPES = ["text", "email", "select", "textarea", "checkbox", "password", "hidden"]
 
     ALLOWED_RESTRICTIONS = {
         "text": ["min_length", "max_length"],
@@ -132,27 +132,34 @@ class FormDescription(object):
         forms.TypedChoiceField: "select",
         forms.Textarea: "textarea",
         forms.BooleanField: "checkbox",
-        forms.EmailField: "email",
+        forms.EmailField: "email"
     }
 
     OVERRIDE_FIELD_PROPERTIES = [
         "label", "type", "defaultValue", "placeholder",
         "instructions", "required", "restrictions",
-        "options", "supplementalLink", "supplementalText"
+        "options", "supplementalLink", "supplementalText",
+        "error_messages"
     ]
 
-    def __init__(self, method, submit_url):
+    def __init__(self, method, submit_url, prologue=u"", epilogue=u"", field_order=None):
         """Configure how the form should be submitted.
 
         Args:
             method (unicode): The HTTP method used to submit the form.
             submit_url (unicode): The URL where the form should be submitted.
+            prologue (unicode): HTML string with a prologue/intro for the form.
+            epilogue (unicode): HTML string with an epilogue/conclustion for the form.
+            field_order (list): List specifying a field order by field name
 
         """
         self.method = method
         self.submit_url = submit_url
         self.fields = []
+        self.prologue = prologue
+        self.epilogue = epilogue
         self._field_overrides = defaultdict(dict)
+        self.field_order = field_order
 
     def add_field(
             self, name, label=u"", field_type=u"text", default=u"",
@@ -227,7 +234,8 @@ class FormDescription(object):
             "restrictions": {},
             "errorMessages": {},
             "supplementalLink": supplementalLink,
-            "supplementalText": supplementalText
+            "supplementalText": supplementalText,
+
         }
 
         if field_type == "select":
@@ -307,7 +315,9 @@ class FormDescription(object):
                     "errorMessages": {},
                 },
                 ...
-            ]
+            ],
+            "prologue": "A paragraph of introduction or other HTML form prologue",
+            "epilogue": "A paragraph of conclusion or other HTML form epilogue",
         }
 
         If the field is NOT a "select" type, then the "options"
@@ -316,10 +326,17 @@ class FormDescription(object):
         Returns:
             unicode
         """
+
+        # apply cutom ordering here so that custom reg form fields, 
+        # enterprise extension fields, etc. are orderable
+        ordered_fields = self.apply_field_order(self.field_order)
+
         return json.dumps({
             "method": self.method,
             "submit_url": self.submit_url,
-            "fields": self.fields
+            "fields": ordered_fields,
+            "prologue": self.prologue,
+            "epilogue": self.epilogue
         }, cls=LocalizedJSONEncoder)
 
     def override_field_properties(self, field_name, **kwargs):
@@ -351,6 +368,41 @@ class FormDescription(object):
             for property_name, property_value in kwargs.iteritems()
             if property_name in self.OVERRIDE_FIELD_PROPERTIES
         })
+
+    def apply_field_order(self, field_order):
+        """Apply a custom field order, if set.
+        Return ordered field list, or 
+        return self.fields if no order set.
+
+        If field name in order list is not found in self.fields,
+        just don't include it.  Duplicate field names in 
+        field order are stripped
+
+        Arguments:
+            field_order (List): List specifying order of fields
+            (none)
+        """
+        unordered = self.fields
+        field_order_unique = []
+        if not field_order:
+            return unordered
+        else:
+            for f in field_order:
+                if f not in field_order_unique:
+                    field_order_unique.append(f)
+            names = [f['name'] for f in unordered]
+            o_index = []
+            for f in field_order_unique:
+                try:
+                    o_index.append(names.index(f))
+                except ValueError:
+                    # drop unmatched
+                    msg = "{} in custom form field order not found in field list".format(f)
+                    LOGGER.warning(msg)
+                    
+            ordered = [unordered[i] for i in o_index]
+
+        return ordered
 
 
 class LocalizedJSONEncoder(DjangoJSONEncoder):

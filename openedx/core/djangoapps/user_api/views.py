@@ -25,7 +25,7 @@ from openedx.core.lib.api.permissions import ApiKeyHeaderPermission
 import third_party_auth
 from django_comment_common.models import Role
 from edxmako.shortcuts import marketing_link
-from student.forms import get_registration_extension_form
+from student.forms import get_registration_extension_form, get_registration_field_overrides
 from student.views import create_account_with_params
 from student.cookies import set_logged_in_cookies
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
@@ -52,6 +52,13 @@ class LoginSessionView(APIView):
     # so do not require authentication.
     authentication_classes = []
 
+    def __init__(self, *args, **kwargs):
+        super(LoginSessionView, self).__init__(*args, **kwargs)
+        # Get prologue and epilogue if set
+        self.prologue = configuration_helpers.get_value('LOGIN_FORM_PROLOGUE')
+        self.epilogue = configuration_helpers.get_value('LOGIN_FORM_EPILOGUE')
+        self.field_order = configuration_helpers.get_value('LOGIN_FORM_FIELD_ORDER')
+
     @method_decorator(ensure_csrf_cookie)
     @method_decorator(ensure_csrf_cookie_cross_domain)
     def get(self, request):
@@ -68,7 +75,7 @@ class LoginSessionView(APIView):
             HttpResponse
 
         """
-        form_desc = FormDescription("post", reverse("user_api_login_session"))
+        form_desc = FormDescription("post", reverse("user_api_login_session"), self.prologue, self.epilogue, self.field_order)
 
         # Translators: This label appears above a field on the login form
         # meant to hold the user's email address.
@@ -214,6 +221,11 @@ class RegistrationView(APIView):
             handler = getattr(self, "_add_{field_name}_field".format(field_name=field_name))
             self.field_handlers[field_name] = handler
 
+        # Get prologue and epilogue if set
+        self.prologue = configuration_helpers.get_value('REGISTRATION_FORM_PROLOGUE')
+        self.epilogue = configuration_helpers.get_value('REGISTRATION_FORM_EPILOGUE')
+        self.field_order = configuration_helpers.get_value('REGISTRATION_FORM_FIELD_ORDER')
+
     @method_decorator(ensure_csrf_cookie)
     def get(self, request):
         """Return a description of the registration form.
@@ -236,7 +248,19 @@ class RegistrationView(APIView):
             HttpResponse
 
         """
-        form_desc = FormDescription("post", reverse("user_api_registration"))
+        form_desc = FormDescription("post", reverse("user_api_registration"), self.prologue, self.epilogue, self.field_order)
+
+        # Fields may be overridden if an overrides definition is set in settings.REGISTRATION_FIELD_OVERRIDES
+        # get_registration_field_overrides should return a dictionary with key of the field name and 
+        # values another dictionary to pass as kwargs of attributes of the field to change
+        custom_field_overrides = get_registration_field_overrides()
+        if custom_field_overrides:
+            for field_name, field_args in custom_field_overrides.iteritems():
+                form_desc.override_field_properties(
+                    field_name,
+                    **field_args
+                )
+
         self._apply_third_party_auth_overrides(request, form_desc)
 
         # Default fields are always required
