@@ -126,3 +126,6 @@ FEATURES['ENABLE_COURSE_DISCOVERY'] = ENV_TOKENS['FEATURES'].get('ENABLE_COURSE_
 # edx-figures additions
 if FEATURES.get('ENABLE_EDX_FIGURES'):
     from edx_figures.settings import EDX_FIGURES
+
+if FEATURES.get('ENABLE_APPSEMBLER_REPORTING') and 'appsembler_reporting' in INSTALLED_APPS:
+    from appsembler_reporting.settings import APPSEMBLER_REPORTING
