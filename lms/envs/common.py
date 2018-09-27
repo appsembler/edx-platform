@@ -1301,6 +1301,7 @@ base_application_js = [
     'js/src/utility.js',
     'js/src/logger.js',
     'js/my_courses_dropdown.js',
+    'js/src/segment_helper.js',
     'js/dialog_tab_controls.js',
     'js/src/string_utils.js',
     'js/form.ext.js',

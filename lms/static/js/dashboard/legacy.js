@@ -43,13 +43,13 @@
         // a `track` call whenever a bound link is clicked. Usually the page would change before
         // `track` had time to execute; `trackLink` inserts a small timeout to give the `track`
         // call enough time to fire. The clicked link element is passed to `generateProperties`.
-         window.analytics.trackLink(upgradeButtonLinks, 'edx.bi.dashboard.upgrade_button.clicked', generateProperties);
+         window.cAnalytics.trackLink(upgradeButtonLinks, 'edx.bi.dashboard.upgrade_button.clicked', generateProperties);
 
         // Track clicks of the "verify now" button.
-         window.analytics.trackLink(verifyButtonLinks, 'edx.bi.user.verification.resumed', generateProperties);
+         window.cAnalytics.trackLink(verifyButtonLinks, 'edx.bi.user.verification.resumed', generateProperties);
 
         // Track clicks of the LinkedIn "Add to Profile" button
-         window.analytics.trackLink(
+         window.cAnalytics.trackLink(
             $('.action-linkedin-profile'),
             'edx.bi.user.linkedin_add_to_profile',
             function(element) {

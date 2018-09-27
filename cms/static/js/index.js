@@ -59,7 +59,7 @@ define(['domReady', 'jquery', 'underscore', 'js/utils/cancel_on_escape', 'js/vie
                 run: run
             };
 
-            analytics.track('Created a Course', course_info);
+            window.analytics.track('Created a Course', course_info);
             CreateCourseUtils.create(course_info, function(errorMessage) {
                 $('.create-course .wrap-error').addClass('is-shown');
                 $('#course_creation_error').html('<p>' + errorMessage + '</p>');
@@ -134,7 +134,7 @@ define(['domReady', 'jquery', 'underscore', 'js/utils/cancel_on_escape', 'js/vie
                 display_name: display_name
             };
 
-            analytics.track('Created a Library', lib_info);
+            window.analytics.track('Created a Library', lib_info);
             CreateLibraryUtils.create(lib_info, function(errorMessage) {
                 $('.create-library .wrap-error').addClass('is-shown');
                 $('#library_creation_error').html('<p>' + errorMessage + '</p>');

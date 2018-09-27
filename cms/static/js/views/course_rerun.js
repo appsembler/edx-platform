@@ -40,7 +40,7 @@ define(['domReady', 'jquery', 'underscore', 'js/views/utils/create_course_utils'
                 run: run
             };
 
-            analytics.track('Reran a Course', course_info);
+            window.analytics.track('Reran a Course', course_info);
             CreateCourseUtils.create(course_info, function(errorMessage) {
                 $('.wrapper-error').addClass('is-shown').removeClass('is-hidden');
                 $('#course_rerun_error').html('<p>' + errorMessage + '</p>');

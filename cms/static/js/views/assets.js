@@ -131,9 +131,9 @@ define([
 
             handleDestroy: function(model) {
                 this.collection.fetch({reset: true}); // reload the collection to get a fresh page full of items
-                analytics.track('Deleted Asset', {
-                    'course': course_location_analytics,
-                    'id': model.get('url')
+                window.analytics.track('Deleted Asset', {
+                    course: course_location_analytics,
+                    id: model.get('url')
                 });
             },
 
@@ -144,9 +144,9 @@ define([
                 this.pagingView.setInitialFilterColumn('js-asset-type-col');
                 this.pagingView.setPage(1);
 
-                analytics.track('Uploaded a File', {
-                    'course': course_location_analytics,
-                    'asset_url': model.get('url')
+                window.analytics.track('Uploaded a File', {
+                    course: course_location_analytics,
+                    asset_url: model.get('url')
                 });
             },
 

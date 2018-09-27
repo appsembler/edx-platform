@@ -9,6 +9,9 @@ urlpatterns = (
     'track.views',
 
     url(r'^event$', 'user_track'),
+    url(r'^event/identify$', 'user_identify_event'),
+    url(r'^event/page$', 'user_page_event'),
+    url(r'^event/track', 'user_track_event'),
     url(r'^segmentio/event$', 'segmentio.segmentio_event'),
 )
 

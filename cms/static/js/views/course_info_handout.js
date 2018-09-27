@@ -67,8 +67,8 @@ define(['js/views/baseview', 'codemirror', 'common/js/components/views/feedback_
                     this.$form.hide();
                     this.closeEditor();
 
-                    analytics.track('Saved Course Handouts', {
-                        'course': course_location_analytics
+                    window.analytics.track('Saved Course Handouts', {
+                        course: course_location_analytics
                     });
                 } else {
                     $('#handout_error').addClass('is-shown');

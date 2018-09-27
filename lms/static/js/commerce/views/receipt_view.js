@@ -368,7 +368,7 @@ function completeOrder(event) {
         // Ignore the error as not all event inputs have the preventDefault method.
     }
 
-    analytics.track(
+    window.analytics.track(
         'edx.bi.credit.clicked_complete_credit',
         {
             category: 'credit',

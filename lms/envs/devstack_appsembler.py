@@ -141,6 +141,16 @@ DEFAULT_MODE_NAME_FROM_SLUG = _(DEFAULT_COURSE_MODE_SLUG.capitalize())
 CUSTOM_DOMAINS_REDIRECT_CACHE_TIMEOUT = None  # The length of time we cache Redirect model data
 CUSTOM_DOMAINS_REDIRECT_CACHE_KEY_PREFIX = 'custom_domains_redirects'
 
+EVENT_TRACKING_BACKENDS['segmentio']['OPTIONS']['backends']['segment']['ENGINE'] = 'track.backends.routing.SegmentBackend'
+EVENT_TRACKING_BACKENDS['segmentio']['OPTIONS']['backends']['segment']['OPTIONS'] = {
+    'blacklist': [
+        'browser.identify',
+        'browser.page',
+        'browser.track'
+   ]
+}
+EVENT_TRACKING_BACKENDS['segmentio']['OPTIONS']['backends']['custom_segment'] = {'ENGINE': 'track.backends.routing.SiteSegmentBackend'}
+
 try:
     from .private import *
 except ImportError:

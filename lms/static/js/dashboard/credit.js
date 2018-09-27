@@ -4,7 +4,7 @@
 
 var edx = edx || {};
 
-(function($, analytics) {
+(function($, cAnalytics) {
     'use strict';
 
     $(document).ready(function() {
@@ -18,7 +18,7 @@ var edx = edx || {};
         // Fire analytics events when the "purchase credit" button is clicked
         $('.purchase-credit-btn').on('click', function(event) {
             var courseKey = $(event.target).data('course-key');
-            analytics.track(
+            cAnalytics.track(
                 'edx.bi.credit.clicked_purchase_credit',
                 {
                     category: 'credit',
@@ -44,4 +44,4 @@ var edx = edx || {};
             });
         });
     });
-})(jQuery, window.analytics);
+}(jQuery, window.cAnalytics));

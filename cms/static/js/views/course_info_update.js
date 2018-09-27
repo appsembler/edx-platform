@@ -183,10 +183,10 @@ define(['codemirror',
                 });
                 this.closeEditor(false);
 
-                analytics.track('Saved Course Update', {
-                    'course': course_location_analytics,
-                    'date': this.dateEntry(event).val(),
-                    'push_notification_selected': this.push_notification_selected(event)
+                window.analytics.track('Saved Course Update', {
+                    course: course_location_analytics,
+                    date: this.dateEntry(event).val(),
+                    push_notification_selected: this.push_notification_selected(event)
                 });
             },
 
@@ -244,9 +244,9 @@ define(['codemirror',
                         primary: {
                             text: gettext('OK'),
                             click: function() {
-                                analytics.track('Deleted Course Update', {
-                                    'course': course_location_analytics,
-                                    'date': self.dateEntry(event).val()
+                                window.analytics.track('Deleted Course Update', {
+                                    course: course_location_analytics,
+                                    date: self.dateEntry(event).val()
                                 });
                                 self.modelDom(event).remove();
                                 var deleting = new NotificationView.Mini({
