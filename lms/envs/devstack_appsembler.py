@@ -123,9 +123,9 @@ except ImportError:
 # override devstack.py automatic enabling of courseware discovery
 FEATURES['ENABLE_COURSE_DISCOVERY'] = ENV_TOKENS['FEATURES'].get('ENABLE_COURSE_DISCOVERY', FEATURES['ENABLE_COURSE_DISCOVERY'])
 
-# edx-figures additions
-if FEATURES.get('ENABLE_FIGURES'):
-    from figures.settings import FIGURES
+# Enable Figures if it is included
+if 'figures' in INSTALLED_APPS:
+    import figures.settings
 
 # use configured course mode defaults as for aws, not standard devstack's
 COURSE_MODE_DEFAULTS.update(ENV_TOKENS.get('COURSE_MODE_DEFAULTS', COURSE_MODE_DEFAULTS))

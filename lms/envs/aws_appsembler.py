@@ -130,6 +130,6 @@ try:
 except ImportError:
     pass
 
-# edx-figures additions
-if FEATURES.get('ENABLE_FIGURES'):
-    from figures.settings import FIGURES
+# Enable Figures if it is included
+if 'figures' in INSTALLED_APPS:
+    import figures.settings
