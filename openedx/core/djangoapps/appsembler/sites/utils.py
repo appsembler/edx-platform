@@ -48,7 +48,8 @@ def get_branding_values_from_file():
     theme = Theme(
         name=site_theme.theme_dir_name,
         theme_dir_name=site_theme.theme_dir_name,
-        themes_base_dir=get_theme_base_dir(site_theme.theme_dir_name)
+        themes_base_dir=get_theme_base_dir(site_theme.theme_dir_name),
+        project_root='',
     )
     if theme:
         sass_var_file = os.path.join(theme.customer_specific_path, 'static',
@@ -85,7 +86,8 @@ def compile_sass(sass_file, custom_branding=None):
     theme = Theme(
         name=site_theme.theme_dir_name,
         theme_dir_name=site_theme.theme_dir_name,
-        themes_base_dir=get_theme_base_dir(site_theme.theme_dir_name)
+        themes_base_dir=get_theme_base_dir(site_theme.theme_dir_name),
+        project_root='',
     )
     sass_var_file = os.path.join(theme.path, 'static', 'sass', sass_file)
     customer_specific_includes = os.path.join(theme.customer_specific_path, 'static', 'sass')
