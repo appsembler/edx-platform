@@ -1,0 +1,21 @@
+; Note: Keep in sync with `config.yaml`
+
+[project.appsembler-ficus-]
+; project_page = https://poeditor.com/projects/view?id=213943
+; project_name = Appsembler Ficus
+project_id = 213943
+type = po
+terms = conf/locale/en/LC_MESSAGES/django.po
+trans.ar = conf/locale/en/LC_MESSAGES/django.po
+trans.ja = conf/locale/ja_JP/LC_MESSAGES/django.po
+trans.es = conf/locale/es/LC_MESSAGES/django.po
+
+[project.appsembler-ficus-js]
+; project_page = https://poeditor.com/projects/view?id=213945
+; project_name = Appsembler Ficus (JavaScript)
+project_id = 213945
+type = po
+terms = conf/locale/en/LC_MESSAGES/djangojs.po
+trans.ar = conf/locale/ar/LC_MESSAGES/djangojs.po
+trans.ja = conf/locale/ja_JP/LC_MESSAGES/djangojs.po
+trans.es = conf/locale/es/LC_MESSAGES/djangojs.po

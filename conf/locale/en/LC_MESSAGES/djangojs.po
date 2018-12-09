@@ -26,8 +26,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1a\n"
 "Report-Msgid-Bugs-To: openedx-translation@googlegroups.com\n"
-"POT-Creation-Date: 2018-09-12 18:02+0000\n"
-"PO-Revision-Date: 2018-09-12 18:03:20.403277\n"
+"POT-Creation-Date: 2018-12-09 11:25+0000\n"
+"PO-Revision-Date: 2018-12-09 11:26:31.542679\n"
 "Last-Translator: \n"
 "Language-Team: openedx-translation <openedx-translation@googlegroups.com>\n"
 "MIME-Version: 1.0\n"
@@ -7896,7 +7896,6 @@ msgid "Add New Component"
 msgstr ""
 
 #: cms/templates/js/advanced_entry.underscore
-#: cms/templates/js/advanced_option_entry.underscore
 msgid "Deprecated"
 msgstr ""
 
