@@ -881,8 +881,8 @@ class RegistrationView(APIView):
                                 field_name, default=field_overrides[field_name]
                             )
 
-                    if settings.CUSTOM_SSO_FIELDS_SYNC:
-                        for field_name in settings.CUSTOM_SSO_FIELDS_SYNC:
+                    if configuration_helpers.get_value("CUSTOM_SSO_FIELDS_SYNC", settings.CUSTOM_SSO_FIELDS_SYNC):
+                        for field_name in configuration_helpers.get_value("CUSTOM_SSO_FIELDS_SYNC", settings.CUSTOM_SSO_FIELDS_SYNC):
                             if field_name in field_overrides:
                                 form_desc.override_field_properties(
                                     field_name,
