@@ -258,8 +258,8 @@ class ProviderConfig(ConfigurationModel):
             'username': suggested_username,
         }
 
-        if settings.CUSTOM_SSO_FIELDS_SYNC:
-            for field in settings.CUSTOM_SSO_FIELDS_SYNC:
+        if configuration_helpers.get_value('CUSTOM_LOGOUT_REDIRECT_URL'):
+            for field in configuration_helpers.get_value('CUSTOM_LOGOUT_REDIRECT_URL'):
                 registration_sso_overrides[field] = details.get(field)
 
         return registration_sso_overrides
