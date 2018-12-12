@@ -150,8 +150,7 @@ class Theme(object):
         Returns:
             Path: absolute path to current theme's contents
         """
-        from openedx.core.djangoapps.theming import helpers
-        root_name = helpers.get_project_root_name()
+        root_name = get_project_root_name_from_settings(self.project_root)
         return Path(self.themes_base_dir) / self.theme_dir_name / 'customer_specific' / root_name
 
     @property
@@ -162,8 +161,7 @@ class Theme(object):
         Returns:
             Path: absolute path to current theme's template directory
         """
-        from openedx.core.djangoapps.theming import helpers
-        root_name = helpers.get_project_root_name()
+        root_name = get_project_root_name_from_settings(self.project_root)
         return Path(self.theme_dir_name) / 'customer_specific' / root_name / 'templates'
 
     @property
