@@ -1,5 +1,5 @@
-"""Tests throttling (rate limiting) for the Tahoe API
-
+"""
+Tests throttling (rate limiting) for the Tahoe API
 """
 
 from django.core.urlresolvers import reverse

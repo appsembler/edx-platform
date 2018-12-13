@@ -78,7 +78,11 @@ class TahoeAuthMixin(object):
 
 
 class RegistrationViewSet(TahoeAuthMixin, viewsets.ViewSet):
+    """
+    Allows remote clients to register new users via API
 
+    This API has a rate limit of 60 requets per minutes
+    """
     throttle_classes = (TahoeAPIUserThrottle,)
     http_method_names = ['post', 'head']
 

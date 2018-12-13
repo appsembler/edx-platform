@@ -49,7 +49,8 @@ def get_api_classes():
 
 @ddt.ddt
 class AppsemblerAPIPermissionsTests(TestCase):
-    """See the comments in the ``get_api_classes`` function above
+    """
+    See the comments in the ``get_api_classes`` function above
     """
     def test_api_classes_are_being_found(self):
         self.assertTrue(get_api_classes())  # Ensure the API classes are filtered correctly

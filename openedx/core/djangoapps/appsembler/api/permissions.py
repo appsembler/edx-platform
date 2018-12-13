@@ -47,11 +47,8 @@ class IsSiteAdminUser(BasePermission):
         return is_site_admin_user(request)
 
 
-#
-# Throttling
-#
-
-
 class TahoeAPIUserThrottle(UserRateThrottle):
-    """Limit the number of requests users can make to the enrollment API."""
+    """
+    Limit the rate of requests users can make to the Tahoe API
+    """
     rate = '60/minute'
