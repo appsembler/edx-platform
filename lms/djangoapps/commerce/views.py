@@ -37,13 +37,18 @@ def checkout_cancel(_request):
 @csrf_exempt
 def checkout_error(_request):
     """ Checkout/payment error view. """
+    try:
+        error_text = _request.GET.get('RESPMSG', '').split(":")[0]
+    except:
+        error_text = ""
+
     context = {
         'payment_support_email': configuration_helpers.get_value(
             'payment_support_email', settings.PAYMENT_SUPPORT_EMAIL,
-        )
+        ),
+        'error_text': error_text
     }
     return render_to_response("commerce/checkout_error.html", context)
-
 
 @csrf_exempt
 @login_required
