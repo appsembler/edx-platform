@@ -258,7 +258,7 @@ class ProviderConfig(ConfigurationModel):
             'username': suggested_username,
         }
 
-        if configuration_helpers.get_value("CUSTOM_SSO_FIELDS_SYNC", settings.CUSTOM_SSO_FIELDS_SYNC):
+        if configuration_helpers.get_value('CUSTOM_SSO_FIELDS_SYNC', '') or hasattr(settings, 'CUSTOM_SSO_FIELDS_SYNC'):
             for field in configuration_helpers.get_value("CUSTOM_SSO_FIELDS_SYNC", settings.CUSTOM_SSO_FIELDS_SYNC):
                 registration_sso_overrides[field] = details.get(field)
 
