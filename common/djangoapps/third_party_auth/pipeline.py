@@ -734,3 +734,22 @@ def associate_by_email_if_login_api(auth_entry, backend, details, user, *args, *
             # email address and the legitimate user would now login to the illegitimate
             # account.
             return association_response
+
+
+@partial.partial
+def associate_provider_by_email(auth_entry, backend, details, user, *args, **kwargs):
+    """
+    This pipeline step associates existing user with it's provider to new provider
+    """
+
+    association_response = associate_by_email(backend, details, user, *args, **kwargs)
+    if (
+        association_response and
+        association_response.get('user') and
+        association_response['user'].is_active
+    ):
+        # Only return the user matched by email if their email has been activated.
+        # Otherwise, an illegitimate user can create an account with another user's
+        # email address and the legitimate user would now login to the illegitimate
+        # account.
+        return association_response

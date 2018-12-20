@@ -46,6 +46,7 @@ def apply_settings(django_settings):
         'social.pipeline.social_auth.social_uid',
         'social.pipeline.social_auth.auth_allowed',
         'social.pipeline.social_auth.social_user',
+        'third_party_auth.pipeline.associate_provider_by_email',
         'third_party_auth.pipeline.associate_by_email_if_login_api',
         'social.pipeline.user.get_username',
         'third_party_auth.pipeline.set_pipeline_timeout',
