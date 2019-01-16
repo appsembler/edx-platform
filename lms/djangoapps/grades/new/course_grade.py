@@ -12,7 +12,7 @@ from lazy import lazy
 
 from lms.djangoapps.course_blocks.api import get_course_blocks
 from lms.djangoapps.grades.config.models import PersistentGradesEnabledFlag
-from openedx.core.djangoapps.signals.signals import COURSE_GRADE_CHANGED
+from openedx.core.djangoapps.signals.signals import COURSE_GRADE_CHANGED, COURSE_GRADE_NOW_PASSED
 from xmodule import block_metadata_utils
 
 from ..models import PersistentCourseGrade
@@ -168,6 +168,8 @@ class CourseGrade(object):
             )
 
         self._signal_listeners_when_grade_computed()
+        if not read_only and self.passed:
+            self._signal_listeners_when_course_passed()
         self._log_event(
             log.warning,
             u"compute_and_update, read_only: {0}, subsections read/created: {1}/{2}, blocks accessed: {3}, total "
@@ -305,6 +307,22 @@ class CourseGrade(object):
         for receiver, response in responses:
             log.debug(
                 'Signal fired when student grade is calculated. Receiver: %s. Response: %s',
+                receiver, response
+            )
+
+    def _signal_listeners_when_course_passed(self):
+        """
+        Signal all listeners when course is passed
+        """
+        responses = COURSE_GRADE_NOW_PASSED.send_robust(
+            sender=None,
+            user=self.student,
+            course_key=self.course.id,
+        )
+
+        for receiver, response in responses:
+            log.debug(
+                'Signal fired when course passing grade cutoff is passed. Receiver: %s. Response: %s',
                 receiver, response
             )
 

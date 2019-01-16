@@ -5,6 +5,7 @@ from certificates import api as certs_api
 from certificates.models import CertificateGenerationConfiguration
 from certificates.signals import _listen_for_course_publish
 from openedx.core.djangoapps.self_paced.models import SelfPacedConfiguration
+from student.tests.factories import CourseEnrollmentFactory, UserFactory
 from xmodule.modulestore.tests.factories import CourseFactory
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 
@@ -29,3 +30,47 @@ class SelfGeneratedCertsSignalTest(ModuleStoreTestCase):
 
         _listen_for_course_publish('store', self.course.id)
         self.assertTrue(certs_api.cert_generation_enabled(self.course.id))
+
+
+class PassingGradeCertsTest(ModuleStoreTestCase):
+    """
+    Tests for certificate generation task firing on passing grade receipt
+    """
+    def setUp(self):
+        super(PassingGradeCertsTest, self).setUp()
+        self.course = CourseFactory.create(self_paced=True)
+        self.user = UserFactory.create()
+        self.enrollment = CourseEnrollmentFactory(
+            user=self.user,
+            course_id=self.course.id,
+            is_active=True,
+            mode="verified",
+        )
+        self.ip_course = CourseFactory.create(self_paced=False)
+
+    def test_cert_generation_on_passing_self_paced(self):
+        with mock.patch(
+            'lms.djangoapps.certificates.signals.generate_certificate.apply_async',
+            return_value=None
+        ) as mock_generate_certificate_apply_async:
+            with waffle.waffle().override(waffle.SELF_PACED_ONLY, active=True):
+                grade_factory = CourseGradeFactory()
+                with mock_get_score(0, 2):
+                    grade_factory.update(self.user, self.course)
+                    mock_generate_certificate_apply_async.assert_not_called(
+                        student=self.user,
+                        course_key=self.course.id
+                    )
+                with mock_get_score(1, 2):
+                    grade_factory.update(self.user, self.course)
+                    mock_generate_certificate_apply_async.assert_called(
+                        student=self.user,
+                        course_key=self.course.id
+                    )
+                # Certs are not re-fired after passing
+                with mock_get_score(2, 2):
+                    grade_factory.update(self.user, self.course)
+                    mock_generate_certificate_apply_async.assert_not_called(
+                        student=self.user,
+                        course_key=self.course.id
+                    )
