@@ -4,3 +4,6 @@ raven==5.21.0
 
 # for usage aggregation to Google Cloud SQL
 psycopg2==2.7.1
+
+# For Figures
+django-webpack-loader==0.4.1
