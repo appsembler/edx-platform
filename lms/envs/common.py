@@ -1183,6 +1183,8 @@ MIDDLEWARE_CLASSES = (
 
     'openedx.core.djangoapps.theming.middleware.CurrentSiteThemeMiddleware',
 
+    'waffle.middleware.WaffleMiddleware',
+
     # This must be last
     'openedx.core.djangoapps.site_configuration.middleware.SessionCookieDomainOverrideMiddleware',
 )
@@ -1919,6 +1921,7 @@ INSTALLED_APPS = (
 
     # Database-backed configuration
     'config_models',
+    'waffle',
 
     # Monitor the status of services
     'openedx.core.djangoapps.service_status',
@@ -2155,6 +2158,9 @@ INSTALLED_APPS = (
 
     # Unusual migrations
     'database_fixups',
+
+    # Waffle related utilities (brought in from Ginkgo for auto-cert on passing)
+    'openedx.core.djangoapps.waffle_utils',
 )
 
 # Migrations which are not in the standard module "migrations"
