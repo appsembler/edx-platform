@@ -1,6 +1,7 @@
 """
 Badge Awarding backend for Badgr-Server.
 """
+import json
 import logging
 import mimetypes
 
@@ -146,12 +147,34 @@ class BadgrBackend(BadgeBackend):
         self._send_assertion_created_event(user, assertion)
         return assertion
 
-    @staticmethod
-    def _get_headers():
+    def _get_v2_auth_token(self):
+        """ Get a Badgr v2 auth token from cache or generate and return a new one.
+        """
+        cache = settings.CACHES['default']
+        cache_key = 'badgr_api_auth_token'
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
+        else:
+            # get a new auth token using Badgr refresh token
+            data = json.dumps({'grant_type': 'refresh_token', 'refresh_token': settings.BADGR_API_TOKEN})
+            response = requests.post(self._badge_url(slug), data=data, timeout=settings.BADGR_TIMEOUT)
+            if response.ok:
+                token = response.data.get('access_token')
+                cache.set(cache_key, token, getattr(settings, 'BADGR_API_TOKEN_EXPIRATION', 86400))  #24h
+                return token
+            else:
+                rseponse.raise_for_status()
+
+    def _get_headers(self):
         """
         Headers to send along with the request-- used for authentication.
         """
-        return {'Authorization': 'Token {}'.format(settings.BADGR_API_TOKEN)}
+        # if using v2 or later Badgr API get new auth token if expired
+        if settings.BADGR_API_VERSION == 'v1':
+            return {'Authorization': 'Token {}'.format(settings.BADGR_API_TOKEN)}
+        else:
+            return {'Authorization': 'Bearer {}'.format(self._get_v2_auth_token())}
 
     def _ensure_badge_created(self, badge_class):
         """
