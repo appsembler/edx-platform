@@ -19,6 +19,7 @@ from eventtracking import tracker
 from badges.models import BadgeAssertion
 
 MAX_SLUG_LENGTH = 255
+BADGR_TOKEN_CACHE_KEY = 'badgr_api_auth_token'
 LOGGER = logging.getLogger(__name__)
 
 
@@ -38,7 +39,7 @@ class BadgrBackend(BadgeBackend):
         """
         Base URL for all API requests.
         """
-        return "{}/v1/issuer/issuers/{}".format(settings.BADGR_BASE_URL, settings.BADGR_ISSUER_SLUG)
+        return "{}/{}/issuer/issuers/{}".format(settings.BADGR_BASE_URL, settings.BADGR_API_VERSION, settings.BADGR_ISSUER_SLUG)
 
     @lazy
     def _badge_create_url(self):
@@ -150,15 +151,15 @@ class BadgrBackend(BadgeBackend):
     def _get_v2_auth_token(self):
         """ Get a Badgr v2 auth token from cache or generate and return a new one.
         """
-        cache = settings.CACHES['default']
-        cache_key = 'badgr_api_auth_token'
-        cached = cache.get(cache_key)
+        cache = settings.CACHES['default']        
+        cached = cache.get(BADGR_TOKEN_CACHE_KEY)
         if cached:
             return cached
         else:
             # get a new auth token using Badgr refresh token
             data = json.dumps({'grant_type': 'refresh_token', 'refresh_token': settings.BADGR_API_TOKEN})
-            response = requests.post(self._badge_url(slug), data=data, timeout=settings.BADGR_TIMEOUT)
+            token_url = '{}/{}/o/token'.format(settings.BADGR_BASE_URL, settings.BADGR_API_VERSION)
+            response = requests.post(token_url, data=data, timeout=settings.BADGR_TIMEOUT)
             if response.ok:
                 token = response.data.get('access_token')
                 cache.set(cache_key, token, getattr(settings, 'BADGR_API_TOKEN_EXPIRATION', 86400))  #24h
@@ -170,8 +171,9 @@ class BadgrBackend(BadgeBackend):
         """
         Headers to send along with the request-- used for authentication.
         """
+        # v1 is deprecated by Badgr.io
         # if using v2 or later Badgr API get new auth token if expired
-        if settings.BADGR_API_VERSION == 'v1':
+        if getattr(settings, 'BADGR_API_VERSION', 'v2') == 'v1':
             return {'Authorization': 'Token {}'.format(settings.BADGR_API_TOKEN)}
         else:
             return {'Authorization': 'Bearer {}'.format(self._get_v2_auth_token())}
