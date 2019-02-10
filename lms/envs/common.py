@@ -2514,7 +2514,9 @@ CERT_NAME_LONG = "Certificate of Achievement"
 BADGING_BACKEND = 'badges.backends.badgr.BadgrBackend'
 
 # Be sure to set up images for course modes using the BadgeImageConfiguration model in the certificates app.
+BADGR_API_VERSION = "v1"
 BADGR_API_TOKEN = None
+BADGR_API_TOKEN_EXPIRATION = 86400  # 24h
 # Do not add the trailing slash here.
 BADGR_BASE_URL = "http://localhost:8005"
 BADGR_ISSUER_SLUG = "example-issuer"

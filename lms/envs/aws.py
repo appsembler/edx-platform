@@ -359,7 +359,12 @@ FEEDBACK_SUBMISSION_EMAIL = ENV_TOKENS.get("FEEDBACK_SUBMISSION_EMAIL")
 MKTG_URLS = ENV_TOKENS.get('MKTG_URLS', MKTG_URLS)
 
 # Badgr API
+BADGR_API_VERSION = ENV_TOKENS.get('BADGR_API_VERSION', 'v2')
+# to retrieve token using Badgr.io, 'curl -X POST 'https://api.badgr.io/o/token' -d "username=YOUREMAIL&password=YOURPASSWORD"'
+# as of Badgr API v2, older permanent auth tokens are deprecated and not returned
+# this will return a refresh token for 'public' user with scope rw:backpack rw:profile rw:issuer
 BADGR_API_TOKEN = ENV_TOKENS.get('BADGR_API_TOKEN', BADGR_API_TOKEN)
+BADGR_API_TOKEN_EXPIRATION = ENV_TOKENS.get('BADGR_API_TOKEN_EXPIRATION', BADGR_API_TOKEN_EXPIRATION)
 BADGR_BASE_URL = ENV_TOKENS.get('BADGR_BASE_URL', BADGR_BASE_URL)
 BADGR_ISSUER_SLUG = ENV_TOKENS.get('BADGR_ISSUER_SLUG', BADGR_ISSUER_SLUG)
 BADGR_TIMEOUT = ENV_TOKENS.get('BADGR_TIMEOUT', BADGR_TIMEOUT)
