@@ -1,12 +1,12 @@
 """
 Badge Awarding backend for Badgr-Server.
 """
-import json
 import logging
 import mimetypes
 
 import requests
 from django.conf import settings
+from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
@@ -17,8 +17,10 @@ from badges.backends.base import BadgeBackend
 from badges.models import BadgeAssertion
 from eventtracking import tracker
 
+
 MAX_SLUG_LENGTH = 255
-BADGR_TOKEN_CACHE_KEY = 'badgr_api_auth_token'
+BADGR_AUTH_TOKEN_CACHE_KEY = 'badgr_api_auth_token'
+BADGR_REFRESH_TOKEN_CACHE_KEY = 'badgr_api_refresh_token'
 LOGGER = logging.getLogger(__name__)
 
 
@@ -150,21 +152,24 @@ class BadgrBackend(BadgeBackend):
     def _get_v2_auth_token(self):
         """ Get a Badgr v2 auth token from cache or generate and return a new one.
         """
-        cache = settings.CACHES['default']        
-        cached = cache.get(BADGR_TOKEN_CACHE_KEY)
+        cached = cache.get(BADGR_AUTH_TOKEN_CACHE_KEY)
         if cached:
             return cached
         else:
-            # get a new auth token using Badgr refresh token
-            data = json.dumps({'grant_type': 'refresh_token', 'refresh_token': settings.BADGR_API_TOKEN})
-            token_url = '{}/{}/o/token'.format(settings.BADGR_BASE_URL, settings.BADGR_API_VERSION)
-            response = requests.post(token_url, data=data, timeout=settings.BADGR_TIMEOUT)
+            # get a new auth token using Badgr refresh token, which is renewed each time 
+            # an access token is requested. Using v2, set initial BADGR_API_TOKEN to refresh token
+            refresh_token = cache.get(BADGR_REFRESH_TOKEN_CACHE_KEY, settings.BADGR_API_TOKEN)
+            params = {'grant_type': 'refresh_token', 'refresh_token': settings.BADGR_API_TOKEN}
+            token_url = '{}/o/token'.format(settings.BADGR_BASE_URL, settings.BADGR_API_VERSION)
+            response = requests.post(token_url, params=params, timeout=settings.BADGR_TIMEOUT)
             if response.ok:
-                token = response.data.get('access_token')
-                cache.set(cache_key, token, getattr(settings, 'BADGR_API_TOKEN_EXPIRATION', 86400))  #24h
+                token = response.json().get('access_token')
+                refresh_token = response.json().get('refresh_token')  # refresh token updated each time
+                cache.set(BADGR_AUTH_TOKEN_CACHE_KEY, token, getattr(settings, 'BADGR_API_TOKEN_EXPIRATION', 86400))  #24h
+                cache.set(BADGR_REFRESH_TOKEN_CACHE_KEY, refresh_token)
                 return token
             else:
-                rseponse.raise_for_status()
+                response.raise_for_status()
 
     def _get_headers(self):
         """
