@@ -40,7 +40,10 @@ class BadgrBackend(BadgeBackend):
         """
         Base URL for all API requests.
         """
-        return "{}/{}/issuer/issuers/{}".format(settings.BADGR_BASE_URL, settings.BADGR_API_VERSION, settings.BADGR_ISSUER_SLUG)
+        if settings.BADGR_API_VERSION == 'v1':
+            return "{}/{}/issuer/issuers/{}".format(settings.BADGR_BASE_URL, settings.BADGR_API_VERSION, settings.BADGR_ISSUER_SLUG)
+        else:
+            return "{}/{}/issuers/{}".format(settings.BADGR_BASE_URL, settings.BADGR_API_VERSION, settings.BADGR_ISSUER_SLUG)
 
     @lazy
     def _badge_create_url(self):
