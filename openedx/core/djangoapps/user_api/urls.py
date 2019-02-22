@@ -6,7 +6,11 @@ from django.conf import settings
 from django.conf.urls import patterns, url
 
 from ..profile_images.views import ProfileImageView
-from .accounts.views import AccountDeactivationView, AccountViewSet
+from .accounts.views import (
+    AccountDeactivationView,
+    AccountViewSet,
+    UsernameReplacementView
+)
 from .preferences.views import PreferencesDetailView, PreferencesView
 from .verification_api.views import PhotoVerificationStatusView
 
@@ -43,6 +47,12 @@ urlpatterns = patterns(
         PhotoVerificationStatusView.as_view(),
         name='verification_status'
     ),
+    url(
+        r'^v1/accounts/replace_usernames/$',
+        UsernameReplacementView.as_view(),
+        name='username_replacement'
+    ),
+
     url(
         r'^v1/preferences/{}$'.format(settings.USERNAME_PATTERN),
         PreferencesView.as_view(),
