@@ -36,6 +36,7 @@ from student.models import User
 
 log = logging.getLogger(__name__)
 
+
 class AccountViewSet(ViewSet):
     """
         **Use Cases**
@@ -267,6 +268,9 @@ class UsernameReplacementView(APIView):
 
     API will recieve a list of current usernames and their requested new
     username. If their new username is taken, it will randomly assign a new username.
+
+    This API will be called first, before calling the APIs in other services as this
+    one handles the checks on the usernames provided.
     """
     authentication_classes = (JwtAuthentication, )
     permission_classes = (permissions.IsAuthenticated, CanReplaceUsername)
@@ -308,13 +312,9 @@ class UsernameReplacementView(APIView):
         # (model_name, column_name)
         MODELS_WITH_USERNAME = (
             ('auth.user', 'username'),
-            ('consent.DataSharingConsent', 'username'),
-            ('consent.HistoricalDataSharingConsent', 'username'),
             ('credit.CreditEligibility', 'username'),
             ('credit.CreditRequest', 'username'),
-            ('credit.CreditRequirementStatus', 'username'),
-            ('user_api.UserRetirementPartnerReportingStatus', 'original_username'),
-            ('user_api.UserRetirementStatus', 'original_username')
+            ('credit.CreditRequirementStatus', 'username')
         )
         UNIQUE_SUFFIX_LENGTH = getattr(settings, 'SOCIAL_AUTH_UUID_LENGTH', 4)
 
@@ -413,4 +413,3 @@ class UsernameReplacementView(APIView):
             new=new_username,
         ))
         return True
-

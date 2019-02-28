@@ -7,6 +7,7 @@ from rest_framework import permissions
 
 USERNAME_REPLACEMENT_GROUP = "username_replacement_admin"
 
+
 class CanDeactivateUser(permissions.BasePermission):
     """
     Grants access to AccountDeactivationView if the requesting user is a superuser
@@ -14,6 +15,7 @@ class CanDeactivateUser(permissions.BasePermission):
     """
     def has_permission(self, request, view):
         return request.user.has_perm('student.can_deactivate_users')
+
 
 class CanReplaceUsername(permissions.BasePermission):
     """
