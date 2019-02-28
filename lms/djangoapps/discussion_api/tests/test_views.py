@@ -10,6 +10,10 @@ import httpretty
 import mock
 from django.core.urlresolvers import reverse
 from nose.plugins.attrib import attr
+from django.conf import settings
+from django.urls import reverse
+from edx_oauth2_provider.tests.factories import ClientFactory, AccessTokenFactory
+from opaque_keys.edx.keys import CourseKey
 from pytz import UTC
 from rest_framework.parsers import JSONParser
 from rest_framework.test import APIClient
@@ -151,6 +155,153 @@ class CourseViewTest(DiscussionAPIViewTestMixin, ModuleStoreTestCase):
             }
         )
 
+
+@httpretty.activate
+@mock.patch.dict("django.conf.settings.FEATURES", {"ENABLE_DISCUSSION_SERVICE": True})
+class RetireViewTest(DiscussionAPIViewTestMixin, ModuleStoreTestCase):
+    """Tests for CourseView"""
+    def setUp(self):
+        super(RetireViewTest, self).setUp()
+        RetirementState.objects.create(state_name='PENDING', state_execution_order=1)
+        self.retire_forums_state = RetirementState.objects.create(state_name='RETIRE_FORUMS', state_execution_order=11)
+
+        self.retirement = UserRetirementStatus.create_retirement(self.user)
+        self.retirement.current_state = self.retire_forums_state
+        self.retirement.save()
+
+        self.superuser = SuperuserFactory()
+        self.retired_username = get_retired_username_by_username(self.user.username)
+        self.url = reverse("retire_discussion_user")
+
+    def assert_response_correct(self, response, expected_status, expected_content):
+        """
+        Assert that the response has the given status code and content
+        """
+        self.assertEqual(response.status_code, expected_status)
+
+        if expected_content:
+            self.assertEqual(text_type(response.content), expected_content)
+
+    def build_jwt_headers(self, user):
+        """
+        Helper function for creating headers for the JWT authentication.
+        """
+        token = create_jwt_for_user(user)
+        headers = {'HTTP_AUTHORIZATION': 'JWT ' + token}
+        return headers
+
+    def test_basic(self):
+        """
+        Check successful retirement case
+        """
+        self.register_get_user_retire_response(self.user)
+        headers = self.build_jwt_headers(self.superuser)
+        data = {'username': self.user.username}
+        response = self.client.post(self.url, data, **headers)
+        self.assert_response_correct(response, 204, "")
+
+    def test_downstream_forums_error(self):
+        """
+        Check that we bubble up errors from the comments service
+        """
+        self.register_get_user_retire_response(self.user, status=500, body="Server error")
+        headers = self.build_jwt_headers(self.superuser)
+        data = {'username': self.user.username}
+        response = self.client.post(self.url, data, **headers)
+        self.assert_response_correct(response, 500, '"Server error"')
+
+    def test_nonexistent_user(self):
+        """
+        Check that we handle unknown users appropriately
+        """
+        nonexistent_username = "nonexistent user"
+        self.retired_username = get_retired_username_by_username(nonexistent_username)
+        data = {'username': nonexistent_username}
+        headers = self.build_jwt_headers(self.superuser)
+        response = self.client.post(self.url, data, **headers)
+        self.assert_response_correct(response, 404, None)
+
+    def test_not_authenticated(self):
+        """
+        Override the parent implementation of this, we JWT auth for this API
+        """
+        pass
+
+@httpretty.activate
+@mock.patch('django.conf.settings.USERNAME_REPLACEMENT_WORKER', 'test_replace_username_service_worker')
+@mock.patch.dict("django.conf.settings.FEATURES", {"ENABLE_DISCUSSION_SERVICE": True})
+class ReplaceUsernameViewTest(DiscussionAPIViewTestMixin, ModuleStoreTestCase):
+    """Tests for ReplaceUsernameView"""
+    def setUp(self):
+        super(ReplaceUsernameViewTest, self).setUp()
+        self.client_user = UserFactory()
+        self.client_user.username = "test_replace_username_service_worker"
+        self.new_username = "test_username_replacement"
+        self.url = reverse("replace_discussion_username")
+
+    def assert_response_correct(self, response, expected_status, expected_content):
+        """
+        Assert that the response has the given status code and content
+        """
+        self.assertEqual(response.status_code, expected_status)
+
+        if expected_content:
+            self.assertEqual(text_type(response.content), expected_content)
+
+    def build_jwt_headers(self, user):
+        """
+        Helper function for creating headers for the JWT authentication.
+        """
+        token = create_jwt_for_user(user)
+        headers = {'HTTP_AUTHORIZATION': 'JWT ' + token}
+        return headers
+
+    def test_missing_params(self):
+        headers = self.build_jwt_headers(self.client_user)
+        # Using this instead of ddt so we can access self.user
+        bad_post_contents = (
+            {},
+            {"current_username": self.user.username},
+            {"new_username": "test_username_replacement"},
+        )
+        for data in bad_post_contents:
+            response = self.client.post(self.url, data, **headers)
+            self.assert_response_correct(response, 400, "")
+
+    def test_basic(self):
+        """ Check successful replacement """
+        self.register_get_username_replacement_response(self.user)
+        headers = self.build_jwt_headers(self.client_user)
+        data = {"current_username": self.user.username, "new_username": self.new_username}
+        response = self.client.post(self.url, data, **headers)
+        self.assert_response_correct(response, 204, "")
+
+    def test_nonexistant_user(self):
+        self.register_get_username_replacement_response(self.user)
+        headers = self.build_jwt_headers(self.client_user)
+        data = {"current_username": "non-existant-user", "new_username": self.new_username}
+        response = self.client.post(self.url, data, **headers)
+        self.assert_response_correct(response, 404, "")
+
+    def test_client_404(self):
+        self.register_get_username_replacement_response(self.user, status=404)
+        headers = self.build_jwt_headers(self.client_user)
+        data = {"current_username": self.user.username, "new_username": self.new_username}
+        response = self.client.post(self.url, data, **headers)
+        self.assert_response_correct(response, 404, "")
+
+    def test_client_500(self):
+        self.register_get_username_replacement_response(self.user, status=500)
+        headers = self.build_jwt_headers(self.client_user)
+        data = {"current_username": self.user.username, "new_username": self.new_username}
+        response = self.client.post(self.url, data, **headers)
+        self.assert_response_correct(response, 500, "")
+
+    def test_not_authenticated(self):
+        """
+        Override the parent implementation of this, we JWT auth for this API
+        """
+        pass
 
 @ddt.ddt
 @mock.patch.dict("django.conf.settings.FEATURES", {"ENABLE_DISCUSSION_SERVICE": True})

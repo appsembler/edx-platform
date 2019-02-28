@@ -202,6 +202,25 @@ class CommentsServiceMockMixin(object):
             status=200
         )
 
+    def register_get_user_retire_response(self, user, status=200, body=""):
+        """Register a mock response for GET on the CS user retirement endpoint"""
+        assert httpretty.is_enabled(), 'httpretty must be enabled to mock calls.'
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://localhost:4567/api/v1/users/{id}/retire".format(id=user.id),
+            body=body,
+            status=status
+        )
+
+    def register_get_username_replacement_response(self, user, status=200, body=""):
+        assert httpretty.is_enabled(), 'httpretty must be enabled to mock calls.'
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://localhost:4567/api/v1/users/{id}/replace_username".format(id=user.id),
+            body=body,
+            status=status
+        )
+
     def register_subscribed_threads_response(self, user, threads, page, num_pages):
         """Register a mock response for GET on the CS user instance endpoint"""
         httpretty.register_uri(

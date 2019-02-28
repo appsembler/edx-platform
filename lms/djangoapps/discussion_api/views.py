@@ -1,6 +1,7 @@
 """
 Discussion API views
 """
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from opaque_keys.edx.keys import CourseKey
 from rest_framework.exceptions import UnsupportedMediaType
@@ -8,6 +9,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSet
+from rest_framework import permissions
 
 from discussion_api.api import (
     create_comment,
@@ -24,8 +26,12 @@ from discussion_api.api import (
     update_thread
 )
 from discussion_api.forms import CommentGetForm, CommentListGetForm, ThreadListGetForm
+from lms.lib import comment_client
 from openedx.core.lib.api.parsers import MergePatchParser
 from openedx.core.lib.api.view_utils import DeveloperErrorViewMixin, view_auth_classes
+from openedx.core.djangoapps.user_api.accounts.permissions import CanReplaceUsername
+from edx_rest_framework_extensions.authentication import JwtAuthentication
+from util.json_request import JsonResponse
 from xmodule.modulestore.django import modulestore
 
 
@@ -512,3 +518,87 @@ class CommentViewSet(DeveloperErrorViewMixin, ViewSet):
         if request.content_type != MergePatchParser.media_type:
             raise UnsupportedMediaType(request.content_type)
         return Response(update_comment(request, comment_id, request.data))
+
+
+class ReplaceUsernameView(APIView):
+    """
+    WARNING: This API is only meant to be used as part of a larger job that
+    updates usernames across all services. DO NOT run this alone or users will
+    not match across the system and things will be broken.
+    API will recieve a list of current usernames and their new username.
+    POST /api/discussion/v1/accounts/replace_usernames/
+        {
+            "username_mappings": [
+                {"current_username_1": "desired_username_1"},
+                {"current_username_2": "desired_username_2"}
+            ]
+        }
+    """
+
+    authentication_classes = (JwtAuthentication,)
+    permission_classes = (permissions.IsAuthenticated, CanReplaceUsername)
+
+    def post(self, request):
+        """
+        Implements the username replacement endpoint
+        """
+
+        username_mappings = request.data.get("username_mappings")
+
+        if not self._has_valid_schema(username_mappings):
+            raise ValidationError("Request data does not match schema")
+
+        successful_replacements, failed_replacements = [], []
+
+        for username_pair in username_mappings:
+            current_username = list(username_pair.keys())[0]
+            new_username = list(username_pair.values())[0]
+            successfully_replaced = self._replace_username(current_username, new_username)
+            if successfully_replaced:
+                successful_replacements += {current_username: new_username}
+            else:
+                failed_replacements += {current_username: new_username}
+        return JsonResponse({
+            "successful_replacements": successful_replacements,
+            "failed_replacements": failed_replacements,
+        })
+
+    def _replace_username(self, current_username, new_username):
+        try:
+            # This API will be called after the regular LMS API, so the username in
+            # the DB will have already been updated to new_username
+            current_user = User.objects.get(username=new_username)
+            cc_user = comment_client.User.from_django_user(current_user)
+            cc_user.replace_username(new_username)
+        except User.DoesNotExist:
+            log.warning(
+                u"Unable to change username from %s to %s in forums because %s doesn't exist in LMS DB.",
+                current_username,
+                new_username,
+                new_username,
+            )
+            return False
+        except comment_client.CommentClientRequestError as exc:
+            log.exception(
+                u"Unable to change username from %s to %s in forums because forums API call failed with: %s.",
+                current_username,
+                new_username,
+                exc,
+            )
+            return False
+
+        log.info(
+            u"Successfully changed username from %s to %s in forums.",
+            current_username,
+            new_username,
+        )
+        return True
+
+    def _has_valid_schema(self, post_data):
+        """ Verifies the data is a list of objects with a single key:value pair """
+        if not isinstance(post_data, list):
+            return False
+        for obj in post_data:
+            if not (isinstance(obj, dict) and len(obj) == 1):
+                return False
+        return True
