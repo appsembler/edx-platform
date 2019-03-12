@@ -38,7 +38,6 @@ def send_activation_email(request):
             from_email=configuration_helpers.get_value(
                 'email_from_address', settings.DEFAULT_FROM_EMAIL),
             request=request,
-            domain_override=request.get_host(),
             subject_template_name='appsembler_api/set_password_subject.txt',
             email_template_name='appsembler_api/set_password_email.html')
         return True
