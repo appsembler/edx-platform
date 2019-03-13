@@ -134,9 +134,14 @@ class BadgrBackend(BadgeBackend):
         """
         Register an assertion with the Badgr server for a particular user for a specific class.
         """
+        # note that Badgr.io requires a notification on the first award to a given recipient
+        # identifier to comply with GDPR, so that will be sent regardless of settings
+        # subsequent awards will obey the setting
         data = {
             'email': user.email,
             'evidence': evidence_url,
+            'create_notification': settings.BADGR_API_NOTIFICATIONS_ENABLED
+
         }
         response = requests.post(
             self._assertion_url(badge_class.slug), headers=self._get_headers(), data=data,
@@ -203,3 +208,4 @@ class BadgrBackend(BadgeBackend):
         """
         self._ensure_badge_created(badge_class)
         return self._create_assertion(badge_class, user, evidence_url)
+
