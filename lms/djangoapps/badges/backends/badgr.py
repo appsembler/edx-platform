@@ -6,7 +6,7 @@ import mimetypes
 
 import requests
 from django.conf import settings
-from django.core.cache import cache
+from django.core.cache import caches
 from django.core.exceptions import ImproperlyConfigured
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
@@ -20,8 +20,8 @@ from eventtracking import tracker
 
 
 MAX_SLUG_LENGTH = 255
-BADGR_AUTH_TOKEN_CACHE_KEY = 'badgr_api_auth_token'
-BADGR_REFRESH_TOKEN_CACHE_KEY = 'badgr_api_refresh_token'
+BADGR_API_AUTH_TOKEN_CACHE_KEY = 'badgr_api_auth_token'
+BADGR_API_REFRESH_TOKEN_CACHE_KEY = 'badgr_api_refresh_token'
 LOGGER = logging.getLogger(__name__)
 
 
@@ -30,40 +30,60 @@ class BadgrBackend(BadgeBackend):
     Backend for Badgr-Server by Concentric Sky. http://info.badgr.io/
     """
     badges = []
+    api_ver = settings.BADGR_API_VERSION
 
     def __init__(self):
         super(BadgrBackend, self).__init__()
-        if not settings.BADGR_API_TOKEN:
-            raise ImproperlyConfigured("BADGR_API_TOKEN not set.")
+        if self.api_ver != 'v1':
+            # initialize backend refresh token cache with initial values from settings
+            self.token_cache = caches[settings.BADGR_API_TOKEN_CACHE]
+            if not self.token_cache.get(BADGR_API_REFRESH_TOKEN_CACHE_KEY):
+                try:
+                    self.token_cache.set(BADGR_API_REFRESH_TOKEN_CACHE_KEY, settings.BADGR_API_REFRESH_TOKEN)
+                except AttributeError:
+                    raise ImproperlyConfigured("BADGR_API_REFRESH_TOKEN not set. See https://badgr.org/app-developers/api-guide/#quickstart")
 
     @lazy
     def _base_url(self):
         """
         Base URL for all API requests.
         """
-        if settings.BADGR_API_VERSION == 'v1':
-            return "{}/{}/issuer/issuers/{}".format(settings.BADGR_BASE_URL, settings.BADGR_API_VERSION, settings.BADGR_ISSUER_SLUG)
-        else:
-            return "{}/{}/issuers/{}".format(settings.BADGR_BASE_URL, settings.BADGR_API_VERSION, settings.BADGR_ISSUER_SLUG)
+        return "{}/{}".format(settings.BADGR_BASE_URL, settings.BADGR_API_VERSION)
+
+    @lazy
+    def _issuer_base_url(self):
+        """
+        Base URL for Issuer-specific requests."""
+        issuer_path = "issuer/issuers" if self.api_ver == 'v1' else "issuers"
+        return "{}/{}".format(self._base_url, issuer_path)
 
     @lazy
     def _badge_create_url(self):
         """
         URL for generating a new Badge specification
         """
-        return "{}/badges".format(self._base_url)
+        badges_path = "badges" if self.api_ver == 'v1' else "badgeclasses"
+        return "{}/{}/{}".format(self._issuer_base_url, settings.BADGR_ISSUER_SLUG, badges_path)
 
     def _badge_url(self, slug):
         """
-        Get the URL for a course's badge in a given mode.
+        Get the URL for a course's badge by slug.
         """
-        return "{}/{}".format(self._badge_create_url, slug)
+        if self.api_ver == 'v1':
+            return "{}/{}".format(self._badge_create_url, slug)
+        else:
+            return "{}/badgeclasses/{}".format(self._base_url, slug)
 
     def _assertion_url(self, slug):
         """
         URL for generating a new assertion.
         """
-        return "{}/assertions".format(self._badge_url(slug))
+        # v1: /v1/issuer/issuers/{issuer slug}/badges/{badge slug}/assertions
+        # v2: /v2/badgeclasses/{badge slug}/assertions
+        if self.api_ver == 'v1':
+            return "{}/{}/badges/{}/assertions".format(self._issuer_base_url, settings.BADGR_ISSUER_SLUG, slug)
+        else:
+            return "{}/badgeclasses/{}/assertions".format(self._base_url, slug)
 
     def _log_if_raised(self, response, data):
         """
@@ -135,17 +155,33 @@ class BadgrBackend(BadgeBackend):
         """
         Register an assertion with the Badgr server for a particular user for a specific class.
         """
-        # note that Badgr.io requires a notification on the first award to a given recipient
-        # identifier to comply with GDPR, so that will be sent regardless of settings
-        # subsequent awards will obey the setting
-        data = {
-            'email': user.email,
-            'evidence': evidence_url,
-            'create_notification': settings.BADGR_API_NOTIFICATIONS_ENABLED
-
+        evidence_url_key = 'evidence_url' if self.api_ver == 'v1' else 'url'
+        evidence = [
+            {evidence_url_key: evidence_url}
+        ]
+        if self.api_ver == 'v1':
+            data = {
+            'recipient_identifier': user.email,
+            'recipient_type': 'email',
+            'evidence_items': evidence,
+            'create_notification': settings.BADGR_API_NOTIFICATIONS_ENABLED,
         }
+        else:
+            recipient = {
+                'identity': user.email,
+                'type': 'email',
+            }
+
+            # note that Badgr.io requires a notification on the first award to a given recipient
+            # identifier to comply with GDPR, so that will be sent regardless of settings.
+            # Subsequent awards will obey the notifications setting
+            data = {
+                'recipient': recipient,
+                'notify': settings.BADGR_API_NOTIFICATIONS_ENABLED,
+                'evidence': evidence
+            }
         response = requests.post(
-            self._assertion_url(badge_class.slug), headers=self._get_headers(), data=data,
+            self._assertion_url(badge_class.slug), headers=self._get_headers(), json=data,
             timeout=settings.BADGR_TIMEOUT
         )
         self._log_if_raised(response, data)
@@ -161,21 +197,22 @@ class BadgrBackend(BadgeBackend):
     def _get_v2_auth_token(self):
         """ Get a Badgr v2 auth token from cache or generate and return a new one.
         """
-        cached = cache.get(BADGR_AUTH_TOKEN_CACHE_KEY)
-        if cached:
-            return cached
+         token_cached = self.token_cache.get(BADGR_API_AUTH_TOKEN_CACHE_KEY)
+        if token_cached:
+            return token_cached
         else:
+            # auth token expired or never set
             # get a new auth token using Badgr refresh token, which is renewed each time 
-            # an access token is requested. Using v2, set initial BADGR_API_TOKEN to refresh token
-            refresh_token = cache.get(BADGR_REFRESH_TOKEN_CACHE_KEY, settings.BADGR_API_TOKEN)
-            params = {'grant_type': 'refresh_token', 'refresh_token': settings.BADGR_API_TOKEN}
+            # an access token is requested.
+            refresh_token = self.token_cache.get(BADGR_API_REFRESH_TOKEN_CACHE_KEY)
+            data = {'grant_type': 'refresh_token', 'refresh_token': refresh_token}
             token_url = '{}/o/token'.format(settings.BADGR_BASE_URL, settings.BADGR_API_VERSION)
-            response = requests.post(token_url, params=params, timeout=settings.BADGR_TIMEOUT)
+            response = requests.post(token_url, data=data, timeout=settings.BADGR_TIMEOUT)
             if response.ok:
                 token = response.json().get('access_token')
                 refresh_token = response.json().get('refresh_token')  # refresh token updated each time
-                cache.set(BADGR_AUTH_TOKEN_CACHE_KEY, token, getattr(settings, 'BADGR_API_TOKEN_EXPIRATION', 86400))  #24h
-                cache.set(BADGR_REFRESH_TOKEN_CACHE_KEY, refresh_token)
+                self.token_cache.set(BADGR_API_AUTH_TOKEN_CACHE_KEY, token, getattr(settings, 'BADGR_API_TOKEN_EXPIRATION', 86400))  #24h
+                self.token_cache.set(BADGR_API_REFRESH_TOKEN_CACHE_KEY, refresh_token)
                 return token
             else:
                 response.raise_for_status()
@@ -186,7 +223,7 @@ class BadgrBackend(BadgeBackend):
         """
         # v1 is deprecated by Badgr.io
         # if using v2 or later Badgr API get new auth token if expired
-        if getattr(settings, 'BADGR_API_VERSION', 'v2') == 'v1':
+        if self.api_ver == 'v1':
             return {'Authorization': 'Token {}'.format(settings.BADGR_API_TOKEN)}
         else:
             return {'Authorization': 'Bearer {}'.format(self._get_v2_auth_token())}
@@ -209,4 +246,3 @@ class BadgrBackend(BadgeBackend):
         """
         self._ensure_badge_created(badge_class)
         return self._create_assertion(badge_class, user, evidence_url)
-

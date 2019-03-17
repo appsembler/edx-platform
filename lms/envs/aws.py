@@ -217,6 +217,17 @@ if 'loc_cache' not in CACHES:
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         'LOCATION': 'edx_location_mem_cache',
     }
+# Cache used for Badgr refresh tokens -- stored in database
+# otherwise, a system restart would cause loss of access to Badgr
+# as refresh tokens are rotated once used to acquire an auth token
+# database table must be created by running manage.py lms createcachetable --settings=aws
+# this table can be shared if needed by other backends
+if FEATURES['ENABLE_OPENBADGES'] is True:
+    if 'badges_backends_api_tokens' not in CACHES:
+        CACHES[BADGR_API_TOKEN_CACHE] = {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'badges_backends_api_tokens'
+        }
 
 # Email overrides
 DEFAULT_FROM_EMAIL = ENV_TOKENS.get('DEFAULT_FROM_EMAIL', DEFAULT_FROM_EMAIL)
@@ -336,18 +347,6 @@ CERT_QUEUE = ENV_TOKENS.get("CERT_QUEUE", 'test-pull')
 ZENDESK_URL = ENV_TOKENS.get('ZENDESK_URL', ZENDESK_URL)
 FEEDBACK_SUBMISSION_EMAIL = ENV_TOKENS.get("FEEDBACK_SUBMISSION_EMAIL")
 MKTG_URLS = ENV_TOKENS.get('MKTG_URLS', MKTG_URLS)
-
-# Badgr API
-BADGR_API_VERSION = ENV_TOKENS.get('BADGR_API_VERSION', 'v2')
-# to retrieve token using Badgr.io, 'curl -X POST 'https://api.badgr.io/o/token' -d "username=YOUREMAIL&password=YOURPASSWORD"'
-# as of Badgr API v2, older permanent auth tokens are deprecated and not returned
-# this will return a refresh token for 'public' user with scope rw:backpack rw:profile rw:issuer
-BADGR_API_TOKEN = ENV_TOKENS.get('BADGR_API_TOKEN', BADGR_API_TOKEN)
-BADGR_API_TOKEN_EXPIRATION = ENV_TOKENS.get('BADGR_API_TOKEN_EXPIRATION', BADGR_API_TOKEN_EXPIRATION)
-BADGR_API_NOTIFICATIONS_ENABLED = ENV_TOKENS.get('BADGR_API_NOTIFICATIONS_ENABLED', BADGR_API_NOTIFICATIONS_ENABLED)
-BADGR_BASE_URL = ENV_TOKENS.get('BADGR_BASE_URL', BADGR_BASE_URL)
-BADGR_ISSUER_SLUG = ENV_TOKENS.get('BADGR_ISSUER_SLUG', BADGR_ISSUER_SLUG)
-BADGR_TIMEOUT = ENV_TOKENS.get('BADGR_TIMEOUT', BADGR_TIMEOUT)
 
 # git repo loading  environment
 GIT_REPO_DIR = ENV_TOKENS.get('GIT_REPO_DIR', '/edx/var/edxapp/course_repos')
@@ -909,3 +908,20 @@ DOC_LINK_BASE_URL = ENV_TOKENS.get('DOC_LINK_BASE_URL', DOC_LINK_BASE_URL)
 ############## Settings for the Enterprise App ######################
 
 ENTERPRISE_ENROLLMENT_API_URL = ENV_TOKENS.get('ENTERPRISE_ENROLLMENT_API_URL', ENTERPRISE_ENROLLMENT_API_URL)
+
+############## Settings for CourseGraph ############################
+COURSEGRAPH_JOB_QUEUE = ENV_TOKENS.get('COURSEGRAPH_JOB_QUEUE', LOW_PRIORITY_QUEUE)
+
+############# BADGR OR OTHER BADGING BACKEND CONFIGURATION #############
+# to retrieve token using Badgr.io, 'curl -X POST 'https://api.badgr.io/o/token' -d "username=YOUREMAIL&password=YOURPASSWORD"'
+# as of Badgr API v2, older permanent auth tokens are deprecated and not returned
+# this will return a refresh token for 'public' client with scope of rw:backpack rw:profile rw:issuer 
+# on any resources as allowed to username used
+BADGR_API_TOKEN = AUTH_TOKENS.get('BADGR_API_TOKEN', BADGR_API_TOKEN)
+BADGR_API_TOKEN_EXPIRATION = ENV_TOKENS.get('BADGR_API_TOKEN_EXPIRATION', BADGR_API_TOKEN_EXPIRATION)
+BADGR_API_REFRESH_TOKEN = AUTH_TOKENS.get('BADGR_API_REFRESH_TOKEN', BADGR_API_REFRESH_TOKEN)
+BADGR_API_NOTIFICATIONS_ENABLED = ENV_TOKENS.get('BADGR_API_NOTIFICATIONS_ENABLED', BADGR_API_NOTIFICATIONS_ENABLED)
+BADGR_BASE_URL = ENV_TOKENS.get('BADGR_BASE_URL', BADGR_BASE_URL)
+BADGR_ISSUER_SLUG = ENV_TOKENS.get('BADGR_ISSUER_SLUG', BADGR_ISSUER_SLUG)
+BADGR_TIMEOUT = ENV_TOKENS.get('BADGR_TIMEOUT', BADGR_TIMEOUT)
+BADGR_OAUTH_CLIENT_ID = AUTH_TOKENS.get('BADGR_OAUTH_CLIENT_ID', BADGR_OAUTH_CLIENT_ID)

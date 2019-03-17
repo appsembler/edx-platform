@@ -2409,15 +2409,19 @@ CERT_NAME_LONG = "Certificate of Achievement"
 BADGING_BACKEND = 'badges.backends.badgr.BadgrBackend'
 
 # Be sure to set up images for course modes using the BadgeImageConfiguration model in the certificates app.
-BADGR_API_VERSION = "v1"
+BADGR_API_VERSION = "v2"
+BADGR_API_USERNAME = None # only used for v1 autgh
 BADGR_API_TOKEN = None
 BADGR_API_TOKEN_EXPIRATION = 86400  # 24h
+BADGR_API_TOKEN_CACHE = 'badgr_api_token_cache'
+BADGR_API_REFRESH_TOKEN = None
 BADGR_API_NOTIFICATIONS_ENABLED = False
 # Do not add the trailing slash here.
 BADGR_BASE_URL = "http://localhost:8005"
 BADGR_ISSUER_SLUG = "example-issuer"
 # Number of seconds to wait on the badging server when contacting it before giving up.
 BADGR_TIMEOUT = 10
+BADGR_OAUTH_CLIENT_ID = 'public'
 
 ###################### Grade Downloads ######################
 # These keys are used for all of our asynchronous downloadable files, including
