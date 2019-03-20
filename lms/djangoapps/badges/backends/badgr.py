@@ -120,7 +120,8 @@ class BadgrBackend(BadgeBackend):
             )
         files = {'image': (image.name, image, content_type)}
         try:  # TODO: eventually we should pass both
-            URLValidator(badge_class.criteria)
+            validator = URLValidator()
+            validator(badge_class.criteria)
             criteria_type = 'criteria_url'
         except ValidationError:
             criteria_type = 'criteria_text'
