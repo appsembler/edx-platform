@@ -36,10 +36,13 @@ class BadgrBackend(BadgeBackend):
         super(BadgrBackend, self).__init__()
         if self.api_ver != 'v1':
             # initialize backend refresh token cache with initial values from settings
+            # settings will likely store an out of date refresh token after the first
+            # refresh, so make sure cache stores up to date token.  Make sure to update
+            # the refresh token if a new one obtained outside of this application.
             self.token_cache = caches[settings.BADGR_API_TOKEN_CACHE]
             if not self.token_cache.get(BADGR_API_REFRESH_TOKEN_CACHE_KEY):
                 try:
-                    self.token_cache.set(BADGR_API_REFRESH_TOKEN_CACHE_KEY, settings.BADGR_API_REFRESH_TOKEN)
+                    self.token_cache.set(BADGR_API_REFRESH_TOKEN_CACHE_KEY, settings.BADGR_API_REFRESH_TOKEN, timeout=None)
                 except AttributeError:
                     raise ImproperlyConfigured("BADGR_API_REFRESH_TOKEN not set. See https://badgr.org/app-developers/api-guide/#quickstart")
 
@@ -197,7 +200,7 @@ class BadgrBackend(BadgeBackend):
     def _get_v2_auth_token(self):
         """ Get a Badgr v2 auth token from cache or generate and return a new one.
         """
-         token_cached = self.token_cache.get(BADGR_API_AUTH_TOKEN_CACHE_KEY)
+        token_cached = self.token_cache.get(BADGR_API_AUTH_TOKEN_CACHE_KEY)
         if token_cached:
             return token_cached
         else:
@@ -212,7 +215,7 @@ class BadgrBackend(BadgeBackend):
                 token = response.json().get('access_token')
                 refresh_token = response.json().get('refresh_token')  # refresh token updated each time
                 self.token_cache.set(BADGR_API_AUTH_TOKEN_CACHE_KEY, token, getattr(settings, 'BADGR_API_TOKEN_EXPIRATION', 86400))  #24h
-                self.token_cache.set(BADGR_API_REFRESH_TOKEN_CACHE_KEY, refresh_token)
+                self.token_cache.set(BADGR_API_REFRESH_TOKEN_CACHE_KEY, refresh_token, None)  # don't expire
                 return token
             else:
                 response.raise_for_status()
