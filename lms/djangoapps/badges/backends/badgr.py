@@ -188,11 +188,12 @@ class BadgrBackend(BadgeBackend):
             timeout=settings.BADGR_TIMEOUT
         )
         self._log_if_raised(response, data)
+
         assertion, __ = BadgeAssertion.objects.get_or_create(user=user, badge_class=badge_class)
-        assertion.data = response.json()
+        assertion.data = response.json() if self.api_ver == 'v1' else response.json()['result'][0]
         assertion.backend = 'BadgrBackend'
         assertion.image_url = assertion.data['image']
-        assertion.assertion_url = assertion.data['json']['id']
+        assertion.assertion_url = assertion.data['id'] if self.api_ver == 'v1' else assertion.data['openBadgeId']
         assertion.save()
         self._send_assertion_created_event(user, assertion)
         return assertion
