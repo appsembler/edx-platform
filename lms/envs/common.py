@@ -2416,8 +2416,10 @@ BADGR_API_TOKEN_EXPIRATION = 86400  # 24h
 BADGR_API_TOKEN_CACHE = 'badgr_api_token_cache'
 BADGR_API_REFRESH_TOKEN = None
 BADGR_API_NOTIFICATIONS_ENABLED = False
-# Do not add the trailing slash here.
+# Do not add the trailing slash here.  Base API URL
 BADGR_BASE_URL = "http://localhost:8005"
+# for login and public access to Backpack, etc
+BADGR_PUBLIC_URL = "http://localhost:8005"
 BADGR_ISSUER_SLUG = "example-issuer"
 # Number of seconds to wait on the badging server when contacting it before giving up.
 BADGR_TIMEOUT = 10
