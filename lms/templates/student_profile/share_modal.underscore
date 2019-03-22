@@ -1,30 +1,44 @@
 <div class="focusguard focusguard-start" tabindex="0"></div>
 <div class="badges-modal" tabindex="0">
         <button class="close"><span class="fa fa-close" aria-hidden="true"></span><span class="sr"><%- gettext("Close") %></span></button>
-    <h1 class="modal-header"><%- gettext("Share on Mozilla Backpack") %></h1>
-    <p class="explanation"><%- gettext("To share your certificate on Mozilla Backpack, you must first have a Backpack account. Complete the following steps to add your certificate to Backpack.") %>
+    <h1 class="modal-header"><%- gettext("Share your Open Badge with Badgr") %></h1>
+    <p class="explanation"><%=
+    interpolate(
+      gettext("<p>Your achievement on %(platform_name)s has been recognized with a badge. This is is an <a https://openbadges.org/' target='_blank'>Open Badge</a>, a digital image file with information embedded in it that is unique to you and your accomplishment.</p><p>Badgr is a service that creates and stores Open Badges and lets you share them with others. To share your badge using Badgr, you can send a link to a web page about your badge to others.  You can also send the badge image file directly to others, and they can use a badge verification service from Badgr to confirm your accomplishment.  For more options, you must first have a Badgr account. You should have received an email the first time you received a badge with instructions about creating a Badgr account.  Once you have a Badgr account, you can organize your badges in a Backpack and access tools to help share your badges on social media, embed them in web pages, and more.</p>"), {
+        platform_name: badgeMeta.platform_name
+      },
+      true
+    )%>
     </p>
     <hr class="modal-hr"/>
-    <img class="backpack-logo" src="<%- badgeMeta.badges_logo %>" alt="">
+    <img class="backpack-logo" src="<%- badgeMeta.badges_badgr_logo %>" alt="">
     <ol class="badges-steps">
         <li class="step"><%=
         interpolate(
-          gettext("Create a %(link_start)sMozilla Backpack%(link_end)s account, or log in to your existing account"),
-          {link_start: '<a href="https://backpack.openbadges.org/" target="_blank">', link_end: '</a>'},
+          gettext("Create a %(link_start)sBadgr%(link_end)s account, or %(login_link_start)slog in%(link_end)s to your existing account;"),
+          {link_start: '<b><a href="' + badgeMeta.badges_backend_public_url + '" target="_blank">', 
+          link_end: '</a></b>',
+          login_link_start: '<b><a href="' + badgeMeta.badges_backend_public_url + '/login" target="_blank">'},
           true
         )%>
         </li>
         <li class="step"><%=
         interpolate(
-          gettext("%(download_link_start)sDownload this image (right-click or option-click, save as)%(link_end)s and then %(upload_link_start)supload%(link_end)s it to your backpack.</li>"), {
-            download_link_start: '<a class="badge-link" href="' + image_url + '" target="_blank">',
-            link_end: '</a>', upload_link_start: '<a href="https://backpack.openbadges.org/backpack/add" target="_blank">'
+          gettext("%(assertion_link_start)sShare this public URL to your badge%(link_end)s; or</li>"), {
+            assertion_link_start: '<b><a class="badge-link" href="' + assertion_url + '" target="_blank">',
+            link_end: '</a></b>'
+          },
+          true
+        )%>
+        <li class="step"><%=
+        interpolate(
+          gettext("%(download_link_start)sDownload your badge (right-click or option-click, save as)%(link_end)s and share it directly with others.  They can verify it's really yours at %(badge_check_link)s.</li>"), {
+            download_link_start: '<b><a class="badge-link" href="' + image_url + '" target="_blank">',
+            link_end: '</a></b>', 
+            badge_check_link: '<a href="https://badgecheck.io" target="_blank">badgecheck.io</a>'
           },
           true
         )%>
     </ol>
-    <div class="image-container">
-        <img class="badges-backpack-example" src="<%- badgeMeta.backpack_ui_img %>" alt="">
-    </div>
 </div>
 <div class="focusguard focusguard-end" tabindex="0"></div>
