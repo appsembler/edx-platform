@@ -4,20 +4,16 @@
 <div class="badges-overlay" style="display:none;">
     <div class="badges-modal">
         <div class="close"><span class="fa fa-close" alt="Close" aria-hidden="true"><input type="button" class="sr-only" value="Close"/></span></div>
-        <h1 class="hd-1 emphasized">Share on Mozilla Backpack</h1>
-        <p class="explanation">
-            To share your certificate on Mozilla Backpack, you must first have a Backpack account.
-            Complete the following steps to add your certificate to Backpack.
+        <h1 class="hd-1 emphasized">Share your Open Badge with Badgr</h1>
+        <p class="explanation">Your achievement has been recognized with a badge. This is is an <a href="https://openbadges.org/" target="_blank">Open Badge</a>, a digital image file with information embedded in it that is unique to you and your accomplishment.</p>
+        <p class="explanation">Badgr is a service that creates and stores Open Badges and lets you share them with others. To share your badge using Badgr, you can send a link to a web page about your badge to others.  You can also send the badge image file directly to others, and they can use a badge verification service from Badgr to confirm your accomplishment.  For more options, you must first have a Badgr account. You should have received an email the first time you received a badge with instructions about creating a Badgr account.  Once you have a Badgr account, you can organize your badges in a Backpack and access tools to help share your badges on social media, embed them in web pages, and more.
         </p>
         <hr class="modal-hr"/>
-        <img class="backpack-logo" src="${static.url('certificates/images/backpack-logo.png')}">
+        <img class="backpack-logo" src="${static.url('badges/images/badgr-logo.svg')}">
         <ol class="badges-steps">
-            <li class="step">Create a <a href="https://backpack.openbadges.org/" target="_blank">Mozilla Backpack</a> account, or log in to your existing account
-            </li>
-            <li class="step"><a href="${badge.image_url}" target="_blank">Download this image (right-click, save as)</a> and then <a href="https://backpack.openbadges.org/backpack/add" target="_blank">upload</a> it to your backpack.</li>
+            <li class="step">Create a <a class="badge-link" href="${badge_meta['badges_backend_public_url']}">Badgr</a> account, or <a class="badge-link" href="${badge_meta['badges_backend_public_url']}/login" target="_blank">log in</a> to your existing account;</li>
+            <li class="step"><a class="badge-link" href="${badge.assertion_url}" target="_blank">Share this public URL to your badge</a>; or</li>
+            <li class="step"><a class="badge-link" href="${badge.image_url}">Download your badge (right-click or option-click, save as)</a> and share it directly with others.  They can verify it's really yours at <a class="badge-link" href="https://badgecheck.io" target="_blank">https://badgecheck.io</a>.</li>
         </ol>
-        <div class="image-container">
-            <img class="badges-backpack-example" src="${static.url('certificates/images/backpack-ui.png')}">
-        </div>
     </div>
 </div>
