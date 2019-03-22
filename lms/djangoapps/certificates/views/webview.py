@@ -445,7 +445,7 @@ def _update_badge_context(context, course, user):
     Updates context with badge info.
     """
     context['badge'] = None
-    if badges_enabled() course.issue_badges:
+    if badges_enabled() and course.issue_badges:
         badge_class = get_completion_badge(course.id, user)
         if badge_class:
             badges = badge_class.get_for_user(user)
