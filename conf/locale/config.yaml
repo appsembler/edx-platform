@@ -41,7 +41,7 @@ locales:
     # - hr  # Croatian
     # - hu  # Hungarian
     # - hy_AM  # Armenian (Armenia)
-    # - id  # Indonesian
+    - id  # Indonesian
     # - it_IT  # Italian (Italy)
     # - ja_JP  # Japanese (Japan)
     # - kk_KZ  # Kazakh (Kazakhstan)
