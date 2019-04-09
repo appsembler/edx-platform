@@ -16,7 +16,7 @@ urls_include_conf = SERVICE_URLS_INCLUDES[service_variant]
 urlpatterns = ()
 
 if hasattr(settings, 'APPSEMBLER_FEATURES') and \
-        settings.APPSEMBLER_FEATURES.get(urls_include_conf, False):
+   settings.APPSEMBLER_FEATURES.get(urls_include_conf, False):
 
     for url_include in settings.APPSEMBLER_FEATURES[urls_include_conf]:
         try:

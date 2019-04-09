@@ -117,7 +117,8 @@ def login_and_registration_form(request, initial_mode="login"):
 
     tpa_context = _third_party_auth_context(request, redirect_to)
     if not tpa_context['currentProvider']:
-        if settings.APPSEMBLER_FEATURES.get('ENABLE_EXCLUSIVE_SSO_LOGISTRATION'):
+        if hasattr(settings, 'APPSEMBLER_FEATURES') and \
+           settings.APPSEMBLER_FEATURES.get('ENABLE_EXCLUSIVE_SSO_LOGISTRATION'):
             urls_dict = configuration_helpers.get_value(
                 'EXCLUSIVE_SSO_LOGISTRATION_URL_MAP',
                 settings.EXCLUSIVE_SSO_LOGISTRATION_URL_MAP)
