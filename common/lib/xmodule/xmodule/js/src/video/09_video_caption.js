@@ -1176,6 +1176,7 @@
             },
 
             showClosedCaptions: function() {
+                var text = gettext('Hide closed captions');
                 this.state.el.addClass('has-captions');
 
                 this.captionDisplayEl
@@ -1185,7 +1186,8 @@
 
                 this.captionControlEl
                     .addClass('is-active')
-                    .attr('title', gettext('Hide closed captions'));
+                    .attr('title', text)
+                    .attr('aria-label', text);
 
                 if (this.subtitlesEl.find('.current').text()) {
                     this.captionDisplayEl
@@ -1199,6 +1201,7 @@
             },
 
             hideClosedCaptions: function() {
+                var text = gettext('Turn on closed captioning');
                 this.state.el.removeClass('has-captions');
 
                 this.captionDisplayEl
@@ -1207,7 +1210,8 @@
 
                 this.captionControlEl
                     .removeClass('is-active')
-                    .attr('title', gettext('Turn on closed captioning'));
+                    .attr('title', text)
+                    .attr('aria-label', text);
 
                 this.state.el.trigger('captions:hide');
             },
@@ -1262,7 +1266,8 @@
 
                     transcriptControlEl
                         .removeClass('is-active')
-                        .attr('title', gettext(text));
+                        .attr('title', gettext(text))
+                        .attr('aria-label', text);
                 } else {
                     state.captionsHidden = false;
                     state.el.removeClass('closed');
@@ -1274,7 +1279,8 @@
 
                     transcriptControlEl
                         .addClass('is-active')
-                        .attr('title', gettext(text));
+                        .attr('title', gettext(text))
+                        .attr('aria-label', text);
                 }
 
                 if (state.resizer) {
