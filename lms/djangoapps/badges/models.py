@@ -115,6 +115,15 @@ class BadgeClass(models.Model):
         module = import_module(module)
         return getattr(module, klass)()
 
+    def clean(self):
+        """
+        Checks that there are no duplicate combinations of course_id and mode
+        if course_id is defined
+        """
+        if self.course_id is not None and self.course_id.strip() != '':
+            if BadgeClass.objects.filter(course_id=self.course_id, mode=self.mode).exists():
+                raise ValidationError("A BadgeClass already exists with the same Course ID and enrollment mode.")
+
     def get_for_user(self, user):
         """
         Get the assertion for this badge class for this user, if it has been awarded.
@@ -127,15 +136,9 @@ class BadgeClass(models.Model):
         """
         return self.backend.award(self, user, evidence_url=evidence_url)
 
-    # def save(self, **kwargs):
-    #     #"""
-    #     # Slugs must always be lowercase.
-    #     #"""
-    #     super(BadgeClass, self).save(**kwargs)
 
     class Meta(object):
         app_label = "badges"
-        unique_together = (('mode', 'course_id'),)
         verbose_name_plural = "Badge Classes"
 
 
