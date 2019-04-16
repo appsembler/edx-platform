@@ -29,10 +29,11 @@ class BadgrBackend(BadgeBackend):
     Backend for Badgr-Server by Concentric Sky. http://info.badgr.io/
     """
     badges = []
-    api_ver = settings.BADGR_API_VERSION
 
     def __init__(self):
         super(BadgrBackend, self).__init__()
+
+        self.api_ver = settings.BADGR_API_VERSION
         if self.api_ver != 'v1':
             # initialize backend refresh token cache with initial values from settings
             # settings will likely store an out of date refresh token after the first
@@ -202,7 +203,7 @@ class BadgrBackend(BadgeBackend):
         """ Get a Badgr v2 auth token from cache or generate and return a new one.
         """
         token_cached = self.token_cache.get(BADGR_API_AUTH_TOKEN_CACHE_KEY)
-        if token_cached:
+        if token_cached is not None:
             return token_cached
         else:
             # auth token expired or never set
