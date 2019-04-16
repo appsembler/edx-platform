@@ -1878,7 +1878,8 @@ def create_account_with_params(request, params):
     # the activation link from the email.
     new_user = authenticate(username=user.username, password=params['password'])
 
-    if not settings.APPSEMBLER_FEATURES.get('SKIP_LOGIN_AFTER_REGISTRATION', False):
+    if hasattr(settings, 'APPSEMBLER_FEATURES') and \
+    not settings.APPSEMBLER_FEATURES.get('SKIP_LOGIN_AFTER_REGISTRATION', False):
         login(request, new_user)
         request.session.set_expiry(0)
 
@@ -2618,8 +2619,8 @@ class LogoutView(TemplateView):
         # Keep track of the page to which the user should ultimately be redirected.
         if settings.FEATURES.get('AUTH_USE_CAS'):
             target = reverse_lazy('cas-logout')
-        elif configuration_helpers.get_value('CUSTOM_LOGOUT_REDIRECT_URL', settings.CUSTOM_LOGOUT_REDIRECT_URL):
-            target = configuration_helpers.get_value('CUSTOM_LOGOUT_REDIRECT_URL', settings.CUSTOM_LOGOUT_REDIRECT_URL)
+        elif configuration_helpers.get_value('CUSTOM_LOGOUT_REDIRECT_URL', getattr(settings, 'CUSTOM_LOGOUT_REDIRECT_URL', False)):
+            target = configuration_helpers.get_value('CUSTOM_LOGOUT_REDIRECT_URL', getattr(settings, 'CUSTOM_LOGOUT_REDIRECT_URL', False))
         else:
             target = '/'
 
