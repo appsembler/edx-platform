@@ -41,20 +41,13 @@ class BadgeClassFactory(DjangoModelFactory):
     class Meta(object):
         model = BadgeClass
 
-    slug = 'test_slug'
+    slug = factory.lazy_attribute(lambda _: 'test_slug_' + str(random()).replace('.', '_'))
     issuing_component = 'test_component'
     display_name = 'Test Badge'
     description = "Yay! It's a test badge."
     criteria = 'https://example.com/syllabus'
     mode = 'honor'
     image = factory.LazyAttribute(generate_dummy_image)
-
-
-class RandomBadgeClassFactory(BadgeClassFactory):
-    """
-    Same as BadgeClassFactory, but randomize the slug.
-    """
-    slug = factory.lazy_attribute(lambda _: 'test_slug_' + str(random()).replace('.', '_'))
 
 
 class BadgeAssertionFactory(DjangoModelFactory):
@@ -65,7 +58,7 @@ class BadgeAssertionFactory(DjangoModelFactory):
         model = BadgeAssertion
 
     user = factory.SubFactory(UserFactory)
-    badge_class = factory.SubFactory(RandomBadgeClassFactory)
+    badge_class = factory.SubFactory(BadgeClassFactory)
     data = {}
     assertion_url = 'http://example.com/example.json'
     image_url = 'http://example.com/image.png'

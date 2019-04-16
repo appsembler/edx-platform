@@ -6,7 +6,7 @@ from django.conf import settings
 from django.test.utils import override_settings
 from mock import patch
 
-from badges.tests.factories import CourseEventBadgesConfigurationFactory, RandomBadgeClassFactory
+from badges.tests.factories import CourseEventBadgesConfigurationFactory, BadgeClassFactory
 from certificates.models import CertificateStatuses, GeneratedCertificate
 from student.models import CourseEnrollment
 from student.tests.factories import UserFactory
@@ -24,13 +24,13 @@ class CourseEnrollmentBadgeTest(ModuleStoreTestCase):
     def setUp(self):
         super(CourseEnrollmentBadgeTest, self).setUp()
         self.badge_classes = [
-            RandomBadgeClassFactory(
+            BadgeClassFactory(
                 issuing_component='openedx__course'
             ),
-            RandomBadgeClassFactory(
+            BadgeClassFactory(
                 issuing_component='openedx__course'
             ),
-            RandomBadgeClassFactory(
+            BadgeClassFactory(
                 issuing_component='openedx__course'
             ),
         ]
@@ -75,13 +75,13 @@ class CourseCompletionBadgeTest(ModuleStoreTestCase):
     def setUp(self, **kwargs):
         super(CourseCompletionBadgeTest, self).setUp()
         self.badge_classes = [
-            RandomBadgeClassFactory(
+            BadgeClassFactory(
                 issuing_component='openedx__course'
             ),
-            RandomBadgeClassFactory(
+            BadgeClassFactory(
                 issuing_component='openedx__course'
             ),
-            RandomBadgeClassFactory(
+            BadgeClassFactory(
                 issuing_component='openedx__course'
             ),
         ]
@@ -133,13 +133,13 @@ class CourseGroupBadgeTest(ModuleStoreTestCase):
     def setUp(self):
         super(CourseGroupBadgeTest, self).setUp()
         self.badge_classes = [
-            RandomBadgeClassFactory(
+            BadgeClassFactory(
                 issuing_component='openedx__course'
             ),
-            RandomBadgeClassFactory(
+            BadgeClassFactory(
                 issuing_component='openedx__course'
             ),
-            RandomBadgeClassFactory(
+            BadgeClassFactory(
                 issuing_component='openedx__course'
             ),
         ]
