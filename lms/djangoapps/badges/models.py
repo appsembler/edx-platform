@@ -120,7 +120,7 @@ class BadgeClass(models.Model):
         Checks that there are no duplicate combinations of course_id and mode
         if course_id is defined
         """
-        if self.course_id is not None and self.course_id.strip() != '':
+        if self.course_id is not None and str(self.course_id).strip() != '':
             if BadgeClass.objects.filter(course_id=self.course_id, mode=self.mode).exists():
                 raise ValidationError("A BadgeClass already exists with the same Course ID and enrollment mode.")
 
