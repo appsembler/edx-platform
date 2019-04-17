@@ -16,7 +16,8 @@ def courses_login_required(function=None, redirect_field_name=REDIRECT_FIELD_NAM
         redirect_field_name=redirect_field_name
     )
     if function:
-        if settings.APPSEMBLER_FEATURES.get(
+        if hasattr(settings, 'APPSEMBLER_FEATURES') and \
+           settings.APPSEMBLER_FEATURES.get(
                 'ENABLE_COURSES_LOGIN_REQUIRED', False
         ):
             return actual_decorator(function)

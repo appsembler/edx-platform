@@ -81,14 +81,14 @@ def course_group_check(user, course_key):
                     evidence = evidence_url(user.id, course_key)
                     awards.append((slug, evidence))
                 else:
-                    awards.append(slug)
+                    awards.append((slug,))
 
     for award in awards:
         badge_class = BadgeClass.get_badge_class(
             slug=award[0], create=False,
         )
         if badge_class and not badge_class.get_for_user(user):
-            if award[1]:
+            try:
                 badge_class.award(user, evidence_url=award[1])
-            else:
+            except IndexError:
                 badge_class.award(user)

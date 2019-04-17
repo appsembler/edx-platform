@@ -230,7 +230,8 @@ class ProviderConfig(ConfigurationModel):
         # TPA_CLEAN_USERNAMES_REPLACER_CHAR: ""
         # TPA_CLEAN_USERNAMES_ADD_RANDOM_INT: false
         # You can override this three in your settings.
-        if settings.APPSEMBLER_FEATURES.get("ENABLE_THIRD_PARTY_AUTH_CLEAN_USERNAMES"):
+        if hasattr(settings, 'APPSEMBLER_FEATURES') and \
+        settings.APPSEMBLER_FEATURES.get("ENABLE_THIRD_PARTY_AUTH_CLEAN_USERNAMES"):
             if not settings.TPA_CLEAN_USERNAMES_KEEP_DOMAIN_PART:
                 if len(re.findall(r'[^@]+@[^@]+\.[^@]+', suggested_username)) > 0:
                     suggested_username = suggested_username.split('@')[0]
@@ -247,7 +248,8 @@ class ProviderConfig(ConfigurationModel):
             else:
                 suggested_username = suggested_username[:30] if len(suggested_username) > 30 else suggested_username
         #
-        if settings.APPSEMBLER_FEATURES.get('ENABLE_THIRD_PARTY_AUTH_MERGE_FIRST_LAST_NAME', False):
+        if hasattr(settings, 'APPSEMBLER_FEATURES') and \
+           settings.APPSEMBLER_FEATURES.get('ENABLE_THIRD_PARTY_AUTH_MERGE_FIRST_LAST_NAME', False):
             suggester_personal_name = "%s %s" % (details.get('first_name', ''), details.get('last_name', ''))
         else:
             suggester_personal_name = details.get('fullname', '')

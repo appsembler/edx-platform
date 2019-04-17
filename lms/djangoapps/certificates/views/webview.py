@@ -443,12 +443,14 @@ def _update_badge_context(context, course, user):
     """
     Updates context with badge info.
     """
-    badge = None
+    context['badge'] = None
     if badges_enabled() and course.issue_badges:
-        badges = get_completion_badge(course.location.course_key, user).get_for_user(user)
-        if badges:
-            badge = badges[0]
-    context['badge'] = badge
+        badge_class = get_completion_badge(course.id, user)
+        if badge_class:
+            badges = badge_class.get_for_user(user)
+            if badges:
+                context['badge'] = badges[0]
+                context['badge_meta'] = {'badges_backend_public_url': settings.BADGR_PUBLIC_URL}
 
 
 def _update_organization_context(context, course):
