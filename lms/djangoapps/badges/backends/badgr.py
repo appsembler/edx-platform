@@ -195,7 +195,7 @@ class BadgrBackend(BadgeBackend):
         assertion.data = response.json() if self.api_ver == 'v1' else response.json()['result'][0]
         assertion.backend = 'BadgrBackend'
         assertion.image_url = assertion.data['image']
-        assertion.assertion_url = assertion.data['id'] if self.api_ver == 'v1' else assertion.data['openBadgeId']
+        assertion.assertion_url = assertion.data['slug'] if self.api_ver == 'v1' else assertion.data['openBadgeId']
         assertion.save()
         self._send_assertion_created_event(user, assertion)
         return assertion

@@ -195,10 +195,8 @@ class BadgrBackendTestCase(ModuleStoreTestCase, EventTrackingTestCase):
     @override_settings(**BADGR_SETTINGS_API_V1)
     def test_badge_creation_event_v1(self, post):
         result = {
-            'json': {'id': 'http://www.example.com/example'},
-            'image': 'http://www.example.com/example.png',
-            'badge': 'test_assertion_slug',
-            'issuer': 'https://example.com/v1/issuer/issuers/test-issuer',
+            'slug': 'https://www.example.com/v1/issuer/issuers/test-issuer/badges/test-badge-slug/test-assertion-slug',
+            'image': 'https://www.example.com/example.png',
         }
         response = Mock()
         response.json.return_value = result
@@ -215,8 +213,8 @@ class BadgrBackendTestCase(ModuleStoreTestCase, EventTrackingTestCase):
         self.check_headers_v1(kwargs['headers'])
         assertion = BadgeAssertion.objects.get(user=self.user, badge_class__course_id=self.course.location.course_key)
         self.assertEqual(assertion.data, result)
-        self.assertEqual(assertion.image_url, 'http://www.example.com/example.png')
-        self.assertEqual(assertion.assertion_url, 'http://www.example.com/example')
+        self.assertEqual(assertion.image_url, 'https://www.example.com/example.png')
+        self.assertEqual(assertion.assertion_url, 'https://www.example.com/v1/issuer/issuers/test-issuer/badges/test-badge-slug/test-assertion-slug')
         self.assertEqual(kwargs['json'], {
             'recipient_identifier': 'example@example.com',
             'recipient_type': 'email',
