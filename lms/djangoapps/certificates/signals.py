@@ -7,6 +7,7 @@ from django.dispatch.dispatcher import receiver
 from .config import waffle
 from certificates.models import CertificateGenerationCourseSetting, \
     GeneratedCertificate
+from certificates.tasks import generate_certificate
 from opaque_keys.edx.keys import CourseKey
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.signals.signals import COURSE_GRADE_NOW_PASSED
@@ -56,8 +57,10 @@ def _listen_for_passing_grade(sender, user, course_key, **kwargs):  # pylint: di
         if courses.get_course_by_id(course_key, depth=0).self_paced:
             return
     if GeneratedCertificate.certificate_for_student(user, course_key) is None:
-        from certificates import api as certs_api  # have to delay import
-        certs_api.generate_user_certificates(user, course_key, generation_mode='self')
+        generate_certificate.apply_async(
+            student=user,
+            course_key=course_key,
+        )
         log.info(u'Certificate generation task initiated for {user} : {course} via passing grade'.format(
             user=user.id,
             course=course_key
