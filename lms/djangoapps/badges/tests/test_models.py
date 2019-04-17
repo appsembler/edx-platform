@@ -17,7 +17,7 @@ from badges.models import (
     CourseCompleteImageConfiguration, validate_badge_image, BadgeClass, BadgeAssertion,
     CourseBadgesDisabledError
 )
-from badges.tests.factories import BadgeClassFactory, BadgeAssertionFactory, RandomBadgeClassFactory
+from badges.tests.factories import BadgeAssertionFactory, BadgeClassFactory
 from certificates.tests.test_models import TEST_DATA_ROOT
 from student.tests.factories import UserFactory
 
@@ -67,6 +67,8 @@ class BadgeClassTest(ModuleStoreTestCase):
     Test BadgeClass functionality
     """
 
+    ENABLED_CACHES = ['default', 'mongo_metadata_inheritance', 'loc_cache', 'badgr_api_token_cache']
+
     def setUp(self):
         super(BadgeClassTest, self).setUp()
         self.addCleanup(self.cleanup_uploads)
@@ -89,11 +91,11 @@ class BadgeClassTest(ModuleStoreTestCase):
         """
         self.assertIsInstance(BadgeClass().backend, DummyBackend)
 
-    def test_get_badge_class_preexisting(self):
+    def test_get_badge_class_preexisting_by_slug(self):
         """
-        Verify fetching a badge first grabs existing badges.
+        Verify fetching a badge by slug first grabs existing badges.
         """
-        premade_badge_class = BadgeClassFactory.create()
+        premade_badge_class = BadgeClassFactory.create(slug='test_slug')
         # Ignore additional parameters. This class already exists.
         badge_class = BadgeClass.get_badge_class(
             slug='test_slug', issuing_component='test_component', description='Attempted override',
@@ -106,23 +108,42 @@ class BadgeClassTest(ModuleStoreTestCase):
         # File name won't always be the same.
         self.assertEqual(badge_class.image.path, premade_badge_class.image.path)
 
-    def test_unique_for_course(self):
+    def test_get_badge_class_preexisting_by_course_and_mode(self):
         """
-        Verify that the course_id is used in fetching existing badges or creating new ones.
+        Verify fetching a badge by course id and mode first grabs existing badges.
         """
-        course_key = CourseFactory.create().location.course_key
-        premade_badge_class = BadgeClassFactory.create(course_id=course_key)
+        premade_badge_class = BadgeClassFactory.create()
+        # Ignore additional parameters. This class already exists.
         badge_class = BadgeClass.get_badge_class(
-            slug='test_slug', issuing_component='test_component', description='Attempted override',
+            course_id=premade_badge_class.course_id, mode='honor',
+            issuing_component='test_component', description='Attempted override',
             criteria='test', display_name='Testola', image_file_handle=get_image('good')
         )
-        course_badge_class = BadgeClass.get_badge_class(
-            slug='test_slug', issuing_component='test_component', description='Attempted override',
-            criteria='test', display_name='Testola', image_file_handle=get_image('good'),
-            course_id=course_key,
-        )
-        self.assertNotEqual(badge_class.id, course_badge_class.id)
-        self.assertEqual(course_badge_class.id, premade_badge_class.id)
+        # These defaults are set on the factory.
+        self.assertEqual(badge_class.criteria, 'https://example.com/syllabus')
+        self.assertEqual(badge_class.display_name, 'Test Badge')
+        self.assertEqual(badge_class.description, "Yay! It's a test badge.")
+        # File name won't always be the same.
+        self.assertEqual(badge_class.image.path, premade_badge_class.image.path)
+
+    # this test needs to be rethought since slugs need to be unique
+    # def test_unique_for_course(self):
+    #     """
+    #     Verify that the course_id is used in fetching existing badges or creating new ones.
+    #     """
+    #     course_key = CourseFactory.create().location.course_key
+    #     premade_badge_class = BadgeClassFactory.create(course_id=course_key)
+    #     badge_class = BadgeClass.get_badge_class(
+    #         slug='test_slug', issuing_component='test_component', description='Attempted override',
+    #         criteria='test', display_name='Testola', image_file_handle=get_image('good')
+    #     )
+    #     course_badge_class = BadgeClass.get_badge_class(
+    #         slug='test_slug', issuing_component='test_component', description='Attempted override',
+    #         criteria='test', display_name='Testola', image_file_handle=get_image('good'),
+    #         course_id=course_key,
+    #     )
+    #     self.assertNotEqual(badge_class.id, course_badge_class.id) 
+    #     self.assertEqual(course_badge_class.id, premade_badge_class.id)
 
     def test_get_badge_class_course_disabled(self):
         """
@@ -132,7 +153,7 @@ class BadgeClassTest(ModuleStoreTestCase):
         course_key = CourseFactory.create(metadata={'issue_badges': False}).location.course_key
         with self.assertRaises(CourseBadgesDisabledError):
             BadgeClass.get_badge_class(
-                slug='test_slug', issuing_component='test_component', description='Attempted override',
+                issuing_component='test_component', description='Attempted override',
                 criteria='test', display_name='Testola', image_file_handle=get_image('good'),
                 course_id=course_key,
             )
@@ -228,6 +249,21 @@ class BadgeClassTest(ModuleStoreTestCase):
             ).full_clean
         )
 
+    def test_unique_by_course_id_plus_mode(self):
+        """
+        Verify that validation error is triggered when creating a BadgeClass w/ same course_id and mode as existing.
+        """
+        course_key = CourseFactory.create().location.course_key
+        badge_class = BadgeClassFactory.create(course_id=course_key, mode='honor')
+        self.assertRaises(
+            ValidationError,
+            BadgeClass(
+                course_id=course_key, mode='honor',
+                slug='test', issuing_component='test2', criteria='test3',
+                description='test4', image=get_image('unbalanced'),
+            ).full_clean
+        )
+
 
 class BadgeAssertionTest(ModuleStoreTestCase):
     """
@@ -244,7 +280,7 @@ class BadgeAssertionTest(ModuleStoreTestCase):
         assertions = [BadgeAssertionFactory.create(user=user).id for _i in range(3)]
         course = CourseFactory.create()
         course_key = course.location.course_key
-        course_badges = [RandomBadgeClassFactory(course_id=course_key) for _i in range(3)]
+        course_badges = [BadgeClassFactory(course_id=course_key) for _i in range(3)]
         course_assertions = [
             BadgeAssertionFactory.create(user=user, badge_class=badge_class).id for badge_class in course_badges
         ]

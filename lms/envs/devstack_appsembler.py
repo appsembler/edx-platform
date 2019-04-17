@@ -156,3 +156,15 @@ if 'figures' in INSTALLED_APPS:
         WEBPACK_LOADER,
         CELERYBEAT_SCHEDULE,
         ENV_TOKENS.get('FIGURES', {}))
+
+# use configured course mode defaults as for aws, not standard devstack's
+COURSE_MODE_DEFAULTS.update(ENV_TOKENS.get('COURSE_MODE_DEFAULTS', COURSE_MODE_DEFAULTS))
+
+# badges app using Badgr backend need a real cache to store refresh
+# tokens persistently.  Let's also cache the auth tokens
+if FEATURES['ENABLE_OPENBADGES'] is True:
+    BADGR_API_REFRESH_TOKEN = AUTH_TOKENS.get('BADGR_API_REFRESH_TOKEN', BADGR_API_REFRESH_TOKEN)
+    CACHES[BADGR_API_TOKEN_CACHE] = {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'badges_backends_api_tokens'
+    }
