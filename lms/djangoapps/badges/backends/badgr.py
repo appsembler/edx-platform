@@ -161,12 +161,13 @@ class BadgrBackend(BadgeBackend):
         Register an assertion with the Badgr server for a particular user for a specific class.
         """
         evidence_url_key = 'evidence_url' if self.api_ver == 'v1' else 'url'
-        if evidence_url is not None:    
-            evidence = [
-                {evidence_url_key: evidence_url}
-            ]
+        if evidence_url is not None:
+            if hasattr(evidence_url, '__iter__'):
+                evidence = [{evidence_url_key: e} for e in evidence_url]
+            else:
+                evidence = [{evidence_url_key: evidence_url}]
         else:
-            evidence = [{"narrative": badge_class.criteria}]
+            evidence = [{"narrative": ""}]
         if self.api_ver == 'v1':
             data = {
             'recipient_identifier': user.email,

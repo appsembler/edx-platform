@@ -81,6 +81,7 @@ def course_group_check(user, course_key):
                     evidence = evidence_url(user.id, course_key)
                     awards.append((slug, evidence))
                 else:
+                    evidence = [evidence_url(user.id, course_key) for course_key in keys]
                     awards.append((slug,))
 
     for award in awards:
