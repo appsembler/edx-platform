@@ -156,11 +156,10 @@ class BadgrBackend(BadgeBackend):
             }
         )
 
-    def _create_assertion(self, badge_class, user, evidence):
+    def _create_assertion(self, badge_class, user, evidence=None):
         """
         Register an assertion with the Badgr server for a particular user for a specific class.
         """
-        evidence = None
         evidence_key = 'evidence_items' if self.api_ver == 'v1' else 'evidence'
         evidence_url_key = 'evidence_url' if self.api_ver == 'v1' else 'url'
         if evidence is not None:

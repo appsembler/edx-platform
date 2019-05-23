@@ -71,8 +71,9 @@ def course_group_check(user, course_key):
                 status__in=CertificateStatuses.PASSED_STATUSES,
                 course_id__in=keys,
             )
-            if len(certs) == len(keys):
-                evidence = [evidence_url(user.id, course_key) for course_key in keys]
+            # support overlapping badge award course groups
+            if len(certs) >= len(keys):
+                evidence = [evidence_url(user.id, key) for key in keys]
                 awards.append((slug, evidence))
 
     for award in awards:
