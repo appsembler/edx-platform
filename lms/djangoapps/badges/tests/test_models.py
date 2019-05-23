@@ -233,9 +233,9 @@ class BadgeClassTest(ModuleStoreTestCase):
         """
         user = UserFactory.create()
         badge_class = BadgeClassFactory.create()
-        badge_class.award(user, evidence_url='http://example.com/evidence')
+        badge_class.award(user, evidence=['http://example.com/evidence'])
         self.assertTrue(mock_award.called)
-        mock_award.assert_called_with(badge_class, user, evidence_url='http://example.com/evidence')
+        mock_award.assert_called_with(badge_class, user, evidence=['http://example.com/evidence'])
 
     def test_runs_validator(self):
         """

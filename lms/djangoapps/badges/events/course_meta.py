@@ -72,20 +72,12 @@ def course_group_check(user, course_key):
                 course_id__in=keys,
             )
             if len(certs) == len(keys):
-                # course_complete Assertions are not working correctly
-                # yet with Badgr.io, while course group is working.
-                # so we use course groups with a single course,
-                # in which case we can provide an evidence URL
-                # to the HTML cert for the one coursee
                 evidence = [evidence_url(user.id, course_key) for course_key in keys]
-                awards.append((slug,))
+                awards.append((slug, evidence))
 
     for award in awards:
         badge_class = BadgeClass.get_badge_class(
             slug=award[0], create=False,
         )
         if badge_class and not badge_class.get_for_user(user):
-            try:
-                badge_class.award(user, evidence_url=award[1])
-            except IndexError:
-                badge_class.award(user)
+            badge_class.award(user, evidence=award[1])

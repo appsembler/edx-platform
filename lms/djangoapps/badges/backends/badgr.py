@@ -156,15 +156,15 @@ class BadgrBackend(BadgeBackend):
             }
         )
 
-    def _create_assertion(self, badge_class, user, evidence_url):
+    def _create_assertion(self, badge_class, user, evidence):
         """
         Register an assertion with the Badgr server for a particular user for a specific class.
         """
         evidence = None
         evidence_key = 'evidence_items' if self.api_ver == 'v1' else 'evidence'
         evidence_url_key = 'evidence_url' if self.api_ver == 'v1' else 'url'
-        if evidence_url is not None:
-            evidence = [{evidence_url_key: e} for e in evidence_url]
+        if evidence is not None:
+            evidence = [{evidence_url_key: e} for e in evidence]
         # TODO: support narrative evidence defined as a BadgeClass field
         # i.e., evidence = [{"narrative": badge_class.evidence}]
         if self.api_ver == 'v1':
@@ -248,9 +248,9 @@ class BadgrBackend(BadgeBackend):
             self._create_badge(badge_class)
         BadgrBackend.badges.append(slug)
 
-    def award(self, badge_class, user, evidence_url=None):
+    def award(self, badge_class, user, evidence=None):
         """
         Make sure the badge class has been created on the backend, and then award the badge class to the user.
         """
         self._ensure_badge_created(badge_class)
-        return self._create_assertion(badge_class, user, evidence_url)
+        return self._create_assertion(badge_class, user, evidence)
