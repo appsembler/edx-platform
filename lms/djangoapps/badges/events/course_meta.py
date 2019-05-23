@@ -77,12 +77,8 @@ def course_group_check(user, course_key):
                 # so we use course groups with a single course,
                 # in which case we can provide an evidence URL
                 # to the HTML cert for the one coursee
-                if len(keys) == 1:
-                    evidence = evidence_url(user.id, course_key)
-                    awards.append((slug, evidence))
-                else:
-                    evidence = [evidence_url(user.id, course_key) for course_key in keys]
-                    awards.append((slug,))
+                evidence = [evidence_url(user.id, course_key) for course_key in keys]
+                awards.append((slug,))
 
     for award in awards:
         badge_class = BadgeClass.get_badge_class(
