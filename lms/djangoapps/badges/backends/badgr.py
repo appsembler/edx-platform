@@ -162,8 +162,10 @@ class BadgrBackend(BadgeBackend):
         """
         evidence_key = 'evidence_items' if self.api_ver == 'v1' else 'evidence'
         evidence_url_key = 'evidence_url' if self.api_ver == 'v1' else 'url'
+        data_keys = ((evidence_url_key, 'url'), ('narrative', 'narrative'))
         if evidence is not None:
-            evidence = [{evidence_url_key: e} for e in evidence]
+            evidence = [ dict( [(key[0], e.get(key[1])) for key in data_keys if e.get(key[1]) is not None]) for e in evidence]
+            # evidence = [{evidence_url_key: e.get('url', None), "narrative": e.get('narrative', None)} for e in evidence]
         # TODO: support narrative evidence defined as a BadgeClass field
         # i.e., evidence = [{"narrative": badge_class.evidence}]
         if self.api_ver == 'v1':
@@ -185,7 +187,7 @@ class BadgrBackend(BadgeBackend):
                 'notify': settings.BADGR_API_NOTIFICATIONS_ENABLED,
             }
         if evidence is not None:
-            data.update({evidence_key: evidence, })
+            data.update({evidence_key: evidence})
         response = requests.post(
             self._assertion_url(badge_class.slug), headers=self._get_headers(), json=data,
             timeout=settings.BADGR_TIMEOUT
