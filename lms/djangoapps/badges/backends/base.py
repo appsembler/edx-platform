@@ -11,7 +11,7 @@ class BadgeBackend(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def award(self, badge_class, user, evidence_url=None):
+    def award(self, badge_class, user, evidence=None):
         """
         Create a badge assertion for the user using this backend.
         """

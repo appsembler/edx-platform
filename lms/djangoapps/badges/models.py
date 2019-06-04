@@ -130,11 +130,11 @@ class BadgeClass(models.Model):
         """
         return self.badgeassertion_set.filter(user=user)
 
-    def award(self, user, evidence_url=None):
+    def award(self, user, evidence=None):
         """
         Contacts the backend to have a badge assertion created for this badge class for this user.
         """
-        return self.backend.award(self, user, evidence_url=evidence_url)
+        return self.backend.award(self, user, evidence=evidence)
 
 
     class Meta(object):

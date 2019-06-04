@@ -156,35 +156,38 @@ class BadgrBackend(BadgeBackend):
             }
         )
 
-    def _create_assertion(self, badge_class, user, evidence_url):
+    def _create_assertion(self, badge_class, user, evidence=None):
         """
         Register an assertion with the Badgr server for a particular user for a specific class.
         """
+        evidence_key = 'evidence_items' if self.api_ver == 'v1' else 'evidence'
         evidence_url_key = 'evidence_url' if self.api_ver == 'v1' else 'url'
-        evidence = [
-            {evidence_url_key: evidence_url}
-        ]
+        data_keys = ((evidence_url_key, 'url'), ('narrative', 'narrative'))
+        if evidence is not None:
+            evidence = [ dict( [(key[0], e.get(key[1])) for key in data_keys if e.get(key[1]) is not None]) for e in evidence]
+            # evidence = [{evidence_url_key: e.get('url', None), "narrative": e.get('narrative', None)} for e in evidence]
+        # TODO: support narrative evidence defined as a BadgeClass field
+        # i.e., evidence = [{"narrative": badge_class.evidence}]
         if self.api_ver == 'v1':
             data = {
-            'recipient_identifier': user.email,
-            'recipient_type': 'email',
-            'evidence_items': evidence,
-            'create_notification': settings.BADGR_API_NOTIFICATIONS_ENABLED,
-        }
+                'recipient_identifier': user.email,
+                'recipient_type': 'email',
+                'create_notification': settings.BADGR_API_NOTIFICATIONS_ENABLED,
+            }
         else:
             recipient = {
                 'identity': user.email,
                 'type': 'email',
             }
-
             # note that Badgr.io requires a notification on the first award to a given recipient
             # identifier to comply with GDPR, so that will be sent regardless of settings.
             # Subsequent awards will obey the notifications setting
             data = {
                 'recipient': recipient,
                 'notify': settings.BADGR_API_NOTIFICATIONS_ENABLED,
-                'evidence': evidence
             }
+        if evidence is not None:
+            data.update({evidence_key: evidence})
         response = requests.post(
             self._assertion_url(badge_class.slug), headers=self._get_headers(), json=data,
             timeout=settings.BADGR_TIMEOUT
@@ -246,9 +249,9 @@ class BadgrBackend(BadgeBackend):
             self._create_badge(badge_class)
         BadgrBackend.badges.append(slug)
 
-    def award(self, badge_class, user, evidence_url=None):
+    def award(self, badge_class, user, evidence=None):
         """
         Make sure the badge class has been created on the backend, and then award the badge class to the user.
         """
         self._ensure_badge_created(badge_class)
-        return self._create_assertion(badge_class, user, evidence_url)
+        return self._create_assertion(badge_class, user, evidence)
