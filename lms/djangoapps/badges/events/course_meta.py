@@ -3,12 +3,15 @@ Events which have to do with a user doing something with more than one course, s
 as enrolling in a certain number, completing a certain number, or completing a specific set of courses.
 """
 
+from django.conf import settings
+from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
+
 from badges.models import CourseEventBadgesConfiguration, BadgeClass
 from badges.utils import requires_badges_enabled
 from badges.events.course_complete import evidence_url
 
 
-def award_badge(config, count, user):
+def award_badge(config, count, user, evidence=None):
     """
     Given one of the configurations for enrollments or completions, award
     the appropriate badge if one is configured.
@@ -29,16 +32,20 @@ def award_badge(config, count, user):
     if not badge_class:
         return
     if not badge_class.get_for_user(user):
-        badge_class.award(user)
+        badge_class.award(user, evidence)
 
 
+@requires_badges_enabled
 def award_enrollment_badge(user):
     """
     Awards badges based on the number of courses a user is enrolled in.
     """
+    # TODO: award badges on >= number enrolled
     config = CourseEventBadgesConfiguration.current().enrolled_settings
     enrollments = user.courseenrollment_set.filter(is_active=True).count()
-    award_badge(config, enrollments, user)
+    platform = configuration_helpers.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)
+    evidence = [{"narrative": "Badge awarded for enrollment in {} courses on {}".format(enrollments, platform)}]
+    award_badge(config, enrollments, user, evidence)
 
 
 @requires_badges_enabled
@@ -51,10 +58,13 @@ def completion_check(user):
     completed courses. This badge will not work if certificate generation isn't
     enabled and run.
     """
+    # TODO: award badges on >= number completed
     from certificates.models import CertificateStatuses
     config = CourseEventBadgesConfiguration.current().completed_settings
     certificates = user.generatedcertificate_set.filter(status__in=CertificateStatuses.PASSED_STATUSES).count()
-    award_badge(config, certificates, user)
+    platform = configuration_helpers.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)
+    evidence = [{"narrative": "Badge awarded for completion of {} courses on {}".format(certificates, platform)}]
+    award_badge(config, certificates, user, evidence)
 
 
 @requires_badges_enabled
@@ -71,24 +81,14 @@ def course_group_check(user, course_key):
                 status__in=CertificateStatuses.PASSED_STATUSES,
                 course_id__in=keys,
             )
-            if len(certs) == len(keys):
-                # course_complete Assertions are not working correctly
-                # yet with Badgr.io, while course group is working.
-                # so we use course groups with a single course,
-                # in which case we can provide an evidence URL
-                # to the HTML cert for the one coursee
-                if len(keys) == 1:
-                    evidence = evidence_url(user.id, course_key)
-                    awards.append((slug, evidence))
-                else:
-                    awards.append((slug,))
+            # >= to support case with multiple certs per course (enrollment in multiple modes)
+            if len(certs) >= len(keys):
+                evidence = [{'narrative': 'Certificate of course completion', 'url': evidence_url(user.id, key)} for key in keys]
+                awards.append((slug, evidence))
 
     for award in awards:
         badge_class = BadgeClass.get_badge_class(
             slug=award[0], create=False,
         )
         if badge_class and not badge_class.get_for_user(user):
-            try:
-                badge_class.award(user, evidence_url=award[1])
-            except IndexError:
-                badge_class.award(user)
+            badge_class.award(user, evidence=award[1])

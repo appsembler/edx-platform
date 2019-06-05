@@ -157,9 +157,6 @@ if 'figures' in INSTALLED_APPS:
         CELERYBEAT_SCHEDULE,
         ENV_TOKENS.get('FIGURES', {}))
 
-# use configured course mode defaults as for aws, not standard devstack's
-COURSE_MODE_DEFAULTS.update(ENV_TOKENS.get('COURSE_MODE_DEFAULTS', COURSE_MODE_DEFAULTS))
-
 # badges app using Badgr backend need a real cache to store refresh
 # tokens persistently.  Let's also cache the auth tokens
 if FEATURES['ENABLE_OPENBADGES'] is True:
