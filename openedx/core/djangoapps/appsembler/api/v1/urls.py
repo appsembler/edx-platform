@@ -12,11 +12,16 @@ from . import views
 router = routers.DefaultRouter()
 
 router.register(
+    r'courses',
+    views.CourseViewSet,
+    'courses',
+    )
+
+router.register(
     r'registrations',
     views.RegistrationViewSet,
     'registrations',
     )
-
 
 urlpatterns = [
     url(r'', include(router.urls, )),

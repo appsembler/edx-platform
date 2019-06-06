@@ -198,5 +198,16 @@ if __name__ == '__main__':
 
 ```
 
+## Running Tests
+
+_This section is a WIP_
+
+```
+pytest openedx/core/djangoapps/appsembler/api/tests/test_registration_api.py
+```
+
+See also: https://github.com/edx/edx-platform/blob/master/docs/testing/testing.rst#running-a-single-test
+
+
 [django-reusable-apps]: https://docs.djangoproject.com/en/1.8/intro/reusable-apps/
 [drf-viewsets]: https://www.django-rest-framework.org/api-guide/viewsets/

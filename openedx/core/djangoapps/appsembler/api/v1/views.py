@@ -14,16 +14,22 @@ from django.db import transaction
 from django.utils.decorators import method_decorator
 
 from rest_framework import viewsets
-from rest_framework.authentication import TokenAuthentication
+from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.filters import DjangoFilterBackend
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.user_api.accounts.api import check_account_exists
 from student.forms import PasswordResetFormNoActive
 from student.views import create_account_with_params
 
+from filters import CourseOverviewFilter
+from pagination import TahoeLimitOffsetPagination
+from serializers import CourseOverviewSerializer
 from ..permissions import IsSiteAdminUser, TahoeAPIUserThrottle
+from ..sites import get_courses_for_site
 
 
 log = logging.getLogger(__name__)
@@ -71,6 +77,7 @@ class TahoeAuthMixin(object):
     """Provides a common authorization base for the Tahoe multi-site aware API views
     """
     authentication_classes = (
+        SessionAuthentication,
         TokenAuthentication,
     )
     permission_classes = (
@@ -170,3 +177,23 @@ class RegistrationViewSet(TahoeAuthMixin, viewsets.ViewSet):
             }
             return Response(errors, status=400)
         return Response({'user_id ': user_id}, status=200)
+
+
+class CourseViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
+    """Provides a list of courses with abbreviated details
+
+    /tahoe/api/v1/courses/?show=id
+    /tahoe/api/v1/courses/ids/
+
+    """
+    model = CourseOverview
+    pagination_class = TahoeLimitOffsetPagination
+    serializer_class = CourseOverviewSerializer
+    throttle_classes = (TahoeAPIUserThrottle,)
+    filter_backends = (DjangoFilterBackend, )
+    filter_class = CourseOverviewFilter
+
+    def get_queryset(self):
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = tahoe_sites.get_courses_for_site(site)
+        return queryset
