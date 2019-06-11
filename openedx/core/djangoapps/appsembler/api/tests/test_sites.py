@@ -5,9 +5,7 @@ from django.test import RequestFactory, TestCase
 
 from django.contrib.sites.models import Site
 
-from openedx.core.djangoapps.content.course_overviews.models import (
-    CourseOverview,
-)
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 
 import organizations
 
@@ -17,10 +15,12 @@ from openedx.core.djangoapps.site_configuration.tests.factories import (
 )
 
 from openedx.core.djangoapps.appsembler.api import sites as aapi_sites
+from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
 
 from .factories import (
     CourseOverviewFactory,
     OrganizationFactory,
+    OrganizationCourseFactory,
     UserOrganizationMappingFactory,
     )
 

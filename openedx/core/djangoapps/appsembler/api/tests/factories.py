@@ -17,6 +17,10 @@ from openedx.core.djangoapps.site_configuration.tests.factories import (
 
 import organizations
 
+from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
+
+
+COURSE_ID_STR_TEMPLATE = 'course-v1:StarFleetAcademy+SFA{}+2161'
 
 class CourseOverviewFactory(factory.DjangoModelFactory):
     class Meta:
@@ -27,7 +31,10 @@ class CourseOverviewFactory(factory.DjangoModelFactory):
         COURSE_ID_STR_TEMPLATE.format(n)))
     display_name = factory.Sequence(lambda n: 'SFA Course {}'.format(n))
     org = 'StarFleetAcademy'
-    number = '2161'
+    # number = '2161'
+
+    version = 6L
+    # https://github.com/appsembler/edx-platform/blob/appsembler/tahoe/master/openedx/core/djangoapps/content/course_overviews/models.py#L384
     display_org_with_default = factory.LazyAttribute(lambda o: o.org)
     created = fuzzy.FuzzyDateTime(datetime.datetime(
         2018, 2, 1, tzinfo=factory.compat.UTC))
@@ -89,3 +96,13 @@ class UserOrganizationMappingFactory(factory.DjangoModelFactory):
     organization = factory.SubFactory(OrganizationFactory)
     is_active = True
     is_amc_admin = False
+
+
+class OrganizationCourseFactory(factory.DjangoModelFactory):
+    class Meta:
+        model = organizations.models.OrganizationCourse
+
+    course_id = factory.Sequence(lambda n: COURSE_ID_STR_TEMPLATE.format(n))
+    organization = factory.SubFactory(OrganizationFactory)
+    active = True
+

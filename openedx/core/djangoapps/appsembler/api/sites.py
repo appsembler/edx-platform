@@ -3,6 +3,8 @@ from organizations.models import Organization, OrganizationCourse
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 
+from .helpers import as_course_key
+
 
 def get_course_keys_for_site(site):
     orgs = Organization.objects.filter(sites__in=[site])
