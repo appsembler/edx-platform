@@ -79,6 +79,8 @@ class CourseApiTest(TestCase):
         self.assertEqual(res.status_code, 200)
 
         course_list = res.json().get('results')
+
+        # Breaks. only one course id is returned
         self.assertEqual(len(course_list), len(self.my_course_overviews))
 
         # TODO: Convert results to CourseKey or string and compare to my_course_overviews
