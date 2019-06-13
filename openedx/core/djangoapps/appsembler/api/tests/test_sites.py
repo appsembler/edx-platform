@@ -27,98 +27,33 @@ from .factories import (
 
 class SitesModuleTests(TestCase):
     def setUp(self):
-        self.site = SiteFactory(domain='foo.test')
-        self.organization = OrganizationFactory(sites=[self.site])
+        """
+        The default site already created is u'example.com'
+        """
+        self.other_site = Site.objects.get(domain=u'example.com')
+        self.my_site = SiteFactory(domain='foo.test')
+        self.other_site_org = OrganizationFactory(sites=[self.other_site])
+        self.my_site_org = OrganizationFactory(sites=[self.my_site])
+        self.my_course_overviews = [
+            CourseOverviewFactory(),
+            CourseOverviewFactory()
+        ]
+        OrganizationCourseFactory(organization=self.my_site_org,
+                                  course_id=str(self.my_course_overviews[0].id))
+        OrganizationCourseFactory(organization=self.my_site_org,
+                                  course_id=str(self.my_course_overviews[1].id))
 
+        self.other_course_overviews = [CourseOverviewFactory()]
+        OrganizationCourseFactory(organization=self.other_site_org,
+                                  course_id=str(self.other_course_overviews[0].id))
 
-    # def test_get_course_keys_for_site(self, course_count):
     def test_get_course_keys_for_site(self):
-        course_count = 2
-        course_overviews = [CourseOverviewFactory() for i in range(course_count)]
-        for co in course_overviews:
-            OrganizationCourseFactory(organization=self.organization,
-                                      course_id=str(co.id))
-        course_keys = aapi_sites.get_course_keys_for_site(self.site)
-        expected_ids = [str(co.id) for co in course_overviews]
+        course_keys = aapi_sites.get_course_keys_for_site(self.my_site)
+        expected_ids = [str(co.id) for co in self.my_course_overviews]
+        self.assertEqual(set([str(key) for key in course_keys]), set(expected_ids))
 
+    def test_get_courses_for_site(self):
+        courses = aapi_sites.get_courses_for_site(self.my_site)
+        expected_ids = [str(co.id) for co in self.my_course_overviews]
+        self.assertEqual(set([str(course.id) for course in courses]), set(expected_ids))
 
-@pytest.mark.django_db
-class TestSiteModule(object):
-    """
-    Tests figures.sites site handling functions in multisite mode
-
-    Assumptions:
-    * We're using Appsembler's fork of `edx-organizations` for the multisite
-      tests
-
-    """
-    @pytest.fixture(autouse=True)
-    def setup(self, db, settings):
-        self.site = SiteFactory(domain='foo.test')
-        self.organization = OrganizationFactory(sites=[self.site])
-        assert Site.objects.count() == 2
-
-    # def test_get_site_for_courses(self):
-    #     """
-    #     Can we get the site for a given course?
-
-    #     We shouldn't care what the other site is. For reference, it is the
-    #     default site with 'example.com' for both the domain and name fields
-    #     """
-    #     # We want to move the patch to the class level if possible
-
-    #     co = CourseOverviewFactory()
-    #     OrganizationCourseFactory(organization=self.organization,
-    #                               course_id=str(co.id))
-    #     site = aapi_sites.get_site_for_course(str(co.id))
-    #     assert site == self.site
-
-    # def test_get_site_for_course_not_in_site(self):
-    #     """
-    #     We create a course but don't add the course to OrganizationCourse
-    #     We expect that a site cannot be found
-    #     """
-    #     co = CourseOverviewFactory()
-    #     site = aapi_sites.get_site_for_course(str(co.id))
-    #     assert not site
-
-    # @pytest.mark.parametrize('course_id', ['', None])
-    # def test_get_site_for_non_existing_course(self, course_id):
-    #     """
-    #     We expect no site returned for None for the course
-    #     """
-    #     site = aapi_sites.get_site_for_course(course_id)
-    #     assert not site
-
-    @pytest.mark.parametrize('course_count', [0, 1, 2])
-    def test_get_course_keys_for_site(self, course_count):
-
-        course_overviews = [CourseOverviewFactory() for i in range(course_count)]
-        for co in course_overviews:
-            OrganizationCourseFactory(organization=self.organization,
-                                      course_id=str(co.id))
-        course_keys = aapi_sites.get_course_keys_for_site(self.site)
-        expected_ids = [str(co.id) for co in course_overviews]
-        assert set([str(key) for key in course_keys]) == set(expected_ids)
-
-    @pytest.mark.parametrize('course_count', [0, 1, 2])
-    def test_get_courses_for_site(self, course_count):
-        course_overviews = [CourseOverviewFactory() for i in range(course_count)]
-        for co in course_overviews:
-            OrganizationCourseFactory(organization=self.organization,
-                                      course_id=str(co.id))
-        courses = aapi_sites.get_courses_for_site(self.site)
-        expected_ids = [str(co.id) for co in course_overviews]
-        assert set([str(co.id) for co in courses]) == set(expected_ids)
-
-    # @pytest.mark.parametrize('ce_count', [0, 1, 2])
-    # def test_get_course_enrollments_for_site(self, ce_count):
-
-    #     course_overview = CourseOverviewFactory()
-    #     OrganizationCourseFactory(organization=self.organization,
-    #                               course_id=str(course_overview.id))
-    #     expected_ce = [CourseEnrollmentFactory(
-    #         course_id=course_overview.id) for i in range(ce_count)]
-    #     course_enrollments = aapi_sites.get_course_enrollments_for_site(self.site)
-    #     assert set([ce.id for ce in course_enrollments]) == set(
-    #                [ce.id for ce in expected_ce])

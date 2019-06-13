@@ -4,9 +4,15 @@ Tests for openedx.core.djangoapps.appsembler.api.views.RegistrationViewSet
 These tests adapted from Appsembler enterprise `appsembler_api` tests
 
 """
+
+from django.contrib.sites.models import Site
 from django.core.urlresolvers import reverse
+
 from django.test import RequestFactory, TestCase
 from django.test.utils import override_settings
+
+
+
 from rest_framework.permissions import AllowAny
 
 import ddt
@@ -22,6 +28,7 @@ from openedx.core.djangoapps.site_configuration.tests.factories import (
 from .factories import (
     CourseOverviewFactory,
     OrganizationFactory,
+    OrganizationCourseFactory,
     UserOrganizationMappingFactory,
 )
 
@@ -32,139 +39,46 @@ SITE_CONFIGURATION_CLASS = ('openedx.core.djangoapps.site_configuration'
 APPSEMBLER_API_VIEWS_MODULE = 'openedx.core.djangoapps.appsembler.api.v1.views'
 
 
+# The mock.patch breaks the test. Causes 
+
 @ddt.ddt
-class SiteAdminPermissionsTest(TestCase):
+@mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.CourseViewSet.authentication_classes', [])
+@mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.CourseViewSet.permission_classes', [AllowAny])
+@mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.CourseViewSet.throttle_classes', [])
+class CourseApiTest(TestCase):
 
     def setUp(self):
-        patch = mock.patch(SITE_CONFIGURATION_CLASS + '.compile_microsite_sass')
-        self.mock_site_config_method = patch.start()
-        self.site = SiteFactory()
-        self.organization = OrganizationFactory(
-            sites=[self.site],
-        )
-        self.site_configuration = SiteConfigurationFactory(
-            site=self.site,
-            sass_variables={},
-            page_elements={},
-        )
-        self.site_configuration.values['course_org_filter'] = self.organization.short_name
-        self.callers = [
-            UserFactory(username='alpha_nonadmin'),
-            UserFactory(username='alpha_site_admin'),
-            UserFactory(username='non_site_user'),
+        self.other_site = Site.objects.get(domain=u'example.com')
+        self.my_site = SiteFactory(domain='foo.test')
+        self.other_site_org = OrganizationFactory(sites=[self.other_site])
+        self.my_site_org = OrganizationFactory(sites=[self.my_site])
+
+        # THIS BREAKS! (We might not need it)
+        # self.site_configuration = SiteConfigurationFactory(
+        #     site=self.site,
+        #     sass_variables={},
+        #     page_elements={},
+        # )
+
+        self.my_course_overviews = [
+            CourseOverviewFactory(),
+            CourseOverviewFactory()
         ]
-        self.user_organization_mappings = [
-            UserOrganizationMappingFactory(
-                user=self.callers[0], organization=self.organization),
-            UserOrganizationMappingFactory(
-                user=self
-                .callers[1], organization=self.organization, is_amc_admin=True),
-            # Make sure we DO NOT add the 'non_site_user' here
-        ]
-        # self.factory = RequestFactory()
-        self.addCleanup(patch.stop)
+        OrganizationCourseFactory(organization=self.my_site_org,
+                                  course_id=str(self.my_course_overviews[0].id))
+        OrganizationCourseFactory(organization=self.my_site_org,
+                                  course_id=str(self.my_course_overviews[1].id))
+
+        self.other_course_overviews = [CourseOverviewFactory()]
+        OrganizationCourseFactory(organization=self.other_site_org,
+                                  course_id=str(self.other_course_overviews[0].id))
 
     def test_get_list(self):
         list_url = reverse('tahoe-api:v1:courses-list')
         res = self.client.get(list_url)
-        
-        import pdb; pdb.set_trace()
+        self.assertEqual(res.status_code, 200)
 
+        course_list = res.json().get('results')
+        self.assertEqual(len(course_list), len(self.my_course_overviews))
 
-# @ddt.ddt
-# @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.CoursesViewSet.authentication_classes', [])
-# @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.CourseViewSet.permission_classes', [AllowAny])
-# @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.CourseViewSet.throttle_classes', [])
-# @mock.patch(SITE_CONFIGURATION_CLASS + '.compile_microsite_sass')
-# @override_settings(APPSEMBLER_FEATURES={
-#     'SKIP_LOGIN_AFTER_REGISTRATION': False,
-# })
-# class CourseApiViewTests(TestCase):
-#     def setUp(self):
-
-#         # The DRF Router appends '-list' to the base 'registrations' name when
-#         # registering the endpoint
-
-#         self.site = SiteFactory()
-#         self.organization = OrganizationFactory(
-#             sites=[self.site],
-#         )
-#         self.site_configuration = SiteConfigurationFactory(
-#             site=self.site,
-#             sass_variables={},
-#             page_elements={},
-#         )
-#         self.site_configuration.values['course_org_filter'] = self.organization.short_name
-#         self.callers = [
-#             UserFactory(username='alpha_nonadmin'),
-#             UserFactory(username='alpha_site_admin'),
-#             UserFactory(username='non_site_user'),
-#         ]
-#         self.user_organization_mappings = [
-#             UserOrganizationMappingFactory(
-#                 user=self.callers[0], organization=self.organization),
-#             UserOrganizationMappingFactory(
-#                 user=self
-#                 .callers[1], organization=self.organization, is_amc_admin=True),
-#             # Make sure we DO NOT add the 'non_site_user' here
-#         ]
-
-
-
-
-
-
-# BORKEN - 
-
-# @ddt.ddt
-# @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.RegistrationViewSet.authentication_classes', [])
-# @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.RegistrationViewSet.permission_classes', [AllowAny])
-# @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.RegistrationViewSet.throttle_classes', [])
-# @override_settings(APPSEMBLER_FEATURES={
-#     'SKIP_LOGIN_AFTER_REGISTRATION': False,
-# })
-# class CourseApiViewTests(TestCase):
-#     def setUp(self):
-
-#         # The DRF Router appends '-list' to the base 'registrations' name when
-#         # registering the endpoint
-#         self.url = reverse('tahoe-api:v1:courses-list')
-#         patch = mock.patch(SITE_CONFIGURATION_CLASS + '.compile_microsite_sass')
-#         self.mock_site_config_method = patch.start()
-#         self.site = SiteFactory()
-#         self.organization = OrganizationFactory(
-#             sites=[self.site],
-#         )
-#         self.site_configuration = SiteConfigurationFactory(
-#             site=self.site,
-#             sass_variables={},
-#             page_elements={},
-#         )
-#         self.site_configuration.values['course_org_filter'] = self.organization.short_name
-#         self.callers = [
-#             UserFactory(username='alpha_nonadmin'),
-#             UserFactory(username='alpha_site_admin'),
-#             UserFactory(username='non_site_user'),
-#         ]
-#         self.user_organization_mappings = [
-#             UserOrganizationMappingFactory(
-#                 user=self.callers[0], organization=self.organization),
-#             UserOrganizationMappingFactory(
-#                 user=self
-#                 .callers[1], organization=self.organization, is_amc_admin=True),
-#             # Make sure we DO NOT add the 'non_site_user' here
-#         ]
-#         # self.factory = RequestFactory()
-
-#         self.addCleanup(patch.stop)
-
-#     def test_get_list(self):
-
-#         res = self.client.get(self.url)
-        
-#         import pdb; pdb.set_trace()
-
-
-
-
-
+        # TODO: Convert results to CourseKey or string and compare to my_course_overviews

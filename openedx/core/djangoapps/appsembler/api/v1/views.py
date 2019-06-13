@@ -12,6 +12,7 @@ from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.conf import settings
 from django.db import transaction
 from django.utils.decorators import method_decorator
+import django.contrib.sites.shortcuts
 
 from rest_framework import viewsets
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
@@ -195,5 +196,5 @@ class CourseViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = tahoe_sites.get_courses_for_site(site)
+        queryset = get_courses_for_site(site)
         return queryset
