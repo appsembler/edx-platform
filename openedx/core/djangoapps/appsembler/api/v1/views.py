@@ -8,17 +8,22 @@ import logging
 import random
 import string
 
+
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.conf import settings
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 import django.contrib.sites.shortcuts
 
 from rest_framework import viewsets
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.exceptions import NotFound
 from rest_framework.filters import DjangoFilterBackend
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from opaque_keys.edx.keys import CourseKey
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
@@ -30,7 +35,7 @@ from filters import CourseOverviewFilter
 from pagination import TahoeLimitOffsetPagination
 from serializers import CourseOverviewSerializer
 from ..permissions import IsSiteAdminUser, TahoeAPIUserThrottle
-from ..sites import get_courses_for_site
+from ..sites import get_courses_for_site, get_site_for_course
 
 
 log = logging.getLogger(__name__)
@@ -181,10 +186,15 @@ class RegistrationViewSet(TahoeAuthMixin, viewsets.ViewSet):
 
 
 class CourseViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
-    """Provides a list of courses with abbreviated details
+    """Provides course information
 
-    /tahoe/api/v1/courses/?show=id
-    /tahoe/api/v1/courses/ids/
+    To provide data for all courses on your site::
+
+        GET /tahoe/api/v1/courses/
+
+    To provide details on a specific course::
+
+        GET /tahoe/api/v1/courses/<course id>/
 
     """
     model = CourseOverview
@@ -198,3 +208,13 @@ class CourseViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
         queryset = get_courses_for_site(site)
         return queryset
+
+    def retrieve(self, request, *args, **kwargs):
+        course_id_str = kwargs.get('pk', '')
+        course_key = CourseKey.from_string(course_id_str.replace(' ', '+'))
+        site = django.contrib.sites.shortcuts.get_current_site(request)
+        if site != get_site_for_course(course_key):
+            # Raising NotFound instead of PermissionDenied
+            raise NotFound()
+        course_overview = get_object_or_404(CourseOverview, pk=course_key)
+        return Response(CourseOverviewSerializer(course_overview).data)

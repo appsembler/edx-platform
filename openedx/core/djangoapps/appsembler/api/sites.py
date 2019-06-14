@@ -19,3 +19,37 @@ def get_courses_for_site(site):
     course_keys = get_course_keys_for_site(site)
     courses = CourseOverview.objects.filter(id__in=course_keys)
     return courses
+
+
+def get_site_for_course(course_id):
+    """
+    Given a course, return the related site or None
+
+    For standalone mode, will always return the site
+    For multisite mode, will return the site if there is a mapping between the
+    course and the site. Otherwise `None` is returned
+
+    # Implementation notes
+
+    There should be only one organization per course.
+    TODO: Figure out how we want to handle ``DoesNotExist``
+    whether to let it raise back up raw or handle with a custom exception
+    """
+
+    org_courses = OrganizationCourse.objects.filter(course_id=str(course_id))
+    if org_courses:
+        # Keep until this assumption analyzed
+        msg = 'Multiple orgs found for course: {}'
+        assert org_courses.count() == 1, msg.format(course_id)
+        first_org = org_courses.first().organization
+        if hasattr(first_org, 'sites'):
+            msg = 'Must have one and only one site. Org is "{}"'
+            assert first_org.sites.count() == 1, msg.format(first_org.name)
+            site = first_org.sites.first()
+        else:
+            site = None
+    else:
+        # We don't want to make assumptions of who our consumers are
+        # TODO: handle no organizations found for the course
+        site = None
+    return site

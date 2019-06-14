@@ -48,17 +48,10 @@ APPSEMBLER_API_VIEWS_MODULE = 'openedx.core.djangoapps.appsembler.api.v1.views'
 class CourseApiTest(TestCase):
 
     def setUp(self):
-        self.other_site = Site.objects.get(domain=u'example.com')
-        self.my_site = SiteFactory(domain='foo.test')
+        self.my_site = Site.objects.get(domain=u'example.com')
+        self.other_site = SiteFactory(domain='other-site.test')
         self.other_site_org = OrganizationFactory(sites=[self.other_site])
         self.my_site_org = OrganizationFactory(sites=[self.my_site])
-
-        # THIS BREAKS! (We might not need it)
-        # self.site_configuration = SiteConfigurationFactory(
-        #     site=self.site,
-        #     sass_variables={},
-        #     page_elements={},
-        # )
 
         self.my_course_overviews = [
             CourseOverviewFactory(),
@@ -74,13 +67,16 @@ class CourseApiTest(TestCase):
                                   course_id=str(self.other_course_overviews[0].id))
 
     def test_get_list(self):
-        list_url = reverse('tahoe-api:v1:courses-list')
-        res = self.client.get(list_url)
+        url = reverse('tahoe-api:v1:courses-list')
+        res = self.client.get(url)
         self.assertEqual(res.status_code, 200)
+        course_list = res.data['results']
+        expected_keys = [str(co.id) for co in self.my_course_overviews]
+        self.assertEqual(set([obj['id'] for obj in course_list]), set(expected_keys) )
 
-        course_list = res.json().get('results')
-
-        # Breaks. only one course id is returned
-        self.assertEqual(len(course_list), len(self.my_course_overviews))
-
-        # TODO: Convert results to CourseKey or string and compare to my_course_overviews
+    def test_get_single(self):
+        course_id = str(self.my_course_overviews[0].id)
+        url = reverse('tahoe-api:v1:courses-detail', args=[course_id])
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['id'], course_id) 
