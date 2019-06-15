@@ -1,5 +1,5 @@
 """
-Tests for openedx.core.djangoapps.appsembler.api.views.RegistrationViewSet
+Tests for openedx.core.djangoapps.appsembler.api.v1.views.CourseViewSet
 
 These tests adapted from Appsembler enterprise `appsembler_api` tests
 
