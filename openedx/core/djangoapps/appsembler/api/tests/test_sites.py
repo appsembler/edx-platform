@@ -57,9 +57,7 @@ class SitesModuleTests(TestCase):
         expected_ids = [str(co.id) for co in self.my_course_overviews]
         self.assertEqual(set([str(course.id) for course in courses]), set(expected_ids))
 
-
     def test_get_site_for_course(self):
-
         course_id = self.my_course_overviews[0].id
         site = aapi_sites.get_site_for_course(course_id)
         self.assertEqual(site, self.my_site)
