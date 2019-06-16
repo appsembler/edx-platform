@@ -3,6 +3,8 @@ from organizations.models import Organization, OrganizationCourse
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 
+from student.models import CourseEnrollment
+
 from .helpers import as_course_key
 
 
@@ -53,3 +55,8 @@ def get_site_for_course(course_id):
         # TODO: handle no organizations found for the course
         site = None
     return site
+
+
+def get_enrollments_for_site(site):
+    course_keys = get_course_keys_for_site(site)
+    return CourseEnrollment.objects.filter(course_id__in=course_keys)
