@@ -18,6 +18,12 @@ router.register(
     )
 
 router.register(
+    r'enrollmentss',
+    views.EnrollmentViewSet,
+    'enrollments',
+    )
+
+router.register(
     r'registrations',
     views.RegistrationViewSet,
     'registrations',

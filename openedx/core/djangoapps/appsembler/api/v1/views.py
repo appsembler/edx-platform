@@ -218,3 +218,39 @@ class CourseViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
             raise NotFound()
         course_overview = get_object_or_404(CourseOverview, pk=course_key)
         return Response(CourseOverviewSerializer(course_overview).data)
+
+
+class EnrollmentViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
+    """Provides course information
+
+    To provide data for all enrollments on your site::
+
+        GET /tahoe/api/v1/enrollments/
+
+    To provide enrollments for a specific course::
+
+        GET /tahoe/api/v1/enrollments/<course id>/
+
+    """
+    model = CourseEnrollment
+    pagination_class = TahoeLimitOffsetPagination
+    serializer_class = CourseEnrollmentSerializer
+    throttle_classes = (TahoeAPIUserThrottle,)
+    filter_backends = (DjangoFilterBackend, )
+    filter_class = CourseEnrollmentFilter
+
+    def get_queryset(self):
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = get_enrollments_for_site(site)
+        return queryset
+
+    def retrieve(self, request, *args, **kwargs):
+        course_id_str = kwargs.get('pk', '')
+        course_key = CourseKey.from_string(course_id_str.replace(' ', '+'))
+        site = django.contrib.sites.shortcuts.get_current_site(request)
+        if site != get_site_for_course(course_key):
+            # Raising NotFound instead of PermissionDenied
+            raise NotFound()
+        course_overview = get_object_or_404(CourseOverview, pk=course_key)
+        return Response(CourseOverviewSerializer(course_overview).data)
+
