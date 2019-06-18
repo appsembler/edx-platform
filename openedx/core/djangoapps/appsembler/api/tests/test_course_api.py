@@ -33,13 +33,8 @@ from .factories import (
 )
 
 
-SITE_CONFIGURATION_CLASS = ('openedx.core.djangoapps.site_configuration'
-                            '.models.SiteConfiguration')
-
 APPSEMBLER_API_VIEWS_MODULE = 'openedx.core.djangoapps.appsembler.api.v1.views'
 
-
-# The mock.patch breaks the test. Causes 
 
 @ddt.ddt
 @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.CourseViewSet.authentication_classes', [])
@@ -57,10 +52,9 @@ class CourseApiTest(TestCase):
             CourseOverviewFactory(),
             CourseOverviewFactory()
         ]
-        OrganizationCourseFactory(organization=self.my_site_org,
-                                  course_id=str(self.my_course_overviews[0].id))
-        OrganizationCourseFactory(organization=self.my_site_org,
-                                  course_id=str(self.my_course_overviews[1].id))
+        for co in self.my_course_overviews:
+            OrganizationCourseFactory(organization=self.my_site_org,
+                                      course_id=str(co.id))
 
         self.other_course_overviews = [CourseOverviewFactory()]
         OrganizationCourseFactory(organization=self.other_site_org,
