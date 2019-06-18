@@ -18,7 +18,7 @@ router.register(
     )
 
 router.register(
-    r'enrollmentss',
+    r'enrollments',
     views.EnrollmentViewSet,
     'enrollments',
     )
