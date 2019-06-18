@@ -25,13 +25,15 @@ from rest_framework.response import Response
 
 from opaque_keys.edx.keys import CourseKey
 
+from enrollment.serializers import CourseEnrollmentSerializer
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.user_api.accounts.api import check_account_exists
 from student.forms import PasswordResetFormNoActive
+from student.models import CourseEnrollment
 from student.views import create_account_with_params
 
-from filters import CourseOverviewFilter
+from filters import CourseEnrollmentFilter, CourseOverviewFilter
 from pagination import TahoeLimitOffsetPagination
 from serializers import CourseOverviewSerializer
 from ..permissions import IsSiteAdminUser, TahoeAPIUserThrottle

@@ -5,6 +5,8 @@ from openedx.core.djangoapps.content.course_overviews.models import (
     CourseOverview,
 )
 
+from student.models import CourseEnrollment
+
 
 class CourseOverviewFilter(django_filters.FilterSet):
     '''Provides filtering for CourseOverview model objects
@@ -36,3 +38,29 @@ class CourseOverviewFilter(django_filters.FilterSet):
     class Meta:
         model = CourseOverview
         fields = ['display_name', 'org', 'number', 'number_contains', ]
+
+
+class CourseEnrollmentFilter(django_filters.FilterSet):
+    '''Provides filtering for the CourseEnrollment model objects
+
+    '''
+    course_id = django_filters.CharFilter(method='filter_course_id')
+    is_active = django_filters.BooleanFilter(name='is_active',)
+
+    def filter_course_id(self, queryset, name, value):
+        '''
+
+        This method converts the course id string to a CourseLocator object
+        and returns the filtered queryset. This is required because
+        CourseEnrollment course_id fields are of type CourseKeyField
+
+        Query parameters with plus signs '+' in the string are automatically
+        replaced with spaces, so we need to put the '+' back in for CourseKey
+        to be able to create a course key object from the string
+        '''
+        course_key = CourseKey.from_string(value.replace(' ', '+'))
+        return queryset.filter(course_id=course_key)
+
+    class Meta:
+        model = CourseEnrollment
+        fields = ['course_id', 'user_id', 'is_active', ]
