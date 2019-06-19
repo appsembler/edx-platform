@@ -37,7 +37,11 @@ from filters import CourseEnrollmentFilter, CourseOverviewFilter
 from pagination import TahoeLimitOffsetPagination
 from serializers import CourseOverviewSerializer
 from ..permissions import IsSiteAdminUser, TahoeAPIUserThrottle
-from ..sites import get_courses_for_site, get_site_for_course
+from ..sites import (
+    get_courses_for_site,
+    get_site_for_course,
+    get_enrollments_for_site,
+    )
 
 
 log = logging.getLogger(__name__)
@@ -222,7 +226,7 @@ class CourseViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
         return Response(CourseOverviewSerializer(course_overview).data)
 
 
-class EnrollmentViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
+class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
     """Provides course information
 
     To provide data for all enrollments on your site::
@@ -255,4 +259,14 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
             raise NotFound()
         course_overview = get_object_or_404(CourseOverview, pk=course_key)
         return Response(CourseOverviewSerializer(course_overview).data)
+
+    def create(self, request, *args, **kwargs):
+        # Using .copy() to make the POST data mutable
+        # see: https://stackoverflow.com/a/49794425/161278
+        data = request.data.copy()
+        # temp mock data
+        response_data = {
+            'user_id': 'bubba_brown',
+        }
+        return Response(response_data, status=201)
 
