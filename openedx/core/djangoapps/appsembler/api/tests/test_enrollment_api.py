@@ -71,32 +71,31 @@ class EnrollmentApiTest(TestCase):
         url = reverse('tahoe-api:v1:enrollments-list')
         res = self.client.get(url)
         self.assertEqual(res.status_code, 200)
-        enrollments_list = res.data['results']
-        self.assertEqual(len(enrollments_list))
-        import pdb; pdb.set_trace()
+        enroll_list = res.data['results']
+        self.assertEqual(len(enroll_list), len(self.my_enrollments))
+        # TODO: Validate each record
 
+    def test_get_enrollments_for_course(self):
+        selected_course = self.my_course_overviews[0]
+        expected_enrollments = [
+            CourseEnrollmentFactory(course=selected_course),
+            CourseEnrollmentFactory(course=selected_course),
+        ]
 
-    def test_get_single(self):
+        for enrollment in expected_enrollments:
+            UserOrganizationMappingFactory(user=enrollment.user,
+                                           organization=self.my_site_org)
+        expected_enrollments.append(self.my_enrollments[0])
+        url = reverse('tahoe-api:v1:enrollments-list')
+        url += '?course_id={}'.format(str(selected_course.id))
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        enroll_list = res.data['results']
+        self.assertEqual(len(enroll_list), len(expected_enrollments))
+        # TODO: Validate each record
 
+    def test_get_single_enrollment(self):
+        pass
 
-# @ddt.ddt
-# @patch(APPSEMBLER_API_VIEWS_MODULE + '.EnrollmentViewSet.authentication_classes', [])
-# @patch(APPSEMBLER_API_VIEWS_MODULE + '.EnrollmentViewSet.permission_classes', [AllowAny])
-# @patch(APPSEMBLER_API_VIEWS_MODULE + '.EnrollmentViewSet.throttle_classes', [])
-# class EnrollmentApiPostTest(TestCase):
-#     def setUp(self):
-
-#     def test_enroll_registered_user(self):
-#         # The DRF Router appends '-list' to the base 'registrations' name when
-#         # registering the endpoint
-
-#         url = reverse('tahoe-api:v1:enrollments')
-#         payload = {
-#             'email': 'mr.robot@example.com',
-#             'course_id':
-#         }
-#         res = self.client.post(url, payload)
-#         self.assertEqual(res.status_code, 200)
-#         course_list = res.data['results']
-#         expected_keys = [str(co.id) for co in self.my_course_overviews]
-#         self.assertEqual(set([obj['id'] for obj in course_list]), set(expected_keys) )
+    def test_enroll_single_learner(self):
+        pass
