@@ -1,6 +1,6 @@
 
 import django_filters
-
+from opaque_keys.edx.keys import CourseKey
 from openedx.core.djangoapps.content.course_overviews.models import (
     CourseOverview,
 )
