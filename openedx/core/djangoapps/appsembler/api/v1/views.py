@@ -16,7 +16,8 @@ from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 import django.contrib.sites.shortcuts
 
-from rest_framework import viewsets
+
+from rest_framework import status, viewsets
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.exceptions import NotFound
 from rest_framework.filters import DjangoFilterBackend
@@ -26,6 +27,9 @@ from rest_framework.response import Response
 from opaque_keys.edx.keys import CourseKey
 
 from enrollment.serializers import CourseEnrollmentSerializer
+
+# from instructor.views.api import students_update_enrollment
+
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.user_api.accounts.api import check_account_exists
@@ -33,9 +37,17 @@ from student.forms import PasswordResetFormNoActive
 from student.models import CourseEnrollment
 from student.views import create_account_with_params
 
+
+# from openedx.core.djangoapps.appsembler.api.v1.enrollment enroll_learners_in_course
+
+from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
+from api import enroll_learners_in_course
 from filters import CourseEnrollmentFilter, CourseOverviewFilter
 from pagination import TahoeLimitOffsetPagination
-from serializers import CourseOverviewSerializer
+from serializers import CourseOverviewSerializer, BulkEnrollmentSerializer
+
+
+# TODO: Just move into v1 directory
 from ..permissions import IsSiteAdminUser, TahoeAPIUserThrottle
 from ..sites import (
     get_courses_for_site,
@@ -261,12 +273,70 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
         return Response(CourseOverviewSerializer(course_overview).data)
 
     def create(self, request, *args, **kwargs):
+        """
+        Adapts interface from bulk enrollment
+
+        """
         # Using .copy() to make the POST data mutable
         # see: https://stackoverflow.com/a/49794425/161278
         data = request.data.copy()
         # temp mock data
-        response_data = {
-            'user_id': 'bubba_brown',
-        }
-        return Response(response_data, status=201)
 
+        # TODO: get site and verify course is in site
+
+        serializer = BulkEnrollmentSerializer(data=request.data)
+        if serializer.is_valid():
+            # TODO: Wrap in transaction
+            # TODO: trap error on each attempt and log
+            # IMPORTANT: THIS IS A WIP to get this working quickly
+            # Being clean inside is secondary
+            for course_id in serializer.data.get('courses'):
+                course = CourseOverview.objects.get(id=as_course_key(course_id))
+                learners = serializer.data.get('identifiers')
+                result = enroll_learners_in_course(
+                    course=course,
+                    learners=learners,
+                    auto_enroll=serializer.data.get('auto_enroll'))
+
+            response_data = {
+                'auto_enroll': serializer.data.get('auto_enroll'),
+                'email_learners': serializer.data.get('email_learners'),
+                'action': serializer.data.get('action'),
+                'courses': serializer.data.get('courses'),
+            }
+            response_code = status.HTTP_201_CREATED
+        else:
+            response_data = serializer.errors
+            response_code = status.HTTP_400_BAD
+
+        return Response(response_data, status=response_code)
+
+
+
+# @can_disable_rate_limit
+# class BulkEnrollView(APIView, ApiKeyPermissionMixIn):
+#     authentication_classes = OAuth2AuthenticationAllowInactiveUser, \
+#                              EnrollmentCrossDomainSessionAuth
+#     permission_classes = ApiKeyHeaderPermissionIsAuthenticated,
+#     throttle_classes = EnrollmentUserThrottle,
+
+#     def post(self, request):
+#         serializer = BulkEnrollmentSerializer(data=request.data)
+#         if serializer.is_valid():
+#             request.POST = request.data
+#             response_dict = {
+#                 'auto_enroll': serializer.data.get('auto_enroll'),
+#                 'email_students': serializer.data.get('email_students'),
+#                 'action': serializer.data.get('action'),
+#                 'courses': {}
+#             }
+#             for course in serializer.data.get('courses'):
+#                 response = students_update_enrollment(
+#                     self.request, course_id=course
+#                 )
+#                 response_dict['courses'][course] = json.loads(response.content)
+#             return Response(data=response_dict, status=status.HTTP_200_OK)
+#         else:
+#             return Response(
+#                 serializer.errors, status=status.HTTP_400_BAD_REQUEST
+#             )

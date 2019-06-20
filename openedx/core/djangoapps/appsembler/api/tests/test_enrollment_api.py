@@ -97,5 +97,29 @@ class EnrollmentApiTest(TestCase):
     def test_get_single_enrollment(self):
         pass
 
-    def test_enroll_single_learner(self):
-        pass
+    def test_enroll_learners_single_course(self):
+        """
+        The payload structure is subject to change
+        """
+        url = reverse('tahoe-api:v1:enrollments-list')
+        co = self.my_course_overviews[0]
+        reg_users = [UserFactory(), UserFactory()]
+        new_users = ['alpha@example.com', 'bravo@example.com']
+        # TODO: make sure these emails don't exist
+        learner_emails = [obj.email for obj in reg_users]
+        payload = {
+            'action': 'enroll',
+            'auto_enroll': True,
+            'identifiers': learner_emails,
+            'email_learners': True,
+            'courses': [
+                str(co.id)
+            ],
+        }
+        res = self.client.post(url, payload)
+        self.assertEqual(res.status_code, 201)
+        for key in ['action', 'auto_enroll', 'email_learners', 'courses']:
+            self.assertEqual(res.data[key], payload[key])
+
+        # TODO: Assert that the course enrollments created
+        # TODO: Assert new users registered
