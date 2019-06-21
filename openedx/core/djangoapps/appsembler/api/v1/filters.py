@@ -7,7 +7,6 @@ from openedx.core.djangoapps.content.course_overviews.models import (
 
 from student.models import CourseEnrollment
 
-
 class CourseOverviewFilter(django_filters.FilterSet):
     '''Provides filtering for CourseOverview model objects
 
