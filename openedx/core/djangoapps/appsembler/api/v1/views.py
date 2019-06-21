@@ -4,6 +4,7 @@ Only include view classes here. See the tests/test_permissions.py:get_api_classe
 method.
 """
 
+from functools import partial
 import logging
 import random
 import string
@@ -28,7 +29,8 @@ from opaque_keys.edx.keys import CourseKey
 
 from enrollment.serializers import CourseEnrollmentSerializer
 
-# from instructor.views.api import students_update_enrollment
+# from courseware.courses import get_course_by_id, get_course_with_access
+from courseware.courses import get_course_by_id
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
@@ -37,23 +39,37 @@ from student.forms import PasswordResetFormNoActive
 from student.models import CourseEnrollment
 from student.views import create_account_with_params
 
-
-# from openedx.core.djangoapps.appsembler.api.v1.enrollment enroll_learners_in_course
+from lms.djangoapps.instructor.enrollment import (
+    # enroll_email,
+    get_email_params,
+    # get_user_email_language,
+    # send_beta_role_email,
+    # send_mail_to_student,
+    # unenroll_email
+)
 
 from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
-from api import enroll_learners_in_course
-from filters import CourseEnrollmentFilter, CourseOverviewFilter
-from pagination import TahoeLimitOffsetPagination
-from serializers import CourseOverviewSerializer, BulkEnrollmentSerializer
-
+from openedx.core.djangoapps.appsembler.api.v1.api import enroll_learners_in_course
+from openedx.core.djangoapps.appsembler.api.v1.filters import (
+    CourseEnrollmentFilter,
+    CourseOverviewFilter
+)
+from openedx.core.djangoapps.appsembler.api.v1.pagination import (
+    TahoeLimitOffsetPagination
+)
+from openedx.core.djangoapps.appsembler.api.v1.serializers import (
+    CourseOverviewSerializer, BulkEnrollmentSerializer
+)
 
 # TODO: Just move into v1 directory
-from ..permissions import IsSiteAdminUser, TahoeAPIUserThrottle
-from ..sites import (
+from openedx.core.djangoapps.appsembler.api.permissions import (
+    IsSiteAdminUser, TahoeAPIUserThrottle
+)
+from openedx.core.djangoapps.appsembler.api.sites import (
     get_courses_for_site,
     get_site_for_course,
     get_enrollments_for_site,
-    )
+)
 
 
 log = logging.getLogger(__name__)
@@ -238,6 +254,7 @@ class CourseViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
         return Response(CourseOverviewSerializer(course_overview).data)
 
 
+# @can_disable_rate_limit
 class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
     """Provides course information
 
@@ -290,13 +307,27 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
             # TODO: trap error on each attempt and log
             # IMPORTANT: THIS IS A WIP to get this working quickly
             # Being clean inside is secondary
+
+            email_learners = serializer.data.get('email_learners')
+            learners = serializer.data.get('identifiers')
+            auto_enroll = serializer.data.get('auto_enroll')
             for course_id in serializer.data.get('courses'):
-                course = CourseOverview.objects.get(id=as_course_key(course_id))
-                learners = serializer.data.get('identifiers')
-                result = enroll_learners_in_course(
-                    course=course,
-                    learners=learners,
-                    auto_enroll=serializer.data.get('auto_enroll'))
+                course_key = as_course_key(course_id)
+                # course_overview = CourseOverview.objects.get(id=as_course_key(course_id))
+                if email_learners:
+                    course=get_course_by_id(course_key),
+
+                    # email_params = get_email_params(course=get_course_by_id(course_key),
+                    #                                 auto_enroll=auto_enroll,
+                    #                                 secure=request.is_secure())
+            #     else:
+            #         email_params = {}
+            #     result = enroll_learners_in_course(
+            #             course_id=course_key,
+            #             learners=learners,
+            #             enroll_func=partial(auto_enroll=auto_enroll,
+            #                                 email_students=email_learners,
+            #                                 email_params=email_params))
 
             response_data = {
                 'auto_enroll': serializer.data.get('auto_enroll'),
@@ -307,36 +338,6 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
             response_code = status.HTTP_201_CREATED
         else:
             response_data = serializer.errors
-            response_code = status.HTTP_400_BAD
+            response_code = status.HTTP_400_BAD_REQUEST
 
         return Response(response_data, status=response_code)
-
-
-
-# @can_disable_rate_limit
-# class BulkEnrollView(APIView, ApiKeyPermissionMixIn):
-#     authentication_classes = OAuth2AuthenticationAllowInactiveUser, \
-#                              EnrollmentCrossDomainSessionAuth
-#     permission_classes = ApiKeyHeaderPermissionIsAuthenticated,
-#     throttle_classes = EnrollmentUserThrottle,
-
-#     def post(self, request):
-#         serializer = BulkEnrollmentSerializer(data=request.data)
-#         if serializer.is_valid():
-#             request.POST = request.data
-#             response_dict = {
-#                 'auto_enroll': serializer.data.get('auto_enroll'),
-#                 'email_students': serializer.data.get('email_students'),
-#                 'action': serializer.data.get('action'),
-#                 'courses': {}
-#             }
-#             for course in serializer.data.get('courses'):
-#                 response = students_update_enrollment(
-#                     self.request, course_id=course
-#                 )
-#                 response_dict['courses'][course] = json.loads(response.content)
-#             return Response(data=response_dict, status=status.HTTP_200_OK)
-#         else:
-#             return Response(
-#                 serializer.errors, status=status.HTTP_400_BAD_REQUEST
-#             )

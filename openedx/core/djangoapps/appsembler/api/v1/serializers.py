@@ -21,8 +21,8 @@ class CourseOverviewSerializer(serializers.ModelSerializer):
 
 
 class BulkEnrollmentSerializer(serializers.Serializer):
-    identifiers = StringListField()
-    courses = StringListField()
+    identifiers = StringListField(allow_empty=False)
+    courses = StringListField(allow_empty=False)
     action = serializers.ChoiceField(
         choices=(
             ('enroll', 'enroll'),
@@ -43,4 +43,12 @@ class BulkEnrollmentSerializer(serializers.Serializer):
                 CourseKey.from_string(course)
             except InvalidKeyError:
                 raise serializers.ValidationError("Course key not valid: {}".format(course))
+        return value
+
+    def validate_identifiers(self, value):
+
+        if not isinstance(value, (list, tuple)):
+            raise serializers.ValidationError(
+                'identifiers must be a list, not a {}'.format(type(value)))
+        # TODO: Do we want to enforce identifier type (like email, username)
         return value

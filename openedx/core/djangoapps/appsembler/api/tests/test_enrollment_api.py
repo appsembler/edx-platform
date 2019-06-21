@@ -8,10 +8,12 @@ from django.contrib.sites.models import Site
 from django.core.urlresolvers import reverse
 from django.test import TestCase
 from django.test.utils import override_settings
+from rest_framework import status
 from rest_framework.permissions import AllowAny
 
 import ddt
 import mock
+from unittest import skip
 
 from openedx.core.djangoapps.site_configuration.tests.factories import (
     SiteConfigurationFactory,
@@ -97,6 +99,42 @@ class EnrollmentApiTest(TestCase):
     def test_get_single_enrollment(self):
         pass
 
+
+    def test_invalid_enroll_data_no_learners(self):
+        """
+        This does a partial test
+        """
+        url = reverse('tahoe-api:v1:enrollments-list')
+        co = self.my_course_overviews[0]
+        payload = {
+            'action': 'enroll',
+            'auto_enroll': True,
+            'identifiers': [],
+            'email_learners': True,
+            'courses': [
+                str(co.id)
+            ],
+        }
+        res = self.client.post(url, payload)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_invalid_enroll_data_no_courses(self):
+        """
+        This does a partial test
+        """
+        url = reverse('tahoe-api:v1:enrollments-list')
+        co = self.my_course_overviews[0]
+        payload = {
+            'action': 'enroll',
+            'auto_enroll': True,
+            'identifiers': ['alpha@example.com', 'bravo@example.com'],
+            'email_learners': True,
+            'courses': [],
+        }
+        res = self.client.post(url, payload)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # @skip('broken')
     def test_enroll_learners_single_course(self):
         """
         The payload structure is subject to change
@@ -117,7 +155,7 @@ class EnrollmentApiTest(TestCase):
             ],
         }
         res = self.client.post(url, payload)
-        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         for key in ['action', 'auto_enroll', 'email_learners', 'courses']:
             self.assertEqual(res.data[key], payload[key])
 
