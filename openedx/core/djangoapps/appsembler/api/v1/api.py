@@ -1,4 +1,9 @@
 
+import logging
+
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+
 from lms.djangoapps.instructor.enrollment import (
     enroll_email,
     get_email_params,
@@ -14,8 +19,19 @@ from openedx.core.djangoapps.appsembler.api.sites import (
     get_site_for_course
 )
 
+from student.models import (
+    ALLOWEDTOENROLL_TO_ENROLLED,
+    ENROLLED_TO_ENROLLED,
+    DEFAULT_TRANSITION_STATE,
+    UNENROLLED_TO_ENROLLED,
+    UNENROLLED_TO_ALLOWEDTOENROLL,
+    ManualEnrollmentAudit
+)
 
-def enroll_learners_in_course(course_id, learners, enroll_func):
+log = logging.getLogger(__name__)
+
+
+def enroll_learners_in_course(course_id, identifiers, enroll_func):
     """
     This method assumes that the site has been verified to own this course
 
@@ -29,10 +45,8 @@ def enroll_learners_in_course(course_id, learners, enroll_func):
 
 
     """
-    import pdb; pdb.set_trace()
-
     results = []
-    site = get_site_for_course(course.id)
+    site = get_site_for_course(course_id)
     enrollment_obj = None
     state_transition = DEFAULT_TRANSITION_STATE
     for identifier in identifiers:
@@ -54,7 +68,7 @@ def enroll_learners_in_course(course_id, learners, enroll_func):
             # simply that it is plausibly valid)
             validate_email(email)  # Raises ValidationError if invalid
             before, after, enrollment_obj = enroll_func(course_id=course_id,
-                                                        email=email,
+                                                        student_email=email,
                                                         language=language)
             before_enrollment = before.to_dict()['enrollment']
             before_user_registered = before.to_dict()['user']
@@ -93,9 +107,9 @@ def enroll_learners_in_course(course_id, learners, enroll_func):
                 'error': True,
             })
 
-        else:
-
             import pdb; pdb.set_trace()
+
+        else:
             ManualEnrollmentAudit.create_manual_enrollment_audit(
                 request.user, email, state_transition, reason, enrollment_obj, role
             )

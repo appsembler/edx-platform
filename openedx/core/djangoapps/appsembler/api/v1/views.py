@@ -40,7 +40,7 @@ from student.models import CourseEnrollment
 from student.views import create_account_with_params
 
 from lms.djangoapps.instructor.enrollment import (
-    # enroll_email,
+    enroll_email,
     get_email_params,
     # get_user_email_language,
     # send_beta_role_email,
@@ -309,25 +309,24 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
             # Being clean inside is secondary
 
             email_learners = serializer.data.get('email_learners')
-            learners = serializer.data.get('identifiers')
+            identifiers = serializer.data.get('identifiers')
             auto_enroll = serializer.data.get('auto_enroll')
             for course_id in serializer.data.get('courses'):
                 course_key = as_course_key(course_id)
                 # course_overview = CourseOverview.objects.get(id=as_course_key(course_id))
                 if email_learners:
-                    course=get_course_by_id(course_key),
-
-                    # email_params = get_email_params(course=get_course_by_id(course_key),
-                    #                                 auto_enroll=auto_enroll,
-                    #                                 secure=request.is_secure())
-            #     else:
-            #         email_params = {}
-            #     result = enroll_learners_in_course(
-            #             course_id=course_key,
-            #             learners=learners,
-            #             enroll_func=partial(auto_enroll=auto_enroll,
-            #                                 email_students=email_learners,
-            #                                 email_params=email_params))
+                    email_params = get_email_params(course=get_course_by_id(course_key),
+                                                    auto_enroll=auto_enroll,
+                                                    secure=request.is_secure())
+                else:
+                    email_params = {}
+                result = enroll_learners_in_course(
+                        course_id=course_key,
+                        identifiers=identifiers,
+                        enroll_func=partial(enroll_email,
+                                            auto_enroll=auto_enroll,
+                                            email_students=email_learners,
+                                            email_params=email_params))
 
             response_data = {
                 'auto_enroll': serializer.data.get('auto_enroll'),

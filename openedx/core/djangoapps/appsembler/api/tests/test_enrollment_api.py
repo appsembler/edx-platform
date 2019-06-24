@@ -23,6 +23,10 @@ from openedx.core.djangoapps.site_configuration.tests.factories import (
 from student.models import CourseEnrollment
 from student.tests.factories import CourseEnrollmentFactory, UserFactory
 
+from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
+from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
+from xmodule.modulestore.django import modulestore
+
 from .factories import (
     CourseOverviewFactory,
     OrganizationFactory,
@@ -38,16 +42,19 @@ APPSEMBLER_API_VIEWS_MODULE = 'openedx.core.djangoapps.appsembler.api.v1.views'
 @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.EnrollmentViewSet.authentication_classes', [])
 @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.EnrollmentViewSet.permission_classes', [AllowAny])
 @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.EnrollmentViewSet.throttle_classes', [])
-class EnrollmentApiTest(TestCase):
+class EnrollmentApiTest(ModuleStoreTestCase):
+
     def setUp(self):
+        super(EnrollmentApiTest, self).setUp()
+        # store = modulestore()
         self.my_site = Site.objects.get(domain=u'example.com')
         self.other_site = SiteFactory(domain='other-site.test')
         self.other_site_org = OrganizationFactory(sites=[self.other_site])
         self.my_site_org = OrganizationFactory(sites=[self.my_site])
 
+        self.my_courses = [CourseFactory.create() for i in range(0,2)]
         self.my_course_overviews = [
-            CourseOverviewFactory(),
-            CourseOverviewFactory()
+            CourseOverviewFactory(id=course.id) for course in self.my_courses
         ]
 
         for co in self.my_course_overviews:
@@ -134,7 +141,6 @@ class EnrollmentApiTest(TestCase):
         res = self.client.post(url, payload)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
-    # @skip('broken')
     def test_enroll_learners_single_course(self):
         """
         The payload structure is subject to change
