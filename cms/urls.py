@@ -215,3 +215,10 @@ urlpatterns += (
 urlpatterns += (
     url(r'^api/search/', include('search_api.urls')),
 )
+
+# allow inclusion of urls from arbitrary packages
+# as specified in ENV config.
+if 'appsembler' in settings.INSTALLED_APPS:
+    urlpatterns += (
+        url('', include('appsembler.urls')),
+    )
