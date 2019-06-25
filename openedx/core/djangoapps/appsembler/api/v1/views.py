@@ -294,13 +294,7 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
         Adapts interface from bulk enrollment
 
         """
-        # Using .copy() to make the POST data mutable
-        # see: https://stackoverflow.com/a/49794425/161278
-        data = request.data.copy()
-        # temp mock data
-
         # TODO: get site and verify course is in site
-
         serializer = BulkEnrollmentSerializer(data=request.data)
         if serializer.is_valid():
             # TODO: Wrap in transaction
@@ -320,19 +314,21 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
                                                     secure=request.is_secure())
                 else:
                     email_params = {}
-                result = enroll_learners_in_course(
+                results = enroll_learners_in_course(
                         course_id=course_key,
                         identifiers=identifiers,
                         enroll_func=partial(enroll_email,
                                             auto_enroll=auto_enroll,
                                             email_students=email_learners,
-                                            email_params=email_params))
+                                            email_params=email_params),
+                        request_user=request.user)
 
             response_data = {
                 'auto_enroll': serializer.data.get('auto_enroll'),
                 'email_learners': serializer.data.get('email_learners'),
                 'action': serializer.data.get('action'),
                 'courses': serializer.data.get('courses'),
+                'results': results,
             }
             response_code = status.HTTP_201_CREATED
         else:

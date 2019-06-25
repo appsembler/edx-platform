@@ -31,7 +31,7 @@ from student.models import (
 log = logging.getLogger(__name__)
 
 
-def enroll_learners_in_course(course_id, identifiers, enroll_func):
+def enroll_learners_in_course(course_id, identifiers, enroll_func, **kwargs):
     """
     This method assumes that the site has been verified to own this course
 
@@ -45,6 +45,11 @@ def enroll_learners_in_course(course_id, identifiers, enroll_func):
 
 
     """
+
+    reason = kwargs.get('reason', u'')
+    request_user = kwargs.get('request_user')
+    role = kwargs.get('role')
+
     results = []
     site = get_site_for_course(course_id)
     enrollment_obj = None
@@ -111,7 +116,7 @@ def enroll_learners_in_course(course_id, identifiers, enroll_func):
 
         else:
             ManualEnrollmentAudit.create_manual_enrollment_audit(
-                request.user, email, state_transition, reason, enrollment_obj, role
+                request_user, email, state_transition, reason, enrollment_obj, role
             )
             results.append({
                 'identifier': identifier,
