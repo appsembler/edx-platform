@@ -21,12 +21,19 @@ from openedx.core.djangoapps.site_configuration.tests.factories import (
     SiteFactory,
 )
 
-from student.models import CourseEnrollment
+from student.models import CourseEnrollment, CourseEnrollmentAllowed
 from student.tests.factories import CourseEnrollmentFactory, UserFactory
 
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
 from xmodule.modulestore.django import modulestore
+
+from organizations.models import UserOrganizationMapping
+from openedx.core.djangoapps.appsembler.api.sites import (
+    get_courses_for_site,
+    get_site_for_course,
+    get_enrollments_for_site,
+)
 
 from .factories import (
     CourseOverviewFactory,
@@ -43,10 +50,10 @@ APPSEMBLER_API_VIEWS_MODULE = 'openedx.core.djangoapps.appsembler.api.v1.views'
 @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.EnrollmentViewSet.authentication_classes', [])
 @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.EnrollmentViewSet.permission_classes', [AllowAny])
 @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.EnrollmentViewSet.throttle_classes', [])
-class EnrollmentApiTest(ModuleStoreTestCase):
+class EnrollmentApiGetTest(ModuleStoreTestCase):
 
     def setUp(self):
-        super(EnrollmentApiTest, self).setUp()
+        super(EnrollmentApiGetTest, self).setUp()
         # store = modulestore()
         self.my_site = Site.objects.get(domain=u'example.com')
         self.other_site = SiteFactory(domain='other-site.test')
@@ -142,45 +149,13 @@ class EnrollmentApiTest(ModuleStoreTestCase):
         res = self.client.post(url, payload)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
-    @skip('needs user')
-    def test_enroll_learners_single_course(self):
-        """
-        The payload structure is subject to change
-        """
-        url = reverse('tahoe-api:v1:enrollments-list')
-        co = self.my_course_overviews[0]
-        reg_users = [UserFactory(), UserFactory()]
-        new_users = ['alpha@example.com', 'bravo@example.com']
-        # TODO: make sure these emails don't exist
-        learner_emails = [obj.email for obj in reg_users]
-        payload = {
-            'action': 'enroll',
-            'auto_enroll': True,
-            'identifiers': learner_emails,
-            'email_learners': True,
-            'courses': [
-                str(co.id)
-            ],
-        }
-        res = self.client.post(url, payload)
-        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-        for key in ['action', 'auto_enroll', 'email_learners', 'courses']:
-            self.assertEqual(res.data[key], payload[key])
-
-        # TODO: Assert that the course enrollments created
-        # TODO: Assert new users registered
-        import pdb; pdb.set_trace()
-
 
 @ddt.ddt
-# @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.EnrollmentViewSet.authentication_classes', [])
-# @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.EnrollmentViewSet.permission_classes', [AllowAny])
 @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.EnrollmentViewSet.throttle_classes', [])
 class EnrollmentApiPostTest(ModuleStoreTestCase):
 
     def setUp(self):
         super(EnrollmentApiPostTest, self).setUp()
-        # store = modulestore()
         self.my_site = Site.objects.get(domain=u'example.com')
         self.other_site = SiteFactory(domain='other-site.test')
         self.other_site_org = OrganizationFactory(sites=[self.other_site])
@@ -205,17 +180,14 @@ class EnrollmentApiPostTest(ModuleStoreTestCase):
                                            organization=self.my_site_org)
 
         self.other_enrollments = [CourseEnrollmentFactory()]
-        # self.other_course_overviews = [CourseOverviewFactory()]
         OrganizationCourseFactory(organization=self.other_site_org,
                                   course_id=str(
                                     self.other_enrollments[0].course_overview.id))
 
         self.caller = UserFactory()
         UserOrganizationMappingFactory(user=self.caller,
-                                organization=self.my_site_org,
-                                is_amc_admin=True,
-            )
-
+                                       organization=self.my_site_org,
+                                       is_amc_admin=True)
 
     def test_enroll_learners_single_course(self):
         """
@@ -227,6 +199,7 @@ class EnrollmentApiPostTest(ModuleStoreTestCase):
         new_users = ['alpha@example.com', 'bravo@example.com']
         # TODO: make sure these emails don't exist
         learner_emails = [obj.email for obj in reg_users]
+        learner_emails.extend(new_users)
         payload = {
             'action': 'enroll',
             'auto_enroll': True,
@@ -244,18 +217,81 @@ class EnrollmentApiPostTest(ModuleStoreTestCase):
         request.META['HTTP_HOST'] = self.my_site.domain
         force_authenticate(request, user=self.caller)
 
+        other_site_ce = get_enrollments_for_site(self.other_site)
+        other_site_ce_count = other_site_ce.count()
+
+        before_my_site_ce_count = get_enrollments_for_site(self.my_site).count()
+        before_my_site_user_count = UserOrganizationMapping.objects.filter(
+            organization=self.my_site_org).count()
+
+        before_other_site_ce_count = get_enrollments_for_site(self.other_site).count()
+        before_other_site_user_count = UserOrganizationMapping.objects.filter(
+            organization=self.other_site_org).count()
+
         view = resolve(url).func
         response = view(request)
         response.render()
+        # existing course enrollments for site
 
-        import pdb; pdb.set_trace()
+        results = response.data['results']
+        new_ce_count = len(results)
+        after_my_site_ce_count = get_enrollments_for_site(self.my_site).count()
+        after_my_site_user_count = UserOrganizationMapping.objects.filter(
+            organization=self.my_site_org).count()
+
+        after_other_site_ce_count = get_enrollments_for_site(self.other_site).count()
+        after_other_site_user_count = UserOrganizationMapping.objects.filter(
+            organization=self.other_site_org).count()
+
+        assert after_other_site_ce_count == before_other_site_ce_count
+        assert after_other_site_user_count == before_other_site_user_count
+
+        assert after_my_site_ce_count == before_my_site_ce_count
+        assert after_my_site_user_count == before_my_site_user_count
+        assert CourseEnrollmentAllowed.objects.count() == len(new_users)
+
+        # Sample data to make sure we're testing
+        # {'identifier': u'alpha@example.com',
+        # 'after': {'enrollment': False, 'auto_enroll': True, 'user': False, 'allowed': True},
+        # 'before': {'enrollment': False, 'auto_enroll': False, 'user': False, 'allowed': False}}
+
+        # {'identifier': u'robot+test+22@edx.org',
+        # 'after': {'enrollment': True, 'auto_enroll': False, 'user': True, 'allowed': False},
+        # 'before': {'enrollment': False, 'auto_enroll': False, 'user': True, 'allowed': False}}
+
+        # TODO: check each enrollment
+        for rec in results:
+            assert not rec.has_key('error')
+            assert rec['before']['auto_enroll'] == payload['auto_enroll']
+            assert rec['after']['auto_enroll'] == payload['auto_enroll']
+            if rec['identifier'] in new_users:
+                assert CourseEnrollmentAllowed.objects.filter(
+                    email=rec['identifier']).count() == 1
+
+                assert rec['before'] == dict(enrollment=False,
+                                             auto_enroll=payload['auto_enroll'],
+                                             user=False,
+                                             allowed=False)
+                assert rec['after'] == dict(enrollment=False,
+                                            auto_enroll=payload['auto_enroll'],
+                                            user=False,
+                                            allowed=True)
+                # before = rec['before']
+                # assert before['enrollment'] == False
+                # assert before['user'] == False
+                # assert before['allowed'] == False
+                # after = rec['after']
+                # assert after['enrollment'] == False
+                # assert after['user'] == False
+                # assert after['allowed'] == True
+            # else:
+            #     assert  rec['']
+            #     assert rec['before']['allowed'] == False
+            #     assert rec['after']['allowed'] == True
 
 
-        # res = self.client.post(url, payload)
-        # self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-        # for key in ['action', 'auto_enroll', 'email_learners', 'courses']:
-        #     self.assertEqual(res.data[key], payload[key])
 
-        # # TODO: Assert that the course enrollments created
-        # # TODO: Assert new users registered
         # import pdb; pdb.set_trace()
+
+
+

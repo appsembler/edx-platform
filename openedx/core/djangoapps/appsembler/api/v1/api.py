@@ -1,6 +1,7 @@
 
 import logging
 
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 
@@ -28,6 +29,12 @@ from student.models import (
     ManualEnrollmentAudit
 )
 
+from organizations.models import (
+    OrganizationCourse,
+    UserOrganizationMapping,
+)
+
+
 log = logging.getLogger(__name__)
 
 
@@ -36,14 +43,22 @@ def enroll_learners_in_course(course_id, identifiers, enroll_func, **kwargs):
     This method assumes that the site has been verified to own this course
 
     This method is a quick hack. It copies from the existing appsembler_api
-    
-    Future design:
+    from Ginkgo. See:
+        lms/djangoapps/instructor/views/api.py:students_update_enrollment
+
+    ## Operational notes
+
+    If a user does not already exist then a new entry is created in
+    `CourseEnrollmentAllowed`. This is default behavior, not a new addition of
+    this API.
+
+
+    ## Future Design and considerations
     - We want to decouple concerns
         - email notification is a seperate method or class
 
-    adapted from lms/djangoapps/instructor/views/api.py:students_update_enrollment
-
-
+    - Move the inner code it's own function. Probably make the outer an iterator
+      on the identifiers
     """
 
     reason = kwargs.get('reason', u'')
@@ -52,10 +67,12 @@ def enroll_learners_in_course(course_id, identifiers, enroll_func, **kwargs):
 
     results = []
     site = get_site_for_course(course_id)
+    org = OrganizationCourse.objects.get(course_id=str(course_id))
+
     enrollment_obj = None
     state_transition = DEFAULT_TRANSITION_STATE
+
     for identifier in identifiers:
-        # First try to get a user object from the identifer
         user = None
         email = None
         language = None
@@ -110,9 +127,8 @@ def enroll_learners_in_course(course_id, identifiers, enroll_func, **kwargs):
             results.append({
                 'identifier': identifier,
                 'error': True,
+                'error_message': str(exc),
             })
-
-            import pdb; pdb.set_trace()
 
         else:
             ManualEnrollmentAudit.create_manual_enrollment_audit(
@@ -123,9 +139,4 @@ def enroll_learners_in_course(course_id, identifiers, enroll_func, **kwargs):
                 'before': before.to_dict(),
                 'after': after.to_dict(),
             })
-
-
-    # JLB says: "results" is a generic anti-pattern. Here as a temp until we
-    # discover what we really need to return
-    # can we return just the course enrollments?
     return results
