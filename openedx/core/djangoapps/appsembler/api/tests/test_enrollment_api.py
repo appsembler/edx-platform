@@ -210,6 +210,8 @@ class EnrollmentApiPostTest(ModuleStoreTestCase):
             ],
         }
 
+        for user_email in new_users:
+            assert not CourseEnrollmentAllowed.objects.filter(email=user_email).exists()
 
         factory = APIRequestFactory()
         url = reverse('tahoe-api:v1:enrollments-list') 
@@ -231,7 +233,6 @@ class EnrollmentApiPostTest(ModuleStoreTestCase):
         view = resolve(url).func
         response = view(request)
         response.render()
-        # existing course enrollments for site
 
         results = response.data['results']
         new_ce_count = len(results)
@@ -246,52 +247,32 @@ class EnrollmentApiPostTest(ModuleStoreTestCase):
         assert after_other_site_ce_count == before_other_site_ce_count
         assert after_other_site_user_count == before_other_site_user_count
 
-        assert after_my_site_ce_count == before_my_site_ce_count
+        assert after_my_site_ce_count == before_my_site_ce_count + len(reg_users)
         assert after_my_site_user_count == before_my_site_user_count
         assert CourseEnrollmentAllowed.objects.count() == len(new_users)
 
-        # Sample data to make sure we're testing
-        # {'identifier': u'alpha@example.com',
-        # 'after': {'enrollment': False, 'auto_enroll': True, 'user': False, 'allowed': True},
-        # 'before': {'enrollment': False, 'auto_enroll': False, 'user': False, 'allowed': False}}
-
-        # {'identifier': u'robot+test+22@edx.org',
-        # 'after': {'enrollment': True, 'auto_enroll': False, 'user': True, 'allowed': False},
-        # 'before': {'enrollment': False, 'auto_enroll': False, 'user': True, 'allowed': False}}
-
-        # TODO: check each enrollment
         for rec in results:
             assert not rec.has_key('error')
-            assert rec['before']['auto_enroll'] == payload['auto_enroll']
-            assert rec['after']['auto_enroll'] == payload['auto_enroll']
             if rec['identifier'] in new_users:
                 assert CourseEnrollmentAllowed.objects.filter(
-                    email=rec['identifier']).count() == 1
+                    email=rec['identifier']).exists()
 
                 assert rec['before'] == dict(enrollment=False,
-                                             auto_enroll=payload['auto_enroll'],
+                                             auto_enroll=False,
                                              user=False,
                                              allowed=False)
                 assert rec['after'] == dict(enrollment=False,
                                             auto_enroll=payload['auto_enroll'],
                                             user=False,
                                             allowed=True)
-                # before = rec['before']
-                # assert before['enrollment'] == False
-                # assert before['user'] == False
-                # assert before['allowed'] == False
-                # after = rec['after']
-                # assert after['enrollment'] == False
-                # assert after['user'] == False
-                # assert after['allowed'] == True
-            # else:
-            #     assert  rec['']
-            #     assert rec['before']['allowed'] == False
-            #     assert rec['after']['allowed'] == True
-
-
-
-        # import pdb; pdb.set_trace()
-
-
-
+            else:
+                assert rec['before'] == dict(enrollment=False,
+                                             auto_enroll=False,
+                                             user=True,
+                                             allowed=False)
+                assert rec['after'] == dict(enrollment=True,
+                                            auto_enroll=False,
+                                            user=True,
+                                            allowed=False)
+                assert not CourseEnrollmentAllowed.objects.filter(
+                    email=rec['identifier']).exists()
