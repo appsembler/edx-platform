@@ -25,7 +25,7 @@ from openedx.core.djangoapps.site_configuration.tests.factories import (
     SiteFactory,
 )
 
-from .factories import (
+from openedx.core.djangoapps.appsembler.api.tests.factories import (
     CourseOverviewFactory,
     OrganizationFactory,
     OrganizationCourseFactory,

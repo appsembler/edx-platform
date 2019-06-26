@@ -35,7 +35,7 @@ from openedx.core.djangoapps.appsembler.api.sites import (
     get_enrollments_for_site,
 )
 
-from .factories import (
+from openedx.core.djangoapps.appsembler.api.tests.factories import (
     CourseOverviewFactory,
     OrganizationFactory,
     OrganizationCourseFactory,

@@ -17,7 +17,7 @@ from openedx.core.djangoapps.site_configuration.tests.factories import (
 from openedx.core.djangoapps.appsembler.api import sites as aapi_sites
 from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
 
-from .factories import (
+from openedx.core.djangoapps.appsembler.api.tests.factories import (
     CourseOverviewFactory,
     OrganizationFactory,
     OrganizationCourseFactory,
