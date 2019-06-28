@@ -3,4 +3,4 @@ python-intercom==0.2.13
 raven==5.21.0
 
 # for usage aggregation to Google Cloud SQL
-psycopg2==2.9.1
+psycopg2==2.8.3
