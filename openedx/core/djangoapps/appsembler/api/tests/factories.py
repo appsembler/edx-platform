@@ -33,7 +33,7 @@ class CourseOverviewFactory(factory.DjangoModelFactory):
     org = 'StarFleetAcademy'
     # number = '2161'
 
-    version = 6L
+    version = CourseOverview.VERSION
     # https://github.com/appsembler/edx-platform/blob/appsembler/tahoe/master/openedx/core/djangoapps/content/course_overviews/models.py#L384
     display_org_with_default = factory.LazyAttribute(lambda o: o.org)
     created = fuzzy.FuzzyDateTime(datetime.datetime(
