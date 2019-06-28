@@ -154,8 +154,6 @@ class Theme(object):
         root_name = helpers.get_project_root_name()
         return Path(self.themes_base_dir) / self.theme_dir_name / 'customer_specific' / root_name
 
-
-
     @property
     def customer_specific_template_path(self):
         """
