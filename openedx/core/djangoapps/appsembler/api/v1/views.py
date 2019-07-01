@@ -9,7 +9,7 @@ import logging
 import random
 import string
 
-
+from django.contrib.auth import get_user_model
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.conf import settings
 from django.db import transaction
@@ -58,7 +58,9 @@ from openedx.core.djangoapps.appsembler.api.v1.pagination import (
     TahoeLimitOffsetPagination
 )
 from openedx.core.djangoapps.appsembler.api.v1.serializers import (
-    CourseOverviewSerializer, BulkEnrollmentSerializer
+    CourseOverviewSerializer,
+    BulkEnrollmentSerializer,
+    UserIndexSerializer,
 )
 
 # TODO: Just move into v1 directory
@@ -69,6 +71,7 @@ from openedx.core.djangoapps.appsembler.api.sites import (
     get_courses_for_site,
     get_site_for_course,
     get_enrollments_for_site,
+    get_users_for_site,
 )
 
 
@@ -336,3 +339,50 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
             response_code = status.HTTP_400_BAD_REQUEST
 
         return Response(response_data, status=response_code)
+
+
+class UserIndexViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
+    """Provides course information
+
+    To provide data for all learners on your site::
+
+        GET /tahoe/api/v1/learners/
+
+    To provide details on a specific learner:
+
+        GET /tahoe/api/v1/learners/<learner id>/
+
+    """
+    model = get_user_model()
+    pagination_class = TahoeLimitOffsetPagination
+    serializer_class = UserIndexSerializer
+    throttle_classes = (TahoeAPIUserThrottle,)
+    filter_backends = (DjangoFilterBackend, )
+    # filter_class = UserIndexFilter
+
+    def get_queryset(self):
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = get_users_for_site(site)
+        return queryset
+
+
+
+
+    # def retrieve(self, request, *args, **kwargs):
+    #     course_id_str = kwargs.get('pk', '')
+    #     course_key = CourseKey.from_string(course_id_str.replace(' ', '+'))
+    #     site = django.contrib.sites.shortcuts.get_current_site(request)
+    #     if site != get_site_for_course(course_key):
+    #         # Raising NotFound instead of PermissionDenied
+    #         raise NotFound()
+    #     user = get_object_or_404(CourseOverview, pk=course_key)
+    #     return Response(CourseOverviewSerializer(course_overview).data)
+
+    # def retrieve(self, request, pk, *args, **kwargs):
+    #     site = django.contrib.sites.shortcuts.get_current_site(request)
+    #     user = get_object_or_404(self.get_queryset(), pk=pk)
+    #     return Response(UserIndexSerializer(
+    #         instance=user, context=dict(site=site)).data)
+
+
+# class LearnerIndexViewSet
