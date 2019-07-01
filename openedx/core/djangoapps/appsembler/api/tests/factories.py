@@ -1,9 +1,7 @@
 
 import datetime
-# from django.utils.timezone import utc
 
 import factory
-from factory import fuzzy
 from openedx.core.djangoapps.content.course_overviews.models import (
     CourseOverview,
 )
@@ -22,6 +20,7 @@ from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
 
 COURSE_ID_STR_TEMPLATE = 'course-v1:StarFleetAcademy+SFA{}+2161'
 
+
 class CourseOverviewFactory(factory.DjangoModelFactory):
     class Meta:
         model = CourseOverview
@@ -31,20 +30,17 @@ class CourseOverviewFactory(factory.DjangoModelFactory):
         COURSE_ID_STR_TEMPLATE.format(n)))
     display_name = factory.Sequence(lambda n: 'SFA Course {}'.format(n))
     org = 'StarFleetAcademy'
-    # number = '2161'
-
     version = CourseOverview.VERSION
-    # https://github.com/appsembler/edx-platform/blob/appsembler/tahoe/master/openedx/core/djangoapps/content/course_overviews/models.py#L384
     display_org_with_default = factory.LazyAttribute(lambda o: o.org)
-    created = fuzzy.FuzzyDateTime(datetime.datetime(
+    created = factory.fuzzy.FuzzyDateTime(datetime.datetime(
         2018, 2, 1, tzinfo=factory.compat.UTC))
-    enrollment_start = fuzzy.FuzzyDateTime(datetime.datetime(
+    enrollment_start = factory.fuzzy.FuzzyDateTime(datetime.datetime(
         2018, 3, 1, tzinfo=factory.compat.UTC))
-    enrollment_end = fuzzy.FuzzyDateTime(datetime.datetime(
+    enrollment_end = factory.fuzzy.FuzzyDateTime(datetime.datetime(
         2018, 3, 15, tzinfo=factory.compat.UTC))
-    start = fuzzy.FuzzyDateTime(datetime.datetime(
+    start = factory.fuzzy.FuzzyDateTime(datetime.datetime(
         2018, 4, 1, tzinfo=factory.compat.UTC))
-    end = fuzzy.FuzzyDateTime(datetime.datetime(
+    end = factory.fuzzy.FuzzyDateTime(datetime.datetime(
         2018, 6, 1, tzinfo=factory.compat.UTC))
     self_paced = False
 

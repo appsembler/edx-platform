@@ -11,7 +11,7 @@ from openedx.core.djangoapps.content.course_overviews.models import CourseOvervi
 
 from student.models import CourseEnrollment
 
-from .helpers import as_course_key
+from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
 
 
 def get_course_keys_for_site(site):

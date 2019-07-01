@@ -248,7 +248,7 @@ class CourseViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         course_id_str = kwargs.get('pk', '')
-        course_key = CourseKey.from_string(course_id_str.replace(' ', '+'))
+        course_key = as_course_key(course_id_str.replace(' ', '+'))
         site = django.contrib.sites.shortcuts.get_current_site(request)
         if site != get_site_for_course(course_key):
             # Raising NotFound instead of PermissionDenied
@@ -284,7 +284,7 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         course_id_str = kwargs.get('pk', '')
-        course_key = CourseKey.from_string(course_id_str.replace(' ', '+'))
+        course_key = as_course_key(course_id_str.replace(' ', '+'))
         site = django.contrib.sites.shortcuts.get_current_site(request)
         if site != get_site_for_course(course_key):
             # Raising NotFound instead of PermissionDenied

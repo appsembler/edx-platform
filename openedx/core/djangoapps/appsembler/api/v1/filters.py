@@ -7,6 +7,9 @@ from openedx.core.djangoapps.content.course_overviews.models import (
 
 from student.models import CourseEnrollment
 
+from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
+
+
 class CourseOverviewFilter(django_filters.FilterSet):
     '''Provides filtering for CourseOverview model objects
 
@@ -57,7 +60,7 @@ class CourseEnrollmentFilter(django_filters.FilterSet):
         replaced with spaces, so we need to put the '+' back in for CourseKey
         to be able to create a course key object from the string
         '''
-        course_key = CourseKey.from_string(value.replace(' ', '+'))
+        course_key = as_course_key(value.replace(' ', '+'))
         return queryset.filter(course_id=course_key)
 
     class Meta:
