@@ -9,7 +9,7 @@ from opaque_keys.edx.locator import CourseLocator
 
 from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
 
-from .factories import COURSE_ID_STR_TEMPLATE
+from openedx.core.djangoapps.appsembler.api.tests.factories import COURSE_ID_STR_TEMPLATE
 
 
 class CourseKeyHelperTest(TestCase):
