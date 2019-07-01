@@ -6,6 +6,8 @@ from opaque_keys.edx.keys import CourseKey
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 
+from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
+
 
 class StringListField(serializers.ListField):
     child = serializers.CharField()
@@ -36,12 +38,15 @@ class BulkEnrollmentSerializer(serializers.Serializer):
     def validate_courses(self, value):
         """
         Check that each course key in list is valid.
+
+        Will raise `serializers.ValidationError` if any exceptions found in
+        converting to a `CourseKey` instance
         """
         course_keys = value
         for course in course_keys:
             try:
-                CourseKey.from_string(course)
-            except InvalidKeyError:
+                as_course_key(course)
+            except:
                 raise serializers.ValidationError("Course key not valid: {}".format(course))
         return value
 

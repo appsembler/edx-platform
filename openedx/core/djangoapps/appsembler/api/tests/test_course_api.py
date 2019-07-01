@@ -11,13 +11,10 @@ from django.core.urlresolvers import reverse
 from django.test import RequestFactory, TestCase
 from django.test.utils import override_settings
 
-
-
 from rest_framework.permissions import AllowAny
 
 import ddt
 import mock
-
 
 from student.tests.factories import UserFactory
 from openedx.core.djangoapps.site_configuration.tests.factories import (

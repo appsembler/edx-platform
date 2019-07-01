@@ -62,6 +62,7 @@ class SitesModuleTests(TestCase):
         site = aapi_sites.get_site_for_course(course_id)
         self.assertEqual(site, self.my_site)
 
-    def get_enrollments_for_site(site):
-        course_keys =aapi_sites,get_course_keys_for_site(site)
+    def get_enrollments_for_site(self):
+        course_keys = aapi_sites.get_course_keys_for_site(self.site)
         return CourseEnrollment.objects.filter(course_id__in=course_keys)
+

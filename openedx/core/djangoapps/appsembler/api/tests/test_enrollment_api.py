@@ -26,7 +26,6 @@ from student.tests.factories import CourseEnrollmentFactory, UserFactory
 
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
-from xmodule.modulestore.django import modulestore
 
 from organizations.models import UserOrganizationMapping
 from openedx.core.djangoapps.appsembler.api.sites import (
@@ -54,7 +53,6 @@ class EnrollmentApiGetTest(ModuleStoreTestCase):
 
     def setUp(self):
         super(EnrollmentApiGetTest, self).setUp()
-        # store = modulestore()
         self.my_site = Site.objects.get(domain=u'example.com')
         self.other_site = SiteFactory(domain='other-site.test')
         self.other_site_org = OrganizationFactory(sites=[self.other_site])
@@ -79,7 +77,6 @@ class EnrollmentApiGetTest(ModuleStoreTestCase):
                                            organization=self.my_site_org)
 
         self.other_enrollments = [CourseEnrollmentFactory()]
-        # self.other_course_overviews = [CourseOverviewFactory()]
         OrganizationCourseFactory(organization=self.other_site_org,
                                   course_id=str(
                                     self.other_enrollments[0].course_overview.id))
@@ -192,6 +189,9 @@ class EnrollmentApiPostTest(ModuleStoreTestCase):
     def test_enroll_learners_single_course(self):
         """
         The payload structure is subject to change
+
+        TODO: Refactor: Add a test to ensure that the other site does not have
+        any new 'CourseEnrollmentAllowed' records
         """
 
         co = self.my_course_overviews[0]
@@ -249,6 +249,11 @@ class EnrollmentApiPostTest(ModuleStoreTestCase):
 
         assert after_my_site_ce_count == before_my_site_ce_count + len(reg_users)
         assert after_my_site_user_count == before_my_site_user_count
+
+        # By comparing the total count of CourseEnrollmentAllowed records to the
+        # number of new users, we verify that CourseEnrollmentAllowed records
+        # are not created for the other site. However, this is a hack and brittle.
+        # Therefore we want to test this in a more robust way
         assert CourseEnrollmentAllowed.objects.count() == len(new_users)
 
         for rec in results:
