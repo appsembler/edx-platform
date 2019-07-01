@@ -1,3 +1,13 @@
+"""
+
+TODO: Make this module tests more robust
+
+1. Implement multiple sites in addition to the 'my_site' and default 'example.com'
+   site
+2. Add checks that objects we create in our sites don't show up in the other site.
+   This may be a bit "belt and suspenders", but given the importance, is worthwhile
+
+"""
 import mock
 import pytest
 
