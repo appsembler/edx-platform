@@ -200,7 +200,7 @@ if __name__ == '__main__':
 
 ## Running Tests
 
-_This section is a WIP_
+The following is an example of how you can run an individual test for Appsembler API V1:
 
 ```
 pytest openedx/core/djangoapps/appsembler/api/tests/test_registration_api.py
