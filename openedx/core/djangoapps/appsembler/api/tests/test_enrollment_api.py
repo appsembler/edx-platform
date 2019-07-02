@@ -311,3 +311,31 @@ class EnrollmentApiPostTest(ModuleStoreTestCase):
                                             allowed=False)
                 assert not CourseEnrollmentAllowed.objects.filter(
                     email=rec['identifier']).exists()
+
+    def test_enroll_with_other_site_course(self):
+
+        reg_users = [UserFactory(), UserFactory()]
+        # TODO: Improvement - make sure these emails don't exist
+        learner_emails = [obj.email for obj in reg_users]
+        course_ids = [str(co.id) for co in self.my_course_overviews]
+        invalid_course_ids = [str(ce.course.id) for ce in self.other_enrollments]
+        course_ids.extend(invalid_course_ids)
+        payload = {
+            'action': 'enroll',
+            'auto_enroll': True,
+            'identifiers': learner_emails,
+            'email_learners': True,
+            'courses': course_ids,
+        }
+
+        url = reverse('tahoe-api:v1:enrollments-list')
+        request = APIRequestFactory().post(url, payload)
+        request.META['HTTP_HOST'] = self.my_site.domain
+        force_authenticate(request, user=self.caller)
+
+        view = resolve(url).func
+        response = view(request)
+        response.render()
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data['error'] == 'invalid-course-ids'
+        assert set(response.data['invalid_course_ids']) == set(invalid_course_ids)

@@ -1,4 +1,5 @@
 
+from django.contrib.sites.models import Site
 from organizations.models import Organization, OrganizationCourse
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
@@ -55,6 +56,12 @@ def get_site_for_course(course_id):
         # TODO: handle no organizations found for the course
         site = None
     return site
+
+
+def course_belongs_to_site(site, course_id):
+    if not isinstance(site, Site):
+        raise ValueError('invalid site object')
+    return site == get_site_for_course(course_id)
 
 
 def get_enrollments_for_site(site):

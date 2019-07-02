@@ -69,6 +69,7 @@ from openedx.core.djangoapps.appsembler.api.sites import (
     get_courses_for_site,
     get_site_for_course,
     get_enrollments_for_site,
+    course_belongs_to_site,
 )
 
 
@@ -294,44 +295,57 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
         Adapts interface from bulk enrollment
 
         """
-        # TODO: get site and verify course is in site
+        site = django.contrib.sites.shortcuts.get_current_site(request)
         serializer = BulkEnrollmentSerializer(data=request.data)
         if serializer.is_valid():
-            # TODO: Wrap in transaction
+            # TODO: Follow-on: Wrap in transaction
             # TODO: trap error on each attempt and log
             # IMPORTANT: THIS IS A WIP to get this working quickly
             # Being clean inside is secondary
 
-            email_learners = serializer.data.get('email_learners')
-            identifiers = serializer.data.get('identifiers')
-            auto_enroll = serializer.data.get('auto_enroll')
-            for course_id in serializer.data.get('courses'):
-                course_key = as_course_key(course_id)
-                # course_overview = CourseOverview.objects.get(id=as_course_key(course_id))
-                if email_learners:
-                    email_params = get_email_params(course=get_course_by_id(course_key),
-                                                    auto_enroll=auto_enroll,
-                                                    secure=request.is_secure())
-                else:
-                    email_params = {}
-                results = enroll_learners_in_course(
-                        course_id=course_key,
-                        identifiers=identifiers,
-                        enroll_func=partial(enroll_email,
-                                            auto_enroll=auto_enroll,
-                                            email_students=email_learners,
-                                            email_params=email_params),
-                        request_user=request.user)
+            invalid_course_ids = [course_id for course_id in serializer.data.get('courses')
+                                  if not course_belongs_to_site(site, course_id)]
 
-            response_data = {
-                'auto_enroll': serializer.data.get('auto_enroll'),
-                'email_learners': serializer.data.get('email_learners'),
-                'action': serializer.data.get('action'),
-                'courses': serializer.data.get('courses'),
-                'results': results,
-            }
-            response_code = status.HTTP_201_CREATED
+            if invalid_course_ids:
+                # Don't do bulk enrollment. Return error message and failing
+                # course ids
+                response_data = {
+                    'error': 'invalid-course-ids',
+                    'invalid_course_ids' : invalid_course_ids,
+                }
+                response_code = status.HTTP_400_BAD_REQUEST
+            else:
+                # Do bulk enrollment
+                email_learners = serializer.data.get('email_learners')
+                identifiers = serializer.data.get('identifiers')
+                auto_enroll = serializer.data.get('auto_enroll')
+                for course_id in serializer.data.get('courses'):
+                    course_key = as_course_key(course_id)
+                    if email_learners:
+                        email_params = get_email_params(course=get_course_by_id(course_key),
+                                                        auto_enroll=auto_enroll,
+                                                        secure=request.is_secure())
+                    else:
+                        email_params = {}
+                    results = enroll_learners_in_course(
+                            course_id=course_key,
+                            identifiers=identifiers,
+                            enroll_func=partial(enroll_email,
+                                                auto_enroll=auto_enroll,
+                                                email_students=email_learners,
+                                                email_params=email_params),
+                            request_user=request.user)
+
+                response_data = {
+                    'auto_enroll': serializer.data.get('auto_enroll'),
+                    'email_learners': serializer.data.get('email_learners'),
+                    'action': serializer.data.get('action'),
+                    'courses': serializer.data.get('courses'),
+                    'results': results,
+                }
+                response_code = status.HTTP_201_CREATED
         else:
+            # Don't do bulk enrollment. Return serializer error as response body
             response_data = serializer.errors
             response_code = status.HTTP_400_BAD_REQUEST
 
