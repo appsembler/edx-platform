@@ -76,3 +76,28 @@ class SitesModuleTests(TestCase):
         course_keys = aapi_sites.get_course_keys_for_site(self.site)
         return CourseEnrollment.objects.filter(course_id__in=course_keys)
 
+    def test_my_course_belongs_to_my_site(self):
+        for co in self.my_course_overviews:
+            assert aapi_sites.course_belongs_to_site(site=self.my_site,
+                                                    course_id=co.id)
+    def test_my_course_not_belongs_to_other_site(self):
+        for co in self.my_course_overviews:
+            assert not aapi_sites.course_belongs_to_site(site=self.other_site,
+                                                        course_id=co.id)
+
+    def test_other_course_not_belongs_to_my_site(self):
+        for co in self.other_course_overviews:
+            assert not aapi_sites.course_belongs_to_site(site=self.my_site,
+                                                        course_id=co.id)
+
+    def test_invalid_course_not_belongs_to_site(self):
+        for site in Site.objects.all():
+            for course_id in [None, '', 'globber-fruzzle']:
+                assert not aapi_sites.course_belongs_to_site(site=site,
+                                                             course_id=course_id)
+
+    def test_course_not_belongs_to_invalid_site(self):
+        for site in [None, '', self.my_site_org]:
+            with self.assertRaises(ValueError):
+                aapi_sites.course_belongs_to_site(site=site,
+                                                  course_id=self.my_course_overviews[0])
