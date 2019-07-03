@@ -360,11 +360,11 @@ class UserIndexViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
 
     To provide data for all learners on your site::
 
-        GET /tahoe/api/v1/learners/
+        GET /tahoe/api/v1/users/
 
     To provide details on a specific learner:
 
-        GET /tahoe/api/v1/learners/<learner id>/
+        GET /tahoe/api/v1/users/<user id>/
 
     """
     model = get_user_model()
@@ -372,7 +372,6 @@ class UserIndexViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = UserIndexSerializer
     throttle_classes = (TahoeAPIUserThrottle,)
     filter_backends = (DjangoFilterBackend, )
-    # filter_class = UserIndexFilter
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
@@ -382,21 +381,3 @@ class UserIndexViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
 
 
 
-    # def retrieve(self, request, *args, **kwargs):
-    #     course_id_str = kwargs.get('pk', '')
-    #     course_key = CourseKey.from_string(course_id_str.replace(' ', '+'))
-    #     site = django.contrib.sites.shortcuts.get_current_site(request)
-    #     if site != get_site_for_course(course_key):
-    #         # Raising NotFound instead of PermissionDenied
-    #         raise NotFound()
-    #     user = get_object_or_404(CourseOverview, pk=course_key)
-    #     return Response(CourseOverviewSerializer(course_overview).data)
-
-    # def retrieve(self, request, pk, *args, **kwargs):
-    #     site = django.contrib.sites.shortcuts.get_current_site(request)
-    #     user = get_object_or_404(self.get_queryset(), pk=pk)
-    #     return Response(UserIndexSerializer(
-    #         instance=user, context=dict(site=site)).data)
-
-
-# class LearnerIndexViewSet
