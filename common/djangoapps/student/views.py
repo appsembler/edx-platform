@@ -1879,7 +1879,7 @@ def create_account_with_params(request, params):
     new_user = authenticate(username=user.username, password=params['password'])
 
     if hasattr(settings, 'APPSEMBLER_FEATURES') and \
-    not settings.APPSEMBLER_FEATURES.get('SKIP_LOGIN_AFTER_REGISTRATION', False):
+       not settings.APPSEMBLER_FEATURES.get('SKIP_LOGIN_AFTER_REGISTRATION', False):
         login(request, new_user)
         request.session.set_expiry(0)
 

@@ -164,7 +164,7 @@ class BadgrBackend(BadgeBackend):
         evidence_url_key = 'evidence_url' if self.api_ver == 'v1' else 'url'
         data_keys = ((evidence_url_key, 'url'), ('narrative', 'narrative'))
         if evidence is not None:
-            evidence = [ dict( [(key[0], e.get(key[1])) for key in data_keys if e.get(key[1]) is not None]) for e in evidence]
+            evidence = [dict([(key[0], e.get(key[1])) for key in data_keys if e.get(key[1]) is not None]) for e in evidence]
             # evidence = [{evidence_url_key: e.get('url', None), "narrative": e.get('narrative', None)} for e in evidence]
         # TODO: support narrative evidence defined as a BadgeClass field
         # i.e., evidence = [{"narrative": badge_class.evidence}]
@@ -211,7 +211,7 @@ class BadgrBackend(BadgeBackend):
             return token_cached
         else:
             # auth token expired or never set
-            # get a new auth token using Badgr refresh token, which is renewed each time 
+            # get a new auth token using Badgr refresh token, which is renewed each time
             # an access token is requested.
             refresh_token = self.token_cache.get(BADGR_API_REFRESH_TOKEN_CACHE_KEY)
             data = {'grant_type': 'refresh_token', 'refresh_token': refresh_token}
@@ -220,7 +220,7 @@ class BadgrBackend(BadgeBackend):
             if response.ok:
                 token = response.json().get('access_token')
                 refresh_token = response.json().get('refresh_token')  # refresh token updated each time
-                self.token_cache.set(BADGR_API_AUTH_TOKEN_CACHE_KEY, token, getattr(settings, 'BADGR_API_TOKEN_EXPIRATION', 86400))  #24h
+                self.token_cache.set(BADGR_API_AUTH_TOKEN_CACHE_KEY, token, getattr(settings, 'BADGR_API_TOKEN_EXPIRATION', 86400))  # 24h
                 self.token_cache.set(BADGR_API_REFRESH_TOKEN_CACHE_KEY, refresh_token, None)  # don't expire
                 return token
             else:

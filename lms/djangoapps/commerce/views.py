@@ -50,6 +50,7 @@ def checkout_error(_request):
     }
     return render_to_response("commerce/checkout_error.html", context)
 
+
 @csrf_exempt
 @login_required
 def checkout_receipt(request):

@@ -25,4 +25,3 @@ def generate_certificate(**kwargs):
     student = kwargs.pop('student')
     course_key = kwargs.pop('course_key')
     generate_user_certificates(student=student, course_key=course_key, **kwargs)
-

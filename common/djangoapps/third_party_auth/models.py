@@ -231,7 +231,7 @@ class ProviderConfig(ConfigurationModel):
         # TPA_CLEAN_USERNAMES_ADD_RANDOM_INT: false
         # You can override this three in your settings.
         if hasattr(settings, 'APPSEMBLER_FEATURES') and \
-        settings.APPSEMBLER_FEATURES.get("ENABLE_THIRD_PARTY_AUTH_CLEAN_USERNAMES"):
+           settings.APPSEMBLER_FEATURES.get("ENABLE_THIRD_PARTY_AUTH_CLEAN_USERNAMES"):
             if not settings.TPA_CLEAN_USERNAMES_KEEP_DOMAIN_PART:
                 if len(re.findall(r'[^@]+@[^@]+\.[^@]+', suggested_username)) > 0:
                     suggested_username = suggested_username.split('@')[0]
