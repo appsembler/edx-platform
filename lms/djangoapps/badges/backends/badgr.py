@@ -165,11 +165,11 @@ class BadgrBackend(BadgeBackend):
         ]
         if self.api_ver == 'v1':
             data = {
-            'recipient_identifier': user.email,
-            'recipient_type': 'email',
-            'evidence_items': evidence,
-            'create_notification': settings.BADGR_API_NOTIFICATIONS_ENABLED,
-        }
+                'recipient_identifier': user.email,
+                'recipient_type': 'email',
+                'evidence_items': evidence,
+                'create_notification': settings.BADGR_API_NOTIFICATIONS_ENABLED,
+            }
         else:
             recipient = {
                 'identity': user.email,
@@ -207,7 +207,7 @@ class BadgrBackend(BadgeBackend):
             return token_cached
         else:
             # auth token expired or never set
-            # get a new auth token using Badgr refresh token, which is renewed each time 
+            # get a new auth token using Badgr refresh token, which is renewed each time
             # an access token is requested.
             refresh_token = self.token_cache.get(BADGR_API_REFRESH_TOKEN_CACHE_KEY)
             data = {'grant_type': 'refresh_token', 'refresh_token': refresh_token}
@@ -216,7 +216,7 @@ class BadgrBackend(BadgeBackend):
             if response.ok:
                 token = response.json().get('access_token')
                 refresh_token = response.json().get('refresh_token')  # refresh token updated each time
-                self.token_cache.set(BADGR_API_AUTH_TOKEN_CACHE_KEY, token, getattr(settings, 'BADGR_API_TOKEN_EXPIRATION', 86400))  #24h
+                self.token_cache.set(BADGR_API_AUTH_TOKEN_CACHE_KEY, token, getattr(settings, 'BADGR_API_TOKEN_EXPIRATION', 86400))  # 24h
                 self.token_cache.set(BADGR_API_REFRESH_TOKEN_CACHE_KEY, refresh_token, None)  # don't expire
                 return token
             else:

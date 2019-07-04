@@ -144,7 +144,7 @@ class BadgeClassTest(ModuleStoreTestCase):
     #         criteria='test', display_name='Testola', image_file_handle=get_image('good'),
     #         course_id=course_key,
     #     )
-    #     self.assertNotEqual(badge_class.id, course_badge_class.id) 
+    #     self.assertNotEqual(badge_class.id, course_badge_class.id)
     #     self.assertEqual(course_badge_class.id, premade_badge_class.id)
 
     def test_get_badge_class_course_disabled(self):
