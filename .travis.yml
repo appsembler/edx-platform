@@ -19,7 +19,7 @@ install:
   - pip install tox
 
 env:
-  - TOXENV=py27-django111
+  - TOXENV=py27
     ARGS="-- paver run_pep8"
 
 script:
