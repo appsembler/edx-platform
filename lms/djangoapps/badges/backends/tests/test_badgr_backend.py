@@ -110,7 +110,6 @@ class BadgrBackendTestCase(ModuleStoreTestCase, EventTrackingTestCase):
         """
         self.check_headers_v1(self.handler._get_headers())
 
-
     @patch('requests.post')
     @patch('requests.get')
     @override_settings(**BADGR_SETTINGS_API_V1)
@@ -220,7 +219,7 @@ class BadgrBackendTestCase(ModuleStoreTestCase, EventTrackingTestCase):
         self.assertEqual(kwargs['json'], {
             'recipient_identifier': 'example@example.com',
             'recipient_type': 'email',
-            'evidence_items': [{ 'evidence_url': 'https://example.com/irrefutable_proof'}],
+            'evidence_items': [{'evidence_url': 'https://example.com/irrefutable_proof'}],
             'create_notification': True,
         })
         # TODO: fix this... we don't know that badge_slug is 'test_slug' b/c they are randomized
