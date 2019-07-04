@@ -915,7 +915,7 @@ COURSEGRAPH_JOB_QUEUE = ENV_TOKENS.get('COURSEGRAPH_JOB_QUEUE', LOW_PRIORITY_QUE
 ############# BADGR OR OTHER BADGING BACKEND CONFIGURATION #############
 # to retrieve token using Badgr.io, 'curl -X POST 'https://api.badgr.io/o/token' -d "username=YOUREMAIL&password=YOURPASSWORD"'
 # as of Badgr API v2, older permanent auth tokens are deprecated and not returned
-# this will return a refresh token for 'public' client with scope of rw:backpack rw:profile rw:issuer 
+# this will return a refresh token for 'public' client with scope of rw:backpack rw:profile rw:issuer
 # on any resources as allowed to username used
 BADGR_API_TOKEN = AUTH_TOKENS.get('BADGR_API_TOKEN', BADGR_API_TOKEN)
 BADGR_API_TOKEN_EXPIRATION = ENV_TOKENS.get('BADGR_API_TOKEN_EXPIRATION', BADGR_API_TOKEN_EXPIRATION)

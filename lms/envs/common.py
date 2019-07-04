@@ -2414,7 +2414,7 @@ BADGING_BACKEND = 'badges.backends.badgr.BadgrBackend'
 
 # Be sure to set up images for course modes using the BadgeImageConfiguration model in the certificates app.
 BADGR_API_VERSION = "v2"
-BADGR_API_USERNAME = None # only used for v1 autgh
+BADGR_API_USERNAME = None  # only used for v1 autgh
 BADGR_API_TOKEN = None
 BADGR_API_TOKEN_EXPIRATION = 86400  # 24h
 BADGR_API_TOKEN_CACHE = 'badgr_api_token_cache'

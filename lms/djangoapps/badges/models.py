@@ -136,7 +136,6 @@ class BadgeClass(models.Model):
         """
         return self.backend.award(self, user, evidence=evidence)
 
-
     class Meta(object):
         app_label = "badges"
         verbose_name_plural = "Badge Classes"
