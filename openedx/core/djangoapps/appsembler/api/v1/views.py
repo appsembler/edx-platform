@@ -17,9 +17,9 @@ from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 import django.contrib.sites.shortcuts
 
-
 from rest_framework import status, viewsets
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import NotFound
 from rest_framework.filters import DjangoFilterBackend
 from rest_framework.permissions import IsAuthenticated
@@ -56,7 +56,7 @@ from openedx.core.djangoapps.appsembler.api.v1.pagination import (
     TahoeLimitOffsetPagination
 )
 from openedx.core.djangoapps.appsembler.api.v1.serializers import (
-    CourseOverviewSerializer, BulkEnrollmentSerializer
+    CourseOverviewSerializer, BulkEnrollmentSerializer, TahoeApiKeySerializer,
 )
 
 # TODO: Just move into v1 directory
@@ -67,6 +67,7 @@ from openedx.core.djangoapps.appsembler.api.sites import (
     get_courses_for_site,
     get_site_for_course,
     get_enrollments_for_site,
+    get_users_for_site,
     course_belongs_to_site,
 )
 
@@ -356,4 +357,34 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
             response_data = serializer.errors
             response_code = status.HTTP_400_BAD_REQUEST
 
+        return Response(response_data, status=response_code)
+
+
+class TahoeApiKeyViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
+    model = Token
+    pagination_class = TahoeLimitOffsetPagination
+    serializer_class = TahoeApiKeySerializer
+    throttle_classes = (TahoeAPIUserThrottle,)
+    filter_backends = (DjangoFilterBackend, )
+    # filter_class = TahoeApiKeyFilter
+
+    def get_queryset(self):
+        """
+        IMPORTANT!!! This returns all DRF Token objects (including secrets!!!)
+        for the given site
+        """
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = Token.objects.filter(user__in=get_users_for_site(site))
+        return queryset
+
+    # def get_serializer_class(self, request):
+    #     if self.action == 'retrieve':
+    #         return TahoeApiKeySerializer
+
+
+    def create(self, request, *args, **kwargs):
+        response_data = {
+            'fake-data': 'some fake data',
+        }
+        response_code = status.HTTP_201_CREATED
         return Response(response_data, status=response_code)

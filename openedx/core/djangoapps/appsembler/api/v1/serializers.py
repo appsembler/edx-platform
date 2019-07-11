@@ -1,5 +1,6 @@
 
 from rest_framework import serializers
+from rest_framework.authtoken.models import Token
 
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
@@ -57,3 +58,7 @@ class BulkEnrollmentSerializer(serializers.Serializer):
                 'identifiers must be a list, not a {}'.format(type(value)))
         # TODO: Do we want to enforce identifier type (like email, username)
         return value
+
+class TahoeApiKeySerializer(serializers.Serializer):
+    class Meta:
+        model = Token
