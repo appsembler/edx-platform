@@ -123,7 +123,7 @@ class TokenFactory(factory.DjangoModelFactory):
     #     settings.AUTH_USER_MODEL, related_name='auth_token',
     #     on_delete=models.CASCADE, verbose_name=_("User")
     # )
-    created = fuzzy.FuzzyDateTime(datetime.datetime(
+    created = factory.fuzzy.FuzzyDateTime(datetime.datetime(
         2018, 2, 1, tzinfo=factory.compat.UTC))
     # created = models.DateTimeField(_("Created"), auto_now_add=True)
     # generate_key
