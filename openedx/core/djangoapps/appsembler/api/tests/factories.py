@@ -1,7 +1,11 @@
 
+import binascii
 import datetime
 
 import factory
+
+from rest_framework.authtoken.models import Token
+
 from openedx.core.djangoapps.content.course_overviews.models import (
     CourseOverview,
 )
@@ -19,6 +23,11 @@ from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
 
 
 COURSE_ID_STR_TEMPLATE = 'course-v1:StarFleetAcademy+SFA{}+2161'
+
+class FuzzyDrfToken(factory.fuzzy.BaseFuzzyAttribute):
+    def fuzz(self):
+        return binascii.hexlify(
+            bytearray(random.getrandbits(8) for _ in xrange(20)))
 
 
 class CourseOverviewFactory(factory.DjangoModelFactory):
@@ -101,3 +110,21 @@ class OrganizationCourseFactory(factory.DjangoModelFactory):
     course_id = factory.Sequence(lambda n: COURSE_ID_STR_TEMPLATE.format(n))
     organization = factory.SubFactory(OrganizationFactory)
     active = True
+
+
+class TokenFactory(factory.DjangoModelFactory):
+    class Meta:
+        model = Token
+
+    key = FuzzyDrfToken()
+    # key = models.CharField(_("Key"), max_length=40, primary_key=True)
+    user = factory.SubFactory(UserFactory)
+    # user = models.OneToOneField(
+    #     settings.AUTH_USER_MODEL, related_name='auth_token',
+    #     on_delete=models.CASCADE, verbose_name=_("User")
+    # )
+    created = fuzzy.FuzzyDateTime(datetime.datetime(
+        2018, 2, 1, tzinfo=factory.compat.UTC))
+    # created = models.DateTimeField(_("Created"), auto_now_add=True)
+    # generate_key
+    # binascii.hexlify(os.urandom(20)).decode()
