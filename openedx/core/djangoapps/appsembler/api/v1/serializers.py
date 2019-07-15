@@ -59,6 +59,20 @@ class BulkEnrollmentSerializer(serializers.Serializer):
         # TODO: Do we want to enforce identifier type (like email, username)
         return value
 
-class TahoeApiKeySerializer(serializers.Serializer):
+class TahoeApiKeyInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Token
+        fields = (
+            'id', 'user__id', 'created',
+        )
+
+class TahoeApiKeySecretSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Token
+        fields = (
+            'id', 'user__id', 'created', 'secret'
+        )
+
+class TahoeApiKeyDummySerializer(serializers.ModelSerializer):
     class Meta:
         model = Token

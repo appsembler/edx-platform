@@ -25,6 +25,15 @@ from openedx.core.djangoapps.appsembler.api.tests.factories import (
 APPSEMBLER_API_VIEWS_MODULE = 'openedx.core.djangoapps.appsembler.api.v1.views'
 
 
+def create_org_users(org, new_user_count):
+    """
+    This function is also declared in `test_sites.py` in the user api PR
+    We want to define this function in one location
+    """
+    return [UserOrganizationMappingFactory(
+        organization=org).user for i in xrange(new_user_count)]
+
+
 class TahoeApiBaseViewTest(TestCase):
     def setUp(self):
         super(TahoeApiBaseViewTest, self).setUp()
@@ -38,11 +47,11 @@ class TahoeApiBaseViewTest(TestCase):
                                        is_amc_admin=True)
         self.api_request_factory = APIRequestFactory()
 
-    def create_get_request(self, url, query_params):
-        request = self.api_request_factory.get(url)
-        request.META['HTTP_HOST'] = self.my_site.domain
-        force_authenticate(request, user=self.caller)
-        view = resolve(url).func
+    # def create_get_request(self, url, query_params):
+    #     request = self.api_request_factory.get(url)
+    #     request.META['HTTP_HOST'] = self.my_site.domain
+    #     force_authenticate(request, user=self.caller)
+    #     view = resolve(url).func
 
 @ddt.ddt
 @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.TahoeApiKeyViewSet.throttle_classes', [])
@@ -51,15 +60,9 @@ class TahoeApiKeyGetTest(TahoeApiBaseViewTest):
     def setUp(self):
         super(TahoeApiKeyGetTest, self).setUp()
 
-        self.my_site_users = [UserFactory() for i in range(3)]
-        for user in self.my_site_users:
-            UserOrganizationMappingFactory(user=user,
-                                           organization=self.my_site_org)
-
-        self.other_site_users = [UserFactory()]
-        for user in self.other_site_users:
-            UserOrganizationMappingFactory(user=user,
-                                           organization=self.other_site_org)
+        self.my_site_users = create_org_users(org=self.my_site_org, new_user_count=3)
+        self.tokens = [TokenFactory(user=user) for user in self.my_site_users]
+        self.other_site_users = create_org_users(org=self.other_site_org, new_user_count=2)
 
     def test_get_all_tokens(self):
         url = reverse('tahoe-api:v1:api-keys-list')
@@ -67,9 +70,27 @@ class TahoeApiKeyGetTest(TahoeApiBaseViewTest):
         request.META['HTTP_HOST'] = self.my_site.domain
         force_authenticate(request, user=self.caller)
         view = resolve(url).func
+        response = view(request)
+        response.render()
+        assert response.status == status.HTTP_200_OK
+        results = response.data['results']
 
     def test_get_token_for_logged_in_user(self):
-        pass
+
+        caller = UserFactory()
+        UserOrganizationMappingFactory(user=caller,
+                                       organization=self.my_site_org,
+                                       is_amc_admin=True)
+        caller_token = TokenFactory(user=caller)
+        url = reverse('tahoe-api:v1:api-keys-detail', args=[caller.id])
+        request = self.api_request_factory.get(url)
+        request.META['HTTP_HOST'] = self.my_site.domain
+        force_authenticate(request, user=caller)
+        view = resolve(url)
+        response = view.func(request, pk=caller.id)
+        response.render()
+        import pdb; pdb.set_trace()
+        # results = response.data['results']
 
     def test_get_token_for_user_without_token(self):
         pass

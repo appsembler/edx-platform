@@ -56,7 +56,10 @@ from openedx.core.djangoapps.appsembler.api.v1.pagination import (
     TahoeLimitOffsetPagination
 )
 from openedx.core.djangoapps.appsembler.api.v1.serializers import (
-    CourseOverviewSerializer, BulkEnrollmentSerializer, TahoeApiKeySerializer,
+    CourseOverviewSerializer,
+    BulkEnrollmentSerializer,
+    TahoeApiKeyInfoSerializer,
+    TahoeApiKeySecretSerializer,
 )
 
 # TODO: Just move into v1 directory
@@ -363,7 +366,7 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
 class TahoeApiKeyViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
     model = Token
     pagination_class = TahoeLimitOffsetPagination
-    serializer_class = TahoeApiKeySerializer
+    # serializer_class = TahoeApiKeySerializer
     throttle_classes = (TahoeAPIUserThrottle,)
     filter_backends = (DjangoFilterBackend, )
     # filter_class = TahoeApiKeyFilter
@@ -377,10 +380,34 @@ class TahoeApiKeyViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
         queryset = Token.objects.filter(user__in=get_users_for_site(site))
         return queryset
 
-    # def get_serializer_class(self, request):
-    #     if self.action == 'retrieve':
-    #         return TahoeApiKeySerializer
+    def get_serializer_class(self, *args, **kwargs):
+        if self.action == 'retrieve':
+            return TahoeApiKeySecretSerializer
+        elif self.action == 'list':
+            return TahoeApiKeyInfoSerializer
+        else:
+            # import pdb; pdb.set_trace()
+            return TahoeApiKeyDummySerializer
 
+    # def list(self, request):
+        
+
+    # class RetrieveModelMixin(object):
+    #     """
+    #     Retrieve a model instance.
+    #     """
+    #     def retrieve(self, request, *args, **kwargs):
+    #         instance = self.get_object()
+    #         serializer = self.get_serializer(instance)
+    #         return Response(serializer.data)
+
+    def retrieve(self, request, pk=None):
+        """
+        The DRF Token primary key is the secret
+        """
+        # import pdb; pdb.set_trace()
+        return super(TahoeApiKeyViewSet, self).retrieve(request, pk)
+        # return Response(TahoeApiKeySecretSerializer().data)
 
     def create(self, request, *args, **kwargs):
         response_data = {
@@ -388,3 +415,31 @@ class TahoeApiKeyViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
         }
         response_code = status.HTTP_201_CREATED
         return Response(response_data, status=response_code)
+
+
+
+# from rest_framework import parsers, renderers
+# from rest_framework.authtoken.models import Token
+# from rest_framework.authtoken.serializers import AuthTokenSerializer
+# from rest_framework.response import Response
+# from rest_framework.views import APIView
+
+
+# class ObtainAuthToken(APIView):
+#     throttle_classes = ()
+#     permission_classes = ()
+#     parser_classes = (parsers.FormParser, parsers.MultiPartParser, parsers.JSONParser,)
+#     renderer_classes = (renderers.JSONRenderer,)
+#     serializer_class = AuthTokenSerializer
+
+#     def post(self, request, *args, **kwargs):
+#         serializer = self.serializer_class(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         user = serializer.validated_data['user']
+#         token, created = Token.objects.get_or_create(user=user)
+#         return Response({'token': token.key})
+
+
+# obtain_auth_token = ObtainAuthToken.as_view()
+
+
