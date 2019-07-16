@@ -61,6 +61,20 @@ class BulkEnrollmentSerializer(serializers.Serializer):
         return value
 
 
+class TahoeApiKeyDetailSerializer(serializers.Serializer):
+    """Serializer to provide data needed for a user. Primary use is in the
+    Tahoe API Key Management detail view
+    """
+    user_id = serializers.IntegerField()
+    username = serializers.CharField()
+    created = serializers.DateTimeField(required=False)
+    secret = serializers.CharField(required=False)
+
+    class Meta:
+        fields = ['user_id', 'username', 'created', 'secret', ]
+        read_only_fields = fields
+
+
 class UserIndexSerializer(serializers.ModelSerializer):
     """Provides a limited set of user information for summary display
     """
