@@ -75,6 +75,23 @@ class TahoeApiKeyDetailSerializer(serializers.Serializer):
         read_only_fields = fields
 
 
+class TahoeApiKeyListSerializer(serializers.Serializer):
+    """Serializer to provide non-secret Tahoe API key data
+    Primary use is in the Tahoe API Key Management list view
+
+    Future functionality would include metadata
+
+    We don't wan to share the secret in this serializer, nor any data which we
+    would NOT want visible to a site administrator
+    """
+    user_id = serializers.IntegerField()
+    username = serializers.CharField()
+    created = serializers.DateTimeField(required=False)
+    class Meta:
+        fields = ['user_id', 'username', 'created', ]
+        read_only_fields = fields
+
+
 class UserIndexSerializer(serializers.ModelSerializer):
     """Provides a limited set of user information for summary display
     """

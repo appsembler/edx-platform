@@ -8,6 +8,7 @@ from student.tests.factories import UserFactory
 
 from openedx.core.djangoapps.appsembler.api.v1.serializers import (
     TahoeApiKeyDetailSerializer,
+    TahoeApiKeyListSerializer,
 )
 
 from openedx.core.djangoapps.appsembler.api.tests.factories import (
@@ -47,3 +48,45 @@ class TahoeApiKeyDetailSerializerTest(TestCase):
         assert serializer.data['username'] == the_user.username
         assert not serializer.data.has_key('secret')
         assert not serializer.data.has_key('created')
+
+
+@ddt.ddt
+class TahoeApiKeyListSerializerTest(TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_single_instance(self):
+        """
+        Simple check with a single user and all the fields available
+        """
+        the_user = UserFactory()
+        obj = dict(
+            user_id=the_user.id,
+            username=the_user.username,
+        )
+        serializer = TahoeApiKeyListSerializer(instance=obj)
+        assert serializer.data['user_id'] == the_user.id
+        assert serializer.data['username'] == the_user.username
+
+    def test_multiple_instances(self):
+        user_count = 5
+        token_count = 3
+        users = [UserFactory() for i in xrange(user_count)]
+        tokens = [TokenFactory(user=users[i]) for i in xrange(token_count)]
+        data = []
+        for i, user in enumerate(users):
+            rec = dict(
+                user_id=user.id,
+                username=user.username,
+            )
+            if i < token_count:
+                rec['created'] = tokens[i].created
+            data.append(rec)
+
+        serializer = TahoeApiKeyListSerializer(instance=data, many=True)
+        for i, rec in enumerate(serializer.data):
+            assert rec['user_id'] == users[i].id
+            assert rec['username'] == users[i].username
+            if i < token_count:
+                assert parse(rec['created']) ==  tokens[i].created
