@@ -73,7 +73,7 @@ from student.helpers import authenticate_new_user, do_create_account
 from third_party_auth import pipeline, provider
 from util.json_request import JsonResponse
 
-from organizations.models import Organization, UserSiteMapping, UserOrganizationMapping
+from organizations.models import Organization, UserOrganizationMapping
 
 log = logging.getLogger("edx.student")
 AUDIT_LOG = logging.getLogger("audit")
