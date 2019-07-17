@@ -1,6 +1,9 @@
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
+
+from rest_framework.authtoken.models import Token
+
 from organizations.models import (
     Organization,
     OrganizationCourse,
@@ -83,3 +86,16 @@ def get_user_ids_for_site(site):
 def get_users_for_site(site):
     user_ids = get_user_ids_for_site(site)
     return get_user_model().objects.filter(id__in=user_ids)
+
+
+def get_admin_api_key_tokens_for_site(site):
+    orgs = Organization.objects.filter(sites__in=[site])
+    mappings = UserOrganizationMapping.objects.filter(organization__in=orgs,
+                                                      is_amc_admin=True)
+    return Token.objects.filter(user__in=mappings.values('user'))
+
+def get_admins_with_api_keys_for_site(site):
+    orgs = Organization.objects.filter(sites__in=[site])
+    mappings = UserOrganizationMapping.objects.filter(organization__in=orgs,
+                                                      is_amc_admin=True)
+    return mappings.values('user')

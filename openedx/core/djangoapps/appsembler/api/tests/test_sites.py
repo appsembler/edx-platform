@@ -34,6 +34,7 @@ from openedx.core.djangoapps.appsembler.api.tests.factories import (
     OrganizationFactory,
     OrganizationCourseFactory,
     UserOrganizationMappingFactory,
+    TokenFactory,
 )
 
 
@@ -123,3 +124,30 @@ class SitesModuleTests(TestCase):
         retrieved_users = aapi_sites.get_users_for_site(self.my_site)
         assert set(retrieved_users) == set(my_users)
         assert set(retrieved_users).isdisjoint(set(other_users))
+
+
+def create_org_users(org, new_user_count, is_amc_admin=False):
+    """
+    This function is also declared in `test_sites.py` in the user api PR
+    We want to define this function in one location
+    """
+    return [UserOrganizationMappingFactory(
+        organization=org,
+        is_amc_admin=is_amc_admin).user for i in xrange(new_user_count)]
+
+
+class TahoeAdminGetterTest(TestCase):
+    def setUp(self):
+        super(TahoeAdminGetterTest, self).setUp()
+        self.my_site = SiteFactory(domain='my-site.test')
+        self.other_site = SiteFactory(domain='other-site.test')
+        self.other_site_org = OrganizationFactory(sites=[self.other_site])
+        self.my_site_org = OrganizationFactory(sites=[self.my_site])
+
+    def test_get_admin_api_key_tokens_for_site(self):
+        reg_users = create_org_users(org=self.my_site_org, new_user_count=4)
+        admin_users = create_org_users(org=self.my_site_org, new_user_count=3, is_amc_admin=True)
+        tokens = [TokenFactory(user=user) for user in admin_users]
+
+        found_tokens = aapi_sites.get_admin_api_key_tokens_for_site(site=self.my_site)
+        assert set(found_tokens) == set(tokens)
