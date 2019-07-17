@@ -2,6 +2,9 @@
 from django.contrib.auth import get_user_model
 
 from rest_framework import serializers
+from rest_framework.authtoken.models import Token
+
+from organizations.models import UserOrganizationMapping
 
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
@@ -9,6 +12,7 @@ from opaque_keys.edx.keys import CourseKey
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 
 from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
+# from openedx.core.djangoapps.appsembler.api.sites import is_admin_for_site
 
 
 class StringListField(serializers.ListField):
@@ -75,7 +79,7 @@ class TahoeApiKeyDetailSerializer(serializers.Serializer):
         read_only_fields = fields
 
 
-class TahoeApiKeyListSerializer(serializers.Serializer):
+class TahoeApiKeyListSerializer(serializers.ModelSerializer):
     """Serializer to provide non-secret Tahoe API key data
     Primary use is in the Tahoe API Key Management list view
 
@@ -84,11 +88,13 @@ class TahoeApiKeyListSerializer(serializers.Serializer):
     We don't wan to share the secret in this serializer, nor any data which we
     would NOT want visible to a site administrator
     """
-    user_id = serializers.IntegerField()
+    user_id = serializers.IntegerField(source='id')
     username = serializers.CharField()
-    created = serializers.DateTimeField(required=False)
+    token_created = serializers.DateTimeField(source='auth_token.created')
+
     class Meta:
-        fields = ['user_id', 'username', 'created', ]
+        model = get_user_model()
+        fields = ['user_id', 'username', 'token_created', ]
         read_only_fields = fields
 
 
