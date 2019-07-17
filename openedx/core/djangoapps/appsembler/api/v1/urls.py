@@ -13,6 +13,12 @@ from openedx.core.djangoapps.appsembler.api.v1 import views
 router = routers.DefaultRouter()
 
 router.register(
+    r'api-keys',
+    views.TahoeApiKeyManagerViewSet,
+    'api-keys',
+)
+
+router.register(
     r'courses',
     views.CourseViewSet,
     'courses',

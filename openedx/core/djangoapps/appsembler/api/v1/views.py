@@ -362,6 +362,67 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
         return Response(response_data, status=response_code)
 
 
+class TahoeApiKeyManagerViewSet(TahoeAuthMixin, viewsets.GenericViewSet):
+    """
+
+    """
+    pagination_class = TahoeLimitOffsetPagination
+    throttle_classes = (TahoeAPIUserThrottle,)
+    filter_backends = (DjangoFilterBackend, )
+
+    def get_queryset(self):
+        """
+        IMPORTANT!!! This returns all DRF Token objects (including secrets!!!)
+        for the given site
+        """
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = Token.objects.filter(user__in=get_users_for_site(site))
+        return queryset
+
+    def get_site(self, request):
+        return django.contrib.sites.shortcuts.get_current_site(self.request)
+
+    def list(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        
+        # # Apply filters
+        # queryset = self.filter_queryset(self.get_queryset())
+        # page = self.paginate_queryset(queryset)
+        # # Pagination
+        # if page is not None:
+        #     serializer = self.get_serializer(page, many=True)
+        #     return self.get_paginated_response(serializer.data)
+        # # Serializer
+        # serializer = self.get_serializer(queryset, many=True)
+        # # Response
+        # return Response(serializer.data)
+
+    def create(self, request):
+        pass
+
+    def retrieve(self, request, pk=None):
+        """
+        pk is the user id
+        """
+        site = self.get_site(request)
+        # check if user is in site
+        if UserOrganizationMapping.objects.filter(user__id=pk).exists():
+            user = get_object_or_404(get_user_model(), pk=pk)
+            return TahoeApiKeyDetailSerializer(user).data
+        else:
+            raise NotFound()
+
+    def update(self, request, pk=None):
+        pass
+
+    def partial_update(self, request, pk=None):
+        pass
+
+    def destroy(self, request, pk=None):
+        pass
+
+
 class UserIndexViewSet(TahoeAuthMixin, viewsets.ReadOnlyModelViewSet):
     """Provides course information
 
