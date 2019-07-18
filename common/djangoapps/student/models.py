@@ -71,6 +71,8 @@ from util.milestones_helpers import is_entrance_exams_enabled
 from util.model_utils import emit_field_changed_events, get_changed_fields_dict
 from util.query import use_read_replica_if_available
 
+from openedx.core.djangoapps.theming.helpers import get_current_site
+
 log = logging.getLogger(__name__)
 AUDIT_LOG = logging.getLogger("audit")
 SessionStore = import_module(settings.SESSION_ENGINE).SessionStore  # pylint: disable=invalid-name
@@ -246,11 +248,11 @@ def is_email_retired(email):
     return User.objects.filter(email__in=list(locally_hashed_emails)).exists()
 
 
-def email_exists_or_retired(email):
+def email_exists_or_retired(email, organization):
     """
     Check an email against the User model for existence.
     """
-    return User.objects.filter(email=email).exists() or is_email_retired(email)
+    return organization.userorganizationmapping_set.filter(user__email=email).exists() or is_email_retired(email)
 
 
 def get_retired_username_by_username(username):

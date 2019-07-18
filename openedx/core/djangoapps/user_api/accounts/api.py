@@ -28,6 +28,7 @@ from openedx.core.djangoapps.user_api.errors import (
     AccountValidationError,
     PreferenceValidationError,
 )
+from openedx.core.djangoapps.theming.helpers import get_current_site
 from openedx.core.djangoapps.user_api.preferences.api import update_user_preferences
 from openedx.core.lib.api.view_utils import add_serializer_errors
 
@@ -172,7 +173,8 @@ def update_account_settings(requesting_user, update, username=None):
     # If the user asked to change email, validate it.
     if changing_email:
         try:
-            student_views.validate_new_email(existing_user, new_email)
+            organization = existing_user.userorganizationmapping_set.first().organization
+            student_views.validate_new_email(existing_user, new_email, organization)
         except ValueError as err:
             field_errors["email"] = {
                 "developer_message": u"Error thrown from validate_new_email: '{}'".format(text_type(err)),
@@ -346,7 +348,7 @@ def create_account(username, password, email):
     return registration.activation_key
 
 
-def check_account_exists(username=None, email=None):
+def check_account_exists(username=None, email=None, organization=None):
     """Check whether an account with a particular username or email already exists.
 
     Keyword Arguments:
@@ -366,7 +368,7 @@ def check_account_exists(username=None, email=None):
     conflicts = []
 
     try:
-        _validate_email_doesnt_exist(email)
+        _validate_email_doesnt_exist(email, organization)
     except errors.AccountEmailAlreadyExists:
         conflicts.append("email")
     try:
@@ -534,7 +536,8 @@ def get_email_existence_validation_error(email):
     :return: Validation error message.
 
     """
-    return _validate(_validate_email_doesnt_exist, errors.AccountEmailAlreadyExists, email)
+    organization = get_current_site().organizations.first()
+    return _validate(_validate_email_doesnt_exist, errors.AccountEmailAlreadyExists, email, organization)
 
 
 def _get_user_and_profile(username):
@@ -687,14 +690,19 @@ def _validate_username_doesnt_exist(username):
         raise errors.AccountUsernameAlreadyExists(_(accounts.USERNAME_CONFLICT_MSG).format(username=username))
 
 
-def _validate_email_doesnt_exist(email):
+def _validate_email_doesnt_exist(email, organization=None):
     """Validate that the email is not associated with an existing user.
 
     :param email: The proposed email (unicode).
     :return: None
     :raises: errors.AccountEmailAlreadyExists
     """
-    if email is not None and email_exists_or_retired(email):
+    print '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
+    print '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
+    print organization
+    print '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
+    print '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
+    if email is not None and email_exists_or_retired(email, organization):
         raise errors.AccountEmailAlreadyExists(_(accounts.EMAIL_CONFLICT_MSG).format(email_address=email))
 
 

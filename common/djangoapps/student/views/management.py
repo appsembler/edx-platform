@@ -664,6 +664,7 @@ def create_account_with_params(request, params):
         extended_profile_fields=extended_profile_fields,
         enforce_password_policy=enforce_password_policy,
         tos_required=tos_required,
+        request=request,
     )
     custom_form = get_registration_extension_form(data=params)
 
@@ -671,10 +672,26 @@ def create_account_with_params(request, params):
     running_pipeline = None
     new_user = None
 
+    # APPSEMBLER SPECIFIC
+    organization_name = params.get('organization')
+    organization = None
+    # organization name is passed during signup when invited through AMC,
+    # otherwise it's a regular signup on a microsite
+    if organization_name:
+        try:
+            organization = Organization.objects.get(name=organization_name)
+        except:
+            pass
+    elif hasattr(request, 'site'):
+        organization = request.site.organizations.first()
+
+    is_amc_admin = "registered_from_amc" in params
+    # APPSEMBLER SPECIFIC ENDS
+
     # Perform operations within a transaction that are critical to account creation
     with outer_atomic(read_committed=True):
         # first, create the account
-        (user, profile, registration) = do_create_account(form, custom_form)
+        (user, profile, registration) = do_create_account(form, organization, custom_form)
 
         # If a 3rd party auth provider and credentials were provided in the API, link the account with social auth
         # (If the user is using the normal register page, the social auth pipeline does the linking, not this code)
@@ -814,19 +831,6 @@ def create_account_with_params(request, params):
     create_comments_service_user(user)
 
     # APPSEMBLER SPECIFIC
-    organization_name = params.get('organization')
-    organization = None
-    # organization name is passed during signup when invited through AMC,
-    # otherwise it's a regular signup on a microsite
-    if organization_name:
-        try:
-            organization = Organization.objects.get(name=organization_name)
-        except:
-            pass
-    elif hasattr(request, 'site'):
-        organization = request.site.organizations.first()
-
-    is_amc_admin = "registered_from_amc" in params
 
     if organization:
         UserOrganizationMapping.objects.get_or_create(user=user, organization=organization, is_amc_admin=is_amc_admin)
@@ -1273,7 +1277,7 @@ def password_reset_confirm_wrapper(request, uidb36=None, token=None):
     return response
 
 
-def validate_new_email(user, new_email):
+def validate_new_email(user, new_email, organization=None):
     """
     Given a new email for a user, does some basic verification of the new address If any issues are encountered
     with verification a ValueError will be thrown.
@@ -1286,7 +1290,7 @@ def validate_new_email(user, new_email):
     if new_email == user.email:
         raise ValueError(_('Old email is the same as the new email.'))
 
-    if email_exists_or_retired(new_email):
+    if email_exists_or_retired(new_email, organization):
         raise ValueError(_('An account with this e-mail already exists.'))
 
 

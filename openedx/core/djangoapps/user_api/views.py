@@ -1,6 +1,7 @@
 """HTTP end-points for the User API. """
 
 from django.contrib.auth.models import User
+from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import NON_FIELD_ERRORS, PermissionDenied, ValidationError
 from django.db import transaction
 from django.http import HttpResponse, HttpResponseForbidden
@@ -127,7 +128,8 @@ class RegistrationView(APIView):
         username = data.get('username')
 
         # Handle duplicate email/username
-        conflicts = check_account_exists(email=email, username=username)
+        current_org = get_current_site(request).organizations.first()
+        conflicts = check_account_exists(email=email, username=username, organization=current_org)
         if conflicts:
             conflict_messages = {
                 "email": accounts.EMAIL_CONFLICT_MSG.format(email_address=email),

@@ -138,10 +138,12 @@ class RegistrationValidationView(APIView):
     def email_handler(self, request):
         email = request.data.get('email')
         invalid_email_error = get_email_validation_error(email)
+        # email_exists_error = get_email_existence_validation_error(email, request)
         email_exists_error = get_email_existence_validation_error(email)
         # We prefer seeing for invalidity first.
         # Some invalid emails (like a blank one for superusers) may exist.
         return invalid_email_error or email_exists_error
+        #return invalid_email_error
 
     def confirm_email_handler(self, request):
         email = request.data.get('email', None)
