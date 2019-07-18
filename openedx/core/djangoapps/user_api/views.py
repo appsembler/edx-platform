@@ -128,8 +128,19 @@ class RegistrationView(APIView):
         username = data.get('username')
 
         # Handle duplicate email/username
-        current_org = get_current_site(request).organizations.first()
-        conflicts = check_account_exists(email=email, username=username, organization=current_org)
+        print '#############################################'
+        print '#############################################'
+        print '#############################################'
+        print "data.get('registered_from_amc')"
+        print data.get('registered_from_amc')
+        print '#############################################'
+        print '#############################################'
+        print '#############################################'
+        if not data.get('registered_from_amc'): # TODO CHECK THAT IS BOOLEAN
+            current_org = get_current_site(request).organizations.first()
+            conflicts = check_account_exists(email=email, username=username, organization=current_org)
+        else:
+            conflicts = check_account_exists(email=email, username=None, organization=None)
         if conflicts:
             conflict_messages = {
                 "email": accounts.EMAIL_CONFLICT_MSG.format(email_address=email),

@@ -10,7 +10,6 @@ from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
-from django.contrib.sites.shortcuts import get_current_site as sites_get_current_site
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.core.validators import RegexValidator, slug_re
@@ -49,7 +48,7 @@ class PasswordResetFormNoActive(PasswordResetForm):
         """
         email = self.cleaned_data["email"]
         #The line below contains the only change, removing is_active=True
-        
+
         ## TODO We need to look the site here.
         self.users_cache = User.objects.filter(email__iexact=email)
         if not len(self.users_cache):
@@ -313,13 +312,15 @@ class AccountCreationForm(forms.Form):
         print get_current_site()
         print '#################################'
         print '#################################'
-        current_org = sites_get_current_site(self.request).organizations.first()
-        if email_exists_or_retired(email, current_org):
-            raise ValidationError(
-                _(
-                    "It looks like {email} belongs to an existing account. Try again with a different email address."
-                ).format(email=email)
-            )
+        current_site = get_current_site()
+        if not current_site.id == settings.SITE_ID:
+            current_org = current_site(self.request).organizations.first()
+            if email_exists_or_retired(email, current_org):
+                raise ValidationError(
+                    _(
+                        "It looks like {email} belongs to an existing account. Try again with a different email address."
+                    ).format(email=email)
+                )
         return email
 
     def clean_year_of_birth(self):

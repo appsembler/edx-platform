@@ -248,11 +248,14 @@ def is_email_retired(email):
     return User.objects.filter(email__in=list(locally_hashed_emails)).exists()
 
 
-def email_exists_or_retired(email, organization):
+def email_exists_or_retired(email, organization=None):
     """
     Check an email against the User model for existence.
     """
-    return organization.userorganizationmapping_set.filter(user__email=email).exists() or is_email_retired(email)
+    if organization is not None:
+        return organization.userorganizationmapping_set.filter(user__email=email).exists() or is_email_retired(email)
+    else:
+        User.objects.filter(email=email).exists() or is_email_retired(email)
 
 
 def get_retired_username_by_username(username):

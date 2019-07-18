@@ -702,7 +702,7 @@ def _validate_email_doesnt_exist(email, organization=None):
     print organization
     print '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
     print '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
-    if email is not None and email_exists_or_retired(email, organization):
+    if email is not None and organization is not None and email_exists_or_retired(email, organization):
         raise errors.AccountEmailAlreadyExists(_(accounts.EMAIL_CONFLICT_MSG).format(email_address=email))
 
 
