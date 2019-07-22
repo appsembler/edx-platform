@@ -130,26 +130,25 @@ class RegistrationView(APIView):
 
         # Handle duplicate email/username
         if not data.get('registered_from_amc'):
-            print '###   ###   ###   ###   ###'
-            print 'is NOT coming from AMC'
-            print '###   ###   ###   ###   ###'
+            # The user isn't comming from AMC, we only need to check if already
+            # exists inside the current organization
             current_org = get_current_site(request).organizations.first()
             conflicts = check_account_exists(email=email, username=username, organization=current_org)
         else:
             org_name = data.get('organization', False)
             if data.get('organization', False):
-                print '###   ###   ###   ###   ###'
-                print 'is coming from AMC with ORG'
-                print '###   ###   ###   ###   ###'
+                # The user is comming from AMC but the organization already
+                # exists. The user is being invited to an existing org through
+                # AMC user management page.
                 org_name = data.get('organization')
                 current_org = Organization.objects.get(name=org_name)
-                #it can exists or not
-                # we try if exists
+
                 if current_org.userorganizationmapping_set.filter(user__email=email).exists():
-                    # we're ok, we just return ok, nothing to do
-                    print '###   ###   ###   ###   ###'
-                    print 'ALREADY EXISTS'
-                    print '###   ###   ###   ###   ###'
+                    # If the user already exists in the organization, we just
+                    # return ok. Since the user already exists, the next step
+                    # will be to create the OAuth tokens only.
+                    # TODO In the AMC side, make sure to veryfy for the user
+                    # before allowing to regiter it.
                     response = JsonResponse({"success": True})
                     return response
 
@@ -157,9 +156,9 @@ class RegistrationView(APIView):
                     conflicts = check_account_exists(email=None, username=username, organization=None)
 
             else:
-                print '###   ###   ###   ###   ###'
-                print 'is coming from AMC without ORG'
-                print '###   ###   ###   ###   ###'
+                # The new user is comming from AMC but the org hasn't been
+                # created yet. The user is being created though the signup
+                # wizard
                 conflicts = check_account_exists(email=None, username=username, organization=None)
 
         if conflicts:
