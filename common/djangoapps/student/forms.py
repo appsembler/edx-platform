@@ -17,6 +17,8 @@ from django.forms import widgets
 from django.utils.http import int_to_base36
 from django.utils.translation import ugettext_lazy as _
 
+from organizations.models import Organization, UserOrganizationMapping
+
 from edx_ace import ace
 from edx_ace.recipient import Recipient
 from openedx.core.djangoapps.ace_common.template_context import get_base_template_context
@@ -28,8 +30,6 @@ from openedx.core.djangoapps.user_api.preferences.api import get_user_preference
 from student.message_types import PasswordReset
 from student.models import CourseEnrollmentAllowed, email_exists_or_retired
 from util.password_policy_validators import password_max_length, password_min_length, validate_password
-
-from organizations.models import Organization, UserOrganizationMapping
 
 
 class PasswordResetFormNoActive(PasswordResetForm):
@@ -307,11 +307,6 @@ class AccountCreationForm(forms.Form):
                 if not CourseEnrollmentAllowed.objects.filter(email=email).exists():
                     raise ValidationError(_("Unauthorized email address."))
 
-        print '#################################'
-        print '#################################'
-        print get_current_site()
-        print '#################################'
-        print '#################################'
         current_site = get_current_site()
         if not current_site.id == settings.SITE_ID:
             current_org = current_site.organizations.first()
