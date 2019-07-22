@@ -17,6 +17,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, load_backend, login as django_login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import AnonymousUser, User
+from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.urls import NoReverseMatch, reverse, reverse_lazy
 from django.core.validators import ValidationError, validate_email
@@ -71,6 +72,8 @@ from student.models import (
 from student.helpers import authenticate_new_user, do_create_account
 from third_party_auth import pipeline, provider
 from util.json_request import JsonResponse
+
+from organizations.models import Organization, UserOrganizationMapping
 
 log = logging.getLogger("edx.student")
 AUDIT_LOG = logging.getLogger("audit")
@@ -143,6 +146,9 @@ def _do_third_party_auth(request):
 def _get_user_by_email(request):
     """
     Finds a user object in the database based on the given request, ignores all fields except for email.
+
+    Appsembler specifics: Since we removed the constraint for email unique to emulate multi tenancy, we
+                          find the user by email, but inside the organization.
     """
     if 'email' not in request.POST or 'password' not in request.POST:
         raise AuthFailedError(_('There was an error receiving your login information. Please email us.'))
@@ -150,8 +156,11 @@ def _get_user_by_email(request):
     email = request.POST['email']
 
     try:
-        return User.objects.get(email=email)
-    except User.DoesNotExist:
+        # APPSEMBLER SPECIFIC
+        current_site = get_current_site(request)
+        current_org = current_site.organizations.first()
+        return current_org.userorganizationmapping_set.get(user__email=email).user
+    except UserOrganizationMapping.DoesNotExist:
         if settings.FEATURES['SQUELCH_PII_IN_LOGS']:
             AUDIT_LOG.warning(u"Login failed - Unknown user email")
         else:
@@ -451,7 +460,7 @@ def login_user(request):
             except AuthFailedError as e:
                 return HttpResponse(e.value, content_type="text/plain", status=403)
         else:
-            email_user = _get_user_by_email(request)
+            email_user = _get_user_by_email(request) # We'll make sure to return the correct user object, from the right organization.
 
         _check_shib_redirect(email_user)
         _check_excessive_login_attempts(email_user)

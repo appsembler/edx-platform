@@ -295,7 +295,9 @@ def bootstrap_site(site, org_data=None, user_email=None):
     else:
         organization = {}
     if user_email:
-        user = User.objects.get(email=user_email)
+        #
+        users_to_exclude = UserOrganizationMapping.objects.filter(user__email=user_email).values("user")
+        user = User.objects.filter(email="maxi+fromamc3@appsembler.com").exclude(id__in=users_to_exclude).first()
         org_models.UserOrganizationMapping.objects.create(user=user, organization=organization, is_amc_admin=True)
     else:
         user = {}
