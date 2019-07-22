@@ -64,6 +64,7 @@ from openedx.core.djangoapps.lang_pref import LANGUAGE_KEY
 from openedx.core.djangoapps.programs.models import ProgramsApiConfig
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.theming import helpers as theming_helpers
+from openedx.core.djangoapps.theming.helpers import get_current_site
 from openedx.core.djangoapps.user_api import accounts as accounts_settings
 from openedx.core.djangoapps.user_api.accounts.utils import generate_password
 from openedx.core.djangoapps.user_api.models import UserRetirementRequest
@@ -102,6 +103,7 @@ from student.roles import CourseAccessRole, CourseCreatorRole
 from student.signals import REFUND_ORDER
 from student.tasks import send_activation_email
 from student.text_me_the_app import TextMeTheAppFragmentView
+from organizations.models import UserOrganizationMapping
 from third_party_auth import pipeline, provider
 from third_party_auth.saml import SAP_SUCCESSFACTORS_SAML_KEY
 from util.bad_request_rate_limiter import BadRequestRateLimiter
@@ -1374,7 +1376,8 @@ def confirm_email_change(request, key):  # pylint: disable=unused-argument
             'new_email': pec.new_email
         }
 
-        if len(User.objects.filter(email=pec.new_email)) != 0:
+        organization = get_current_site().organizations.first()
+        if len(organization.userorganizationmapping_set.filter(email=pec.new_email)) != 0:
             response = render_to_response("email_exists.html", {})
             transaction.set_rollback(True)
             return response
