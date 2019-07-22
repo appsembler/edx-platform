@@ -1,6 +1,7 @@
 """HTTP end-points for the User API. """
 
 from django.contrib.auth.models import User
+from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import NON_FIELD_ERRORS, PermissionDenied, ValidationError
 from django.db import transaction
 from django.http import HttpResponse, HttpResponseForbidden
@@ -9,6 +10,7 @@ from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import csrf_exempt, csrf_protect, ensure_csrf_cookie
 from django.views.decorators.debug import sensitive_post_parameters
 from django_filters.rest_framework import DjangoFilterBackend
+from organizations.models import Organization
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx import locator
 from opaque_keys.edx.keys import CourseKey
@@ -127,7 +129,39 @@ class RegistrationView(APIView):
         username = data.get('username')
 
         # Handle duplicate email/username
-        conflicts = check_account_exists(email=email, username=username)
+        if not data.get('registered_from_amc'):
+            print '###   ###   ###   ###   ###'
+            print 'is NOT coming from AMC'
+            print '###   ###   ###   ###   ###'
+            current_org = get_current_site(request).organizations.first()
+            conflicts = check_account_exists(email=email, username=username, organization=current_org)
+        else:
+            org_name = data.get('organization', False)
+            if data.get('organization', False):
+                print '###   ###   ###   ###   ###'
+                print 'is coming from AMC with ORG'
+                print '###   ###   ###   ###   ###'
+                org_name = data.get('organization')
+                current_org = Organization.objects.get(name=org_name)
+                #it can exists or not
+                # we try if exists
+                if current_org.userorganizationmapping_set.filter(user__email=email).exists():
+                    # we're ok, we just return ok, nothing to do
+                    print '###   ###   ###   ###   ###'
+                    print 'ALREADY EXISTS'
+                    print '###   ###   ###   ###   ###'
+                    response = JsonResponse({"success": True})
+                    return response
+
+                else:
+                    conflicts = check_account_exists(email=None, username=username, organization=None)
+
+            else:
+                print '###   ###   ###   ###   ###'
+                print 'is coming from AMC without ORG'
+                print '###   ###   ###   ###   ###'
+                conflicts = check_account_exists(email=None, username=username, organization=None)
+
         if conflicts:
             conflict_messages = {
                 "email": accounts.EMAIL_CONFLICT_MSG.format(email_address=email),
