@@ -49,8 +49,10 @@ class PasswordResetFormNoActive(PasswordResetForm):
         email = self.cleaned_data["email"]
         #The line below contains the only change, removing is_active=True
 
-        ## TODO We need to look the site here.
-        self.users_cache = User.objects.filter(email__iexact=email)
+        organization = get_current_site().organizations.first()
+        uoms = organization.userorganizationmapping_set.filter(user__email__iexact=email)
+        self.users_cache = [uom.user for uom in uoms]
+        # self.users_cache = User.objects.filter(email__iexact=email)
         if not len(self.users_cache):
             raise forms.ValidationError(self.error_messages['unknown'])
         if any((user.password.startswith(UNUSABLE_PASSWORD_PREFIX))
