@@ -4,12 +4,15 @@ import requests
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
+from django.db.models import Q
 from rest_framework import generics, views, viewsets
 from rest_framework import status
 from rest_framework.generics import CreateAPIView
 from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from organizations.models import Organization, UserOrganizationMapping
 
 from branding.api import get_base_url
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
@@ -249,3 +252,17 @@ class DomainSwitchView(APIView):
 class CustomDomainView(CreateAPIView):
     queryset = AlternativeDomain.objects.all()
     serializer_class = AlternativeDomainSerializer
+
+class FindUsernameOnOrgView(APIView):
+    def get(self, request, user_organization, user_email, format=None):
+        try:
+            if user_email is not None and user_organization is not None:
+                organization = Organization.objects.get(Q(name=user_organization) | Q(short_name=user_organization))
+                if organization.userorganizationmapping_set.filter(user__email=user_email).exists():
+                    username = organization.userorganizationmapping_set.filter(user__email=user_email).first().user.username
+                    return Response({'username': username}, status=status.HTTP_200_OK)
+
+            return Response(None, status=status.HTTP_404_NOT_FOUND)
+
+        except (Organization.DoesNotExist, User.DoesNotExist):
+            return Response(None, status=status.HTTP_404_NOT_FOUND)

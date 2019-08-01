@@ -12,6 +12,7 @@ from openedx.core.djangoapps.appsembler.sites.api import (
     SiteCreateView,
     SiteViewSet,
     UsernameAvailabilityView,
+    FindUsernameOnOrgView
 )
 
 # Create a router and register our viewsets with it.
@@ -22,6 +23,7 @@ router.register(r'sites', SiteViewSet)
 # The API URLs are now determined automatically by the router.
 # Additionally, we include the login URLs for the browsable API.
 urlpatterns = [
+    url(r'^get_username_on_org/(?P<user_organization>[\w.@+-]+)/(?P<user_email>[\w.@+-]+)/', FindUsernameOnOrgView.as_view()),
     url(r'^upload_file/', FileUploadView.as_view()),
     url(r'^username/{}/'.format(settings.USERNAME_PATTERN), UsernameAvailabilityView.as_view()),
     url(r'^domain/(?P<subdomain>[\w.@+-]+)/', DomainAvailabilityView.as_view()),

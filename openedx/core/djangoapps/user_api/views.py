@@ -145,10 +145,12 @@ class RegistrationView(APIView):
 
                 if current_org.userorganizationmapping_set.filter(user__email=email).exists():
                     # If the user already exists in the organization, we just
-                    # return ok. Since the user already exists, the next step
-                    # will be to create the OAuth tokens only.
+                    # return ok. Since the user already exists, the next steps
+                    # will be to set the user as is_amc_admin=Ture and create
+                    # the OAuth tokens only.
                     # TODO In the AMC side, make sure to veryfy for the user
-                    # before allowing to regiter it.
+                    # before allowing to register it.
+                    current_org.userorganizationmapping_set.filter(user__email=email).update(is_amc_admin=True)
                     response = JsonResponse({"success": True})
                     return response
 
