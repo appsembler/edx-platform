@@ -156,6 +156,7 @@ from openedx.core.djangoapps.theming.helpers_dirs import (
     get_theme_base_dirs_from_settings
 )
 from openedx.core.lib.license import LicenseMixin
+from openedx.core.lib.i18n_mixins import TranslatableXBlockMixin
 from openedx.core.lib.derived import derived, derived_collection_entry
 from openedx.core.release import doc_version
 
@@ -547,6 +548,7 @@ from xmodule.x_module import XModuleMixin
 # once the responsibility of XBlock creation is moved out of modulestore - cpennington
 XBLOCK_MIXINS = (
     LmsBlockMixin,
+    TranslatableXBlockMixin,
     InheritanceMixin,
     XModuleMixin,
     EditInfoMixin,
