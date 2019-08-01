@@ -1377,7 +1377,7 @@ def confirm_email_change(request, key):  # pylint: disable=unused-argument
         }
 
         organization = get_current_site().organizations.first()
-        if len(organization.userorganizationmapping_set.filter(email=pec.new_email)) != 0:
+        if len(organization.userorganizationmapping_set.filter(user__email=pec.new_email)) != 0:
             response = render_to_response("email_exists.html", {})
             transaction.set_rollback(True)
             return response
