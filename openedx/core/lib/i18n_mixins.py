@@ -5,12 +5,19 @@ from xblock.core import XBlockMixin
 class TranslatableXBlockMixin(XBlockMixin):
 
     def __init__(self, runtime, *args, **kwargs):
-        from xblock.fields import UNSET, UNIQUE_ID, Field
+        super(TranslatableXBlockMixin, self).__init__(runtime, *args, **kwargs)
+        from xblock.fields import UNSET, UNIQUE_ID
 
-        def apply(f, prop, func):
+        def apply(f, attr_name, func):
             try:
-                raw = getattr(f, prop)
-                setattr(f, prop, func(raw))
+                raw_attr_name = '_raw_{}'.format(attr_name)
+                if hasattr(f, raw_attr_name):
+                    raw = getattr(f, raw_attr_name)
+                else:
+                    raw = getattr(f, attr_name)
+                    setattr(f, raw_attr_name, raw)
+
+                setattr(f, attr_name, func(raw))
             except AttributeError as e:
                 print 'AttributeError i18n', e
                 pass
@@ -30,11 +37,7 @@ class TranslatableXBlockMixin(XBlockMixin):
             else:
                 return trans(s)
 
-        super(TranslatableXBlockMixin, self).__init__(runtime, *args, **kwargs)
-
         if hasattr(self, 'editable_fields') or True:
-            # for field_name in getattr(self, 'editable_fields', []):
-            #     field = self.fields[field_name]
             for _field_name, field in self.fields.iteritems():
                 apply(field, '_display_name', trans)
                 apply(field, '_default', trans_struct)
