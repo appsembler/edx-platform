@@ -6,7 +6,7 @@ from third_party_auth.tests import testutil
 import unittest
 
 
-@unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, 'third_party_auth not enabled')
+@unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
 class RegistryTest(testutil.TestCase):
     """Tests registry discovery and operation."""
 
