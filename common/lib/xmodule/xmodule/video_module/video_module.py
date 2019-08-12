@@ -298,12 +298,6 @@ class VideoModule(VideoFields, VideoTranscriptsMixin, VideoStudentViewHandlers, 
 
         settings_service = self.runtime.service(self, 'settings')
 
-        yt_api_key = None
-        if settings_service:
-            xblock_settings = settings_service.get_settings_bucket(self)
-            if xblock_settings and 'YOUTUBE_API_KEY' in xblock_settings:
-                yt_api_key = xblock_settings['YOUTUBE_API_KEY']
-
         metadata = {
             'saveStateUrl': self.system.ajax_url + '/save_user_state',
             'autoplay': settings.FEATURES.get('AUTOPLAY_VIDEOS', False),
@@ -325,8 +319,7 @@ class VideoModule(VideoFields, VideoTranscriptsMixin, VideoStudentViewHandlers, 
             'transcriptLanguages': sorted_languages,
             'ytTestTimeout': settings.YOUTUBE['TEST_TIMEOUT'],
             'ytApiUrl': settings.YOUTUBE['API'],
-            'ytMetadataUrl': settings.YOUTUBE['METADATA_URL'],
-            'ytKey': yt_api_key,
+            'lmsRootURL': settings.LMS_ROOT_URL,
 
             'transcriptTranslationUrl': self.runtime.handler_url(
                 self, 'transcript', 'translation/__lang__'

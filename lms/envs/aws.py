@@ -806,6 +806,11 @@ FACEBOOK_APP_ID = AUTH_TOKENS.get("FACEBOOK_APP_ID")
 XBLOCK_SETTINGS = ENV_TOKENS.get('XBLOCK_SETTINGS', {})
 XBLOCK_SETTINGS.setdefault("VideoDescriptor", {})["licensing_enabled"] = FEATURES.get("LICENSING", False)
 XBLOCK_SETTINGS.setdefault("VideoModule", {})['YOUTUBE_API_KEY'] = AUTH_TOKENS.get('YOUTUBE_API_KEY', YOUTUBE_API_KEY)
+YOUTUBE_API_KEY = AUTH_TOKENS.get('YOUTUBE_API_KEY', YOUTUBE_API_KEY)
+
+######################### rate limit for yt_video_metadata api ############
+
+RATE_LIMIT_FOR_VIDEO_METADATA_API = '10/minute'
 
 ##### CDN EXPERIMENT/MONITORING FLAGS #####
 CDN_VIDEO_URLS = ENV_TOKENS.get('CDN_VIDEO_URLS', CDN_VIDEO_URLS)
