@@ -4,6 +4,8 @@ Courseware views functions
 
 import json
 import logging
+import requests
+from requests.exceptions import Timeout, ConnectionError
 import urllib
 from collections import OrderedDict, namedtuple
 from datetime import datetime
@@ -33,6 +35,9 @@ from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey, UsageKey
 from opaque_keys.edx.locations import SlashSeparatedCourseKey
 from rest_framework import status
+from rest_framework.decorators import api_view, throttle_classes
+from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from lms.djangoapps.instructor.views.api import require_global_staff
 from lms.djangoapps.ccx.utils import prep_course_for_grading
 from lms.djangoapps.grades.new.course_grade import CourseGradeFactory
@@ -237,6 +242,55 @@ def get_current_child(xmodule, min_depth=None, requested_child=None):
                 child = _get_default_child_module(children)
 
     return child
+
+
+class PerUserVideoMetadataThrottle(UserRateThrottle):
+    """
+    setting rate limit for  yt_video_metadata API
+    """
+    rate = settings.RATE_LIMIT_FOR_VIDEO_METADATA_API
+
+
+@ensure_csrf_cookie
+@login_required
+@api_view(['GET'])
+@throttle_classes([PerUserVideoMetadataThrottle])
+def yt_video_metadata(request):
+    """
+    Will hit the youtube API if the key is available in settings
+    :return: youtube video metadata
+    """
+    response = {}
+    status_code = 500
+    video_id = request.GET.get('id', None)
+    if settings.YOUTUBE_API_KEY and video_id:
+        yt_api_key = settings.YOUTUBE_API_KEY
+        yt_metadata_url = settings.YOUTUBE['METADATA_URL']
+        yt_timeout = settings.YOUTUBE.get('TEST_TIMEOUT', 1500) / 1000  # converting milli seconds to seconds
+        payload = {'id': video_id, 'part': 'contentDetails', 'key': yt_api_key}
+        try:
+            res = requests.get(yt_metadata_url, params=payload, timeout=yt_timeout)
+            status_code = res.status_code
+            if res.status_code == 200:
+                try:
+                    res = res.json()
+                    if res.get('items', []):
+                        response = res
+                    else:
+                        logging.warning(u'Unable to find the items in response. Following response '
+                                        u'was received: {res}'.format(res=res.text))
+                except ValueError:
+                    logging.warning(u'Unable to decode response to json. Following response '
+                                    u'was received: {res}'.format(res=res.text))
+            else:
+                logging.warning(u'YouTube API request failed with status code={status} - '
+                                u'Error message is={message}'.format(status=status_code, message=res.text))
+        except (Timeout, ConnectionError):
+            logging.warning(u'YouTube API request failed because of connection time out or connection error')
+    else:
+        logging.warning(u'YouTube API key or video id is None. Please make sure API key and video id is not None')
+
+    return Response(response, status=status_code, content_type='application/json')
 
 
 @ensure_csrf_cookie
