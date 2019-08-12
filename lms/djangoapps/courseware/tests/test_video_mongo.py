@@ -66,8 +66,7 @@ class TestVideoYouTube(TestVideo):
                 "transcriptLanguages": OrderedDict({"en": "English", "uk": u"Українська"}),
                 "ytTestTimeout": 1500,
                 "ytApiUrl": "https://www.youtube.com/iframe_api",
-                "ytMetadataUrl": "https://www.googleapis.com/youtube/v3/videos/",
-                "ytKey": None,
+                'lmsRootURL': settings.LMS_ROOT_URL,
                 "transcriptTranslationUrl": self.item_descriptor.xmodule_runtime.handler_url(
                     self.item_descriptor, 'transcript', 'translation/__lang__'
                 ).rstrip('/?'),
@@ -145,8 +144,7 @@ class TestVideoNonYouTube(TestVideo):
                 "transcriptLanguages": OrderedDict({"en": "English"}),
                 "ytTestTimeout": 1500,
                 "ytApiUrl": "https://www.youtube.com/iframe_api",
-                "ytMetadataUrl": "https://www.googleapis.com/youtube/v3/videos/",
-                "ytKey": None,
+                'lmsRootURL': settings.LMS_ROOT_URL,
                 "transcriptTranslationUrl": self.item_descriptor.xmodule_runtime.handler_url(
                     self.item_descriptor, 'transcript', 'translation/__lang__'
                 ).rstrip('/?'),
@@ -201,8 +199,7 @@ class TestGetHtmlMethod(BaseTestXmodule):
             "transcriptLanguages": OrderedDict({"en": "English"}),
             "ytTestTimeout": 1500,
             "ytApiUrl": "https://www.youtube.com/iframe_api",
-            "ytMetadataUrl": "https://www.googleapis.com/youtube/v3/videos/",
-            "ytKey": None,
+            'lmsRootURL': settings.LMS_ROOT_URL,
             "transcriptTranslationUrl": self.item_descriptor.xmodule_runtime.handler_url(
                 self.item_descriptor, 'transcript', 'translation/__lang__'
             ).rstrip('/?'),
@@ -1595,8 +1592,7 @@ class TestVideoWithBumper(TestVideo):
                 "transcriptLanguages": OrderedDict({"en": "English", "uk": u"Українська"}),
                 "ytTestTimeout": 1500,
                 "ytApiUrl": "https://www.youtube.com/iframe_api",
-                "ytMetadataUrl": "https://www.googleapis.com/youtube/v3/videos/",
-                "ytKey": None,
+                'lmsRootURL': settings.LMS_ROOT_URL,
                 "transcriptTranslationUrl": self.item_descriptor.xmodule_runtime.handler_url(
                     self.item_descriptor, 'transcript', 'translation/__lang__'
                 ).rstrip('/?'),
