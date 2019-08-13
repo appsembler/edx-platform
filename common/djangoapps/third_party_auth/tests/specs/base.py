@@ -25,7 +25,6 @@ from student.tests.factories import UserFactory
 from student_account.views import account_settings_context
 
 from third_party_auth import middleware, pipeline
-from third_party_auth import settings as auth_settings
 from third_party_auth.tests import testutil
 
 
@@ -280,7 +279,7 @@ class IntegrationTest(testutil.TestCase, test.TestCase):
         return self.provider.backend_name
 
     # pylint: disable=invalid-name
-    def assert_account_settings_context_looks_correct(self, context, _user, duplicate=False, linked=None):
+    def assert_account_settings_context_looks_correct(self, context, duplicate=False, linked=None):
         """Asserts the user's account settings page context is in the expected state.
 
         If duplicate is True, we expect context['duplicate_provider'] to contain
@@ -466,7 +465,7 @@ class IntegrationTest(testutil.TestCase, test.TestCase):
         return user
 
     def fake_auth_complete(self, strategy):
-        """Fake implementation of social.backends.BaseAuth.auth_complete.
+        """Fake implementation of social_core.backends.BaseAuth.auth_complete.
 
         Unlike what the docs say, it does not need to return a user instance.
         Sometimes (like when directing users to the /register form) it instead
@@ -508,7 +507,7 @@ class IntegrationTest(testutil.TestCase, test.TestCase):
         These two objects contain circular references, so we create them
         together. The references themselves are a mixture of normal __init__
         stuff and monkey-patching done by python-social-auth. See, for example,
-        social.apps.django_apps.utils.strategy().
+        social_django.utils.strategy().
         """
         request = self.request_factory.get(
             pipeline.get_complete_url(self.backend_name) +
@@ -592,7 +591,7 @@ class IntegrationTest(testutil.TestCase, test.TestCase):
 
         # First we expect that we're in the unlinked state, and that there
         # really is no association in the backend.
-        self.assert_account_settings_context_looks_correct(account_settings_context(request), request.user, linked=False)
+        self.assert_account_settings_context_looks_correct(account_settings_context(request), linked=False)
         self.assert_social_auth_does_not_exist_for_user(request.user, strategy)
 
         # We should be redirected back to the complete page, setting
@@ -606,13 +605,19 @@ class IntegrationTest(testutil.TestCase, test.TestCase):
         self.set_logged_in_cookies(request)
 
         # Fire off the auth pipeline to link.
-        self.assert_redirect_to_dashboard_looks_correct(actions.do_complete(
-            request.backend, social_views._do_login, request.user, None,  # pylint: disable=protected-access
-            redirect_field_name=auth.REDIRECT_FIELD_NAME))
+        self.assert_redirect_to_dashboard_looks_correct(  # pylint: disable=protected-access
+            actions.do_complete(
+                request.backend,
+                social_views._do_login,
+                request.user,
+                None,
+                redirect_field_name=auth.REDIRECT_FIELD_NAME
+            )
+        )
 
         # Now we expect to be in the linked state, with a backend entry.
         self.assert_social_auth_exists_for_user(request.user, strategy)
-        self.assert_account_settings_context_looks_correct(account_settings_context(request), request.user, linked=True)
+        self.assert_account_settings_context_looks_correct(account_settings_context(request), linked=True)
 
     def test_full_pipeline_succeeds_for_unlinking_account(self):
         # First, create, the request and strategy that store pipeline state,
@@ -639,15 +644,21 @@ class IntegrationTest(testutil.TestCase, test.TestCase):
             actions.do_complete(request.backend, social_views._do_login, user=user)  # pylint: disable=protected-access
 
         # First we expect that we're in the linked state, with a backend entry.
-        self.assert_account_settings_context_looks_correct(account_settings_context(request), user, linked=True)
+        self.assert_account_settings_context_looks_correct(account_settings_context(request), linked=True)
         self.assert_social_auth_exists_for_user(request.user, strategy)
 
         # Fire off the disconnect pipeline to unlink.
-        self.assert_redirect_to_dashboard_looks_correct(actions.do_disconnect(
-            request.backend, request.user, None, redirect_field_name=auth.REDIRECT_FIELD_NAME))
+        self.assert_redirect_to_dashboard_looks_correct(
+            actions.do_disconnect(
+                request.backend,
+                request.user,
+                None,
+                redirect_field_name=auth.REDIRECT_FIELD_NAME
+            )
+        )
 
         # Now we expect to be in the unlinked state, with no backend entry.
-        self.assert_account_settings_context_looks_correct(account_settings_context(request), user, linked=False)
+        self.assert_account_settings_context_looks_correct(account_settings_context(request), linked=False)
         self.assert_social_auth_does_not_exist_for_user(user, strategy)
 
     def test_linking_already_associated_account_raises_auth_already_associated(self):
@@ -704,7 +715,7 @@ class IntegrationTest(testutil.TestCase, test.TestCase):
             exceptions.AuthAlreadyAssociated(self.provider.backend_name, 'account is already in use.'))
 
         self.assert_account_settings_context_looks_correct(
-            account_settings_context(request), user, duplicate=True, linked=True)
+            account_settings_context(request), duplicate=True, linked=True)
 
     def test_full_pipeline_succeeds_for_signing_in_to_existing_active_account(self):
         # First, create, the request and strategy that store pipeline state,
@@ -755,7 +766,7 @@ class IntegrationTest(testutil.TestCase, test.TestCase):
 
         self.assert_redirect_to_dashboard_looks_correct(
             actions.do_complete(request.backend, social_views._do_login, user=user))
-        self.assert_account_settings_context_looks_correct(account_settings_context(request), user)
+        self.assert_account_settings_context_looks_correct(account_settings_context(request))
 
     def test_signin_fails_if_account_not_active(self):
         _, strategy = self.get_request_and_strategy(
@@ -858,7 +869,7 @@ class IntegrationTest(testutil.TestCase, test.TestCase):
             actions.do_complete(strategy.request.backend, social_views._do_login, user=created_user))
         # Now the user has been redirected to the dashboard. Their third party account should now be linked.
         self.assert_social_auth_exists_for_user(created_user, strategy)
-        self.assert_account_settings_context_looks_correct(account_settings_context(request), created_user, linked=True)
+        self.assert_account_settings_context_looks_correct(account_settings_context(request), linked=True)
 
     def test_new_account_registration_assigns_distinct_username_on_collision(self):
         original_username = self.get_username()

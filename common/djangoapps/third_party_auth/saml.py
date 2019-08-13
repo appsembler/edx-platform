@@ -4,8 +4,8 @@ Slightly customized python-social-auth backend for SAML 2.0 support
 import logging
 from django.http import Http404
 from django.utils.functional import cached_property
-from social.backends.saml import SAMLAuth, OID_EDU_PERSON_ENTITLEMENT
-from social.exceptions import AuthForbidden, AuthMissingParameter
+from social_core.backends.saml import OID_EDU_PERSON_ENTITLEMENT, SAMLAuth, SAMLIdentityProvider
+from social_core.exceptions import AuthForbidden, AuthMissingParameter
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +36,6 @@ class SAMLAuthBackend(SAMLAuth):  # pylint: disable=abstract-method
         authenticate the user.
 
         raise Http404 if SAML authentication is disabled.
-        raise AuthMissingParameter if the 'idp' parameter is missing.
         """
         if not self._config.enabled:
             log.error('SAML authentication is not enabled')

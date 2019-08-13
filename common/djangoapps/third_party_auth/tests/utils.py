@@ -5,7 +5,8 @@ import httpretty
 
 from provider.constants import PUBLIC
 from provider.oauth2.models import Client
-from social.apps.django_app.default.models import UserSocialAuth
+from social_core.backends.facebook import FacebookOAuth2, API_VERSION as FACEBOOK_API_VERSION
+from social_django.models import UserSocialAuth, Partial
 
 from student.tests.factories import UserFactory
 
