@@ -1339,3 +1339,6 @@ RECALCULATE_GRADES_ROUTING_KEY = LOW_PRIORITY_QUEUE
 
 ############## Settings for CourseGraph ############################
 COURSEGRAPH_JOB_QUEUE = LOW_PRIORITY_QUEUE
+
+############## Appsembler defaults for test env etc. ############################
+APPSEMBLER_FEATURES = {}

@@ -3222,3 +3222,9 @@ COURSES_API_CACHE_TIMEOUT = 3600  # Value is in seconds
 
 ############## Settings for CourseGraph ############################
 COURSEGRAPH_JOB_QUEUE = LOW_PRIORITY_QUEUE
+
+
+############## Appsembler defaults for test env etc. ############################
+
+APPSEMBLER_FEATURES = {}
+CUSTOM_LOGOUT_REDIRECT_URL = None
