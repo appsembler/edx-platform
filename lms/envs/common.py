@@ -3077,3 +3077,9 @@ DOC_LINK_BASE_URL = None
 ENTERPRISE_ENROLLMENT_API_URL = LMS_ROOT_URL + "/api/enrollment/v1/"
 
 WEBPACK_LOADER = {}
+
+############## Appsembler defaults for test env etc. ############################
+
+APPSEMBLER_FEATURES = {}
+CUSTOM_LOGOUT_REDIRECT_URL = None
+

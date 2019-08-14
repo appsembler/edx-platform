@@ -1257,3 +1257,6 @@ RETRY_ACTIVATION_EMAIL_TIMEOUT = 0.5
 
 # How long until database records about the outcome of a task and its artifacts get deleted?
 USER_TASKS_MAX_AGE = timedelta(days=7)
+
+############## Appsembler defaults for test env etc. ############################
+APPSEMBLER_FEATURES = {}
