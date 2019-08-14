@@ -36,6 +36,7 @@ from pytz import utc
 from rest_framework import status
 from rest_framework.decorators import api_view, throttle_classes
 from rest_framework.response import Response
+from rest_framework.settings import api_settings
 from rest_framework.throttling import UserRateThrottle
 from six import text_type
 from web_fragments.fragment import Fragment
@@ -183,7 +184,7 @@ class PerUserVideoMetadataThrottle(UserRateThrottle):
     """
     setting rate limit for  yt_video_metadata API
     """
-    rate = settings.RATE_LIMIT_FOR_VIDEO_METADATA_API
+    rate = getattr(settings, 'RATE_LIMIT_FOR_VIDEO_METADATA_API', UserRateThrottle.THROTTLE_RATES['user'])
 
 
 @ensure_csrf_cookie
