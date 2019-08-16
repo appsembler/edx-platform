@@ -1899,6 +1899,7 @@ YOUTUBE = {
     'IMAGE_API': 'http://img.youtube.com/vi/{youtube_id}/0.jpg',  # /maxresdefault.jpg for 1920*1080
 }
 YOUTUBE_API_KEY = None
+RATE_LIMIT_FOR_VIDEO_METADATA_API = None
 
 ################################### APPS ######################################
 INSTALLED_APPS = (
