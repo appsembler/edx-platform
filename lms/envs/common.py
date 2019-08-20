@@ -44,6 +44,9 @@ from xmodule.modulestore.edit_info import EditInfoMixin
 from xmodule.mixin import LicenseMixin
 from lms.djangoapps.lms_xblock.mixin import LmsBlockMixin
 
+from .appsembler import *
+
+
 ################################### FEATURES ###################################
 # The display name of the platform to be used in templates/emails/etc.
 PLATFORM_NAME = "Your Platform Name Here"
@@ -2695,3 +2698,8 @@ MAX_BOOKMARKS_PER_COURSE = 100
 # lms.env.json file.
 
 REGISTRATION_EXTENSION_FORM = None
+
+
+# APPSEMBLER
+
+INSTALLED_APPS += ('appsembler', )
