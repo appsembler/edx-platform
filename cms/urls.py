@@ -215,3 +215,10 @@ urlpatterns += (
     url(r'^404$', handler404),
     url(r'^500$', handler500),
 )
+
+# allow inclusion of urls from arbitrary packages
+# as specified in ENV config.
+if 'appsembler' in settings.INSTALLED_APPS:
+    urlpatterns += (
+        url('', include('appsembler.urls')),
+    )

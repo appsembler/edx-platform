@@ -54,6 +54,8 @@ import dealer.git
 from xmodule.modulestore.edit_info import EditInfoMixin
 from xmodule.mixin import LicenseMixin
 
+from .appsembler import *
+
 ############################ FEATURE CONFIGURATION #############################
 
 
@@ -1135,3 +1137,8 @@ PROCTORING_SETTINGS = {}
 
 # OpenID Connect issuer ID. Normally the URL of the authentication endpoint.
 OAUTH_OIDC_ISSUER = 'https://www.example.com/oauth2'
+
+
+# APPSEMBLER
+
+INSTALLED_APPS += ('appsembler', )

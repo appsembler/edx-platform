@@ -34,6 +34,11 @@
             ${_("New Library")}</a>
           % endif
 
+          % if user.is_staff:
+          <a href="/export/all/markdown" class="button new-button"><span class="icon fa fa-plus icon-inline" aria-hidden="true"></span>
+            ${_("Export ALL courses as Markdown")}</a>
+          % endif
+
           % if is_programs_enabled:
             <a href=${program_authoring_url + 'new'} class="button new-button new-program-button"><i class="icon fa fa-plus icon-inline"></i>
             ${_("New Program")}</a>
