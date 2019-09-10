@@ -36,6 +36,10 @@ class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, XmlParserMixin):
     """
     Provides a discussion forum that is inline with other content in the courseware.
     """
+
+    # Enable view as specific student
+    show_in_read_only_mode = True
+    
     discussion_id = String(scope=Scope.settings, default=UNIQUE_ID)
     display_name = String(
         display_name=_("Display Name"),
