@@ -89,9 +89,11 @@ def enroll_learners_in_course(course_id, identifiers, enroll_func, **kwargs):
             # validity (obviously, cannot check if email actually /exists/,
             # simply that it is plausibly valid)
             validate_email(email)  # Raises ValidationError if invalid
+            import pdb; pdb.set_trace()
             before, after, enrollment_obj = enroll_func(course_id=course_id,
                                                         student_email=email,
                                                         language=language)
+            # import pdb; pdb.set_trace()
             before_enrollment = before.to_dict()['enrollment']
             before_user_registered = before.to_dict()['user']
             before_allowed = before.to_dict()['allowed']

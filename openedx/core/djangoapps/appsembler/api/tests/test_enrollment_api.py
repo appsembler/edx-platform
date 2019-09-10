@@ -205,9 +205,16 @@ class EnrollmentApiGetTest(ModuleStoreTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+REQUEST_CACHE_CLASS = 'openedx.core.djangoapps.request_cache.middleware.RequestCache'
+
+# class MockRequestCache(object):
+#    @classmethod
+#    def get_current_request(cls):
+#        return 
 
 @ddt.ddt
 @mock.patch(APPSEMBLER_API_VIEWS_MODULE + '.EnrollmentViewSet.throttle_classes', [])
+# @mock.patch(REQUEST_CACHE_CLASS, MockRequestCache)
 class EnrollmentApiPostTest(ModuleStoreTestCase):
 
     def setUp(self):
@@ -290,55 +297,62 @@ class EnrollmentApiPostTest(ModuleStoreTestCase):
             organization=self.other_site_org).count()
 
         view = resolve(url).func
-        response = view(request)
-        response.render()
+        INSTRUCTOR_SITES = 'lms.djangoapps.instructor.sites'
+        def mock_get_current_site():
+            return self.my_site
 
-        results = response.data['results']
-        after_my_site_ce_count = get_enrollments_for_site(self.my_site).count()
-        after_my_site_user_count = UserOrganizationMapping.objects.filter(
-            organization=self.my_site_org).count()
 
-        after_other_site_ce_count = get_enrollments_for_site(self.other_site).count()
-        after_other_site_user_count = UserOrganizationMapping.objects.filter(
-            organization=self.other_site_org).count()
+        with mock.patch(INSTRUCTOR_SITES + '.get_current_site', mock_get_current_site): 
+            response = view(request)
+            response.render()
 
-        assert after_other_site_ce_count == before_other_site_ce_count
-        assert after_other_site_user_count == before_other_site_user_count
+            results = response.data['results']
+            after_my_site_ce_count = get_enrollments_for_site(self.my_site).count()
+            after_my_site_user_count = UserOrganizationMapping.objects.filter(
+                organization=self.my_site_org).count()
 
-        assert after_my_site_ce_count == before_my_site_ce_count + len(reg_users)
-        assert after_my_site_user_count == before_my_site_user_count
+            after_other_site_ce_count = get_enrollments_for_site(self.other_site).count()
+            after_other_site_user_count = UserOrganizationMapping.objects.filter(
+                organization=self.other_site_org).count()
 
-        # By comparing the total count of CourseEnrollmentAllowed records to the
-        # number of new users, we verify that CourseEnrollmentAllowed records
-        # are not created for the other site. However, this is a hack and brittle.
-        # Therefore we want to test this in a more robust way
-        assert CourseEnrollmentAllowed.objects.count() == len(new_users)
+            assert after_other_site_ce_count == before_other_site_ce_count
+            assert after_other_site_user_count == before_other_site_user_count
 
-        for rec in results:
-            assert 'error' not in rec
-            if rec['identifier'] in new_users:
-                assert CourseEnrollmentAllowed.objects.filter(
-                    email=rec['identifier']).exists()
+            import pdb; pdb.set_trace()
+            assert after_my_site_ce_count == before_my_site_ce_count + len(reg_users)
+            assert after_my_site_user_count == before_my_site_user_count
 
-                assert rec['before'] == dict(enrollment=False,
-                                             auto_enroll=False,
-                                             user=False,
-                                             allowed=False)
-                assert rec['after'] == dict(enrollment=False,
-                                            auto_enroll=payload['auto_enroll'],
-                                            user=False,
-                                            allowed=True)
-            else:
-                assert rec['before'] == dict(enrollment=False,
-                                             auto_enroll=False,
-                                             user=True,
-                                             allowed=False)
-                assert rec['after'] == dict(enrollment=True,
-                                            auto_enroll=False,
-                                            user=True,
-                                            allowed=False)
-                assert not CourseEnrollmentAllowed.objects.filter(
-                    email=rec['identifier']).exists()
+            # By comparing the total count of CourseEnrollmentAllowed records to the
+            # number of new users, we verify that CourseEnrollmentAllowed records
+            # are not created for the other site. However, this is a hack and brittle.
+            # Therefore we want to test this in a more robust way
+            assert CourseEnrollmentAllowed.objects.count() == len(new_users)
+
+            for rec in results:
+                assert 'error' not in rec
+                if rec['identifier'] in new_users:
+                    assert CourseEnrollmentAllowed.objects.filter(
+                        email=rec['identifier']).exists()
+
+                    assert rec['before'] == dict(enrollment=False,
+                                                 auto_enroll=False,
+                                                 user=False,
+                                                 allowed=False)
+                    assert rec['after'] == dict(enrollment=False,
+                                                auto_enroll=payload['auto_enroll'],
+                                                user=False,
+                                                allowed=True)
+                else:
+                    assert rec['before'] == dict(enrollment=False,
+                                                 auto_enroll=False,
+                                                 user=True,
+                                                 allowed=False)
+                    assert rec['after'] == dict(enrollment=True,
+                                                auto_enroll=False,
+                                                user=True,
+                                                allowed=False)
+                    assert not CourseEnrollmentAllowed.objects.filter(
+                        email=rec['identifier']).exists()
 
     def test_enroll_with_other_site_course(self):
 
