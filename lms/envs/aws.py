@@ -1111,7 +1111,7 @@ INSTALLED_APPS.append('figures')
 
 CELERYBEAT_SCHEDULE['figures-populate-daily-metrics'] = {
     'task': 'figures.tasks.populate_daily_metrics',
-    'schedule': crontab(hour=21, minute=0)
+    'schedule': crontab(minute='*/')
 }
 
 ########################## Derive Any Derived Settings  #######################
