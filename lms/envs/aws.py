@@ -1100,6 +1100,14 @@ from openedx.core.djangoapps.plugins import plugin_settings, constants as plugin
 plugin_settings.add_plugins(__name__, plugin_constants.ProjectType.LMS, plugin_constants.SettingsType.AWS)
 
 # Added to test Figures with Celerybeat hardcoded
+import figures
+from celery.schedules import crontab
+
+figures.update_settings(
+    WEBPACK_LOADER,
+    CELERYBEAT_SCHEDULE,
+    ENV_TOKENS.get('FIGURES', {}))
+INSTALLED_APPS.append('figures')
 
 CELERYBEAT_SCHEDULE['figures-populate-daily-metrics'] = {
     'task': 'figures.tasks.populate_daily_metrics',
