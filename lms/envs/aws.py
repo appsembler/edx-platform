@@ -1099,6 +1099,13 @@ RETIREMENT_STATES = ENV_TOKENS.get('RETIREMENT_STATES', RETIREMENT_STATES)
 from openedx.core.djangoapps.plugins import plugin_settings, constants as plugin_constants
 plugin_settings.add_plugins(__name__, plugin_constants.ProjectType.LMS, plugin_constants.SettingsType.AWS)
 
+# Added to test Figures with Celerybeat hardcoded
+
+CELERYBEAT_SCHEDULE['figures-populate-daily-metrics'] = {
+    'task': 'figures.tasks.populate_daily_metrics',
+    'schedule': crontab(hour=21, minute=0)
+}
+
 ########################## Derive Any Derived Settings  #######################
 
 derive_settings(__name__)

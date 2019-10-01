@@ -1,5 +1,7 @@
 """ Overrides for Docker-based devstack. """
 
+from celery.schedules import crontab
+
 from .devstack import *  # pylint: disable=wildcard-import, unused-wildcard-import
 
 # Docker does not support the syslog socket at /dev/log. Rely on the console.
@@ -87,3 +89,9 @@ COURSE_CATALOG_API_URL = 'http://edx.devstack.discovery:18381/api/v1/'
 REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] += (  # noqa F405
     'rest_framework.renderers.BrowsableAPIRenderer',
 )
+
+# Added to test Figures with Celerybeat hardcoded
+CELERYBEAT_SCHEDULE['figures-populate-daily-metrics'] = {
+    'task': 'figures.tasks.populate_daily_metrics',
+    'schedule': crontab(hour=21, minute=0)
+}
