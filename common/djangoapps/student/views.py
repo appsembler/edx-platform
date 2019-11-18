@@ -132,6 +132,11 @@ from openedx.core.djangoapps.catalog.utils import get_programs_data
 # try to import appsembler fork of edx-organizations (if it's installed)
 try:
     from organizations.models import Organization, UserOrganizationMapping
+    USERORGMAPPING_AVAILABLE = True
+except ImportError:
+    USERORGMAPPING_AVAILABLE = False
+
+try:
     from hr_management.views import send_microsite_request_email_to_managers
 except ImportError:
     pass
@@ -1866,7 +1871,7 @@ def create_account_with_params(request, params):
         _enroll_user_in_pending_courses(user)  # Enroll student in any pending courses
 
     #if using custom Appsembler backend from edx-organizations
-    if u'organizations.backends.OrganizationMemberBackend' in settings.AUTHENTICATION_BACKENDS:
+    if u'organizations.backends.OrganizationMemberBackend' in settings.AUTHENTICATION_BACKENDS and USERORGMAPPING_AVAILABLE:
         org = configuration_helpers.get_value('course_org_filter')
         organization = Organization.objects.filter(name=org).first()
         if organization:
