@@ -138,8 +138,9 @@ except ImportError:
 
 try:
     from hr_management.views import send_microsite_request_email_to_managers
+    HR_MANAGEMENT_INSTALLED = True
 except ImportError:
-    pass
+    HR_MANAGEMENT_INSTALLED = False
 
 log = logging.getLogger("edx.student")
 AUDIT_LOG = logging.getLogger("audit")
@@ -1875,8 +1876,10 @@ def create_account_with_params(request, params):
         org = configuration_helpers.get_value('course_org_filter')
         organization = Organization.objects.filter(name=org).first()
         if organization:
-            UserOrganizationMapping.objects.get_or_create(user=user, organization=organization, is_active=False)
-            send_microsite_request_email_to_managers(request, user)
+            activate_org_access = get_value('set_new_org_member_active', True)
+            UserOrganizationMapping.objects.get_or_create(user=user, organization=organization, is_active=activate_org_access)
+            if not activate_org_access and HR_MANAGEMENT_INSTALLED:  # activation must be approved
+                send_microsite_request_email_to_managers(request, user)
 
     # Immediately after a user creates an account, we log them in. They are only
     # logged in until they close the browser. They can't log in again until they click
