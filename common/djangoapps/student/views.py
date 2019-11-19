@@ -132,9 +132,15 @@ from openedx.core.djangoapps.catalog.utils import get_programs_data
 # try to import appsembler fork of edx-organizations (if it's installed)
 try:
     from organizations.models import Organization, UserOrganizationMapping
-    from hr_management.views import send_microsite_request_email_to_managers
+    USERORGMAPPING_AVAILABLE = True
 except ImportError:
-    pass
+    USERORGMAPPING_AVAILABLE = False
+
+try:
+    from hr_management.views import send_microsite_request_email_to_managers
+    HR_MANAGEMENT_INSTALLED = True
+except ImportError:
+    HR_MANAGEMENT_INSTALLED = False
 
 log = logging.getLogger("edx.student")
 AUDIT_LOG = logging.getLogger("audit")
@@ -1846,11 +1852,16 @@ def create_account_with_params(request, params):
             'key': registration.activation_key,
         }
 
+        # determines whether user will need to be approved for registration
+        activate_org_access = configuration_helpers.get_value('set_new_org_member_active', True)
+        subj_tmpl = 'activation_email_subject' if activate_org_access else 'activation_held_email_subject'
+        email_tmpl = 'activation_email' if activate_org_access else 'activation_held_email'
+
         # composes activation email
-        subject = render_to_string('emails/activation_email_subject.txt', context)
+        subject = render_to_string('emails/{}.txt'.format(subj_tmpl), context)
         # Email subject *must not* contain newlines
         subject = ''.join(subject.splitlines())
-        message = render_to_string('emails/activation_email.txt', context)
+        message = render_to_string('emails/{}.txt'.format(email_tmpl), context)
 
         from_address = configuration_helpers.get_value(
             'email_from_address',
@@ -1866,12 +1877,13 @@ def create_account_with_params(request, params):
         _enroll_user_in_pending_courses(user)  # Enroll student in any pending courses
 
     #if using custom Appsembler backend from edx-organizations
-    if u'organizations.backends.OrganizationMemberBackend' in settings.AUTHENTICATION_BACKENDS:
+    if u'organizations.backends.OrganizationMemberBackend' in settings.AUTHENTICATION_BACKENDS and USERORGMAPPING_AVAILABLE:
         org = configuration_helpers.get_value('course_org_filter')
         organization = Organization.objects.filter(name=org).first()
         if organization:
-            UserOrganizationMapping.objects.get_or_create(user=user, organization=organization, is_active=False)
-            send_microsite_request_email_to_managers(request, user)
+            UserOrganizationMapping.objects.get_or_create(user=user, organization=organization, is_active=activate_org_access)
+            if not activate_org_access and HR_MANAGEMENT_INSTALLED:  # activation must be approved
+                send_microsite_request_email_to_managers(request, user)
 
     # Immediately after a user creates an account, we log them in. They are only
     # logged in until they close the browser. They can't log in again until they click

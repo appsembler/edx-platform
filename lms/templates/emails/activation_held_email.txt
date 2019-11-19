@@ -1,0 +1,28 @@
+<%! from django.utils.translation import ugettext as _ %>
+<%! from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers %>
+
+${_("Thank you for creating an account with {platform_name}!").format(
+    platform_name=configuration_helpers.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)
+)}
+
+${_("We've received your request to access {platform_name}.  "
+"Requests to join {platform_name} require approval from its manager. "
+"They have been notified and will contact you by email when they have reviewed your request. "
+"Once you receive that email, you must also activate your {platform_name} account. "
+"To activate your account, click the following link. If that doesn't work, copy and paste the link into your browser's address bar.").format(
+      platform_name=configuration_helpers.get_value(
+      'PLATFORM_NAME', settings.PLATFORM_NAME)
+  )
+}
+
+<% base_url=configuration_helpers.get_value('SITE_NAME', settings.SITE_NAME) %>
+% if is_secure:
+  https://${ base_url }/activate/${ key }
+% else:
+  http://${ base_url }/activate/${ key }
+% endif
+
+${_("If you didn't create an account, you don't need to do anything; you "
+      "won't receive any more email from us. If you need assistance, please "
+      "do not reply to this email message. Check the help section of the "
+      "{platform_name} website.").format(platform_name=configuration_helpers.get_value('PLATFORM_NAME', settings.PLATFORM_NAME))}
