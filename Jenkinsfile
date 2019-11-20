@@ -23,6 +23,12 @@ def savePythonTestArtifacts() {
 pipeline {
 
     agent { label "coverage-worker" }
+    environment {
+        PROJECT_ID = 'appsembler-devstack-30'
+        CLUSTER_NAME = 'CLUSTER-NAME'
+        LOCATION = 'CLUSTER-LOCATION'
+        CREDENTIALS_ID = 'gke'
+    }
 
     options {
         timestamps()
