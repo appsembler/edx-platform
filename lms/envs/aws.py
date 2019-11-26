@@ -1094,6 +1094,14 @@ RETIREMENT_SERVICE_WORKER_USERNAME = ENV_TOKENS.get(
 )
 RETIREMENT_STATES = ENV_TOKENS.get('RETIREMENT_STATES', RETIREMENT_STATES)
 
+##################### Settings for Django REST framework #####################
+if FEATURES.get('ENABLE_DRF_BROWSABLE_API', False):
+    drf_renderers = list(REST_FRAMEWORK.get('DEFAULT_RENDERER_CLASSES', []))
+    browsable_renderer = 'rest_framework.renderers.BrowsableAPIRenderer'
+    if browsable_renderer not in drf_renderers:
+        drf_renderers.append(browsable_renderer)
+        REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = drf_renderers
+
 ############################### Plugin Settings ###############################
 
 from openedx.core.djangoapps.plugins import plugin_settings, constants as plugin_constants
