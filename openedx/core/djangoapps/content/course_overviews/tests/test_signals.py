@@ -2,6 +2,7 @@ import datetime
 import ddt
 from mock import patch
 from nose.plugins.attrib import attr
+from search.tests.utils import SearcherMixin
 
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
@@ -9,16 +10,32 @@ from xmodule.modulestore.tests.factories import CourseFactory, check_mongo_calls
 
 from ..models import CourseOverview
 
+from xmodule.modulestore.django import modulestore
+from search.search_engine_base import SearchEngine
+from lazy import lazy
+
 
 @ddt.ddt
 @attr(shard=3)
-class CourseOverviewSignalsTestCase(ModuleStoreTestCase):
+class CourseOverviewSignalsTestCase(ModuleStoreTestCase, SearcherMixin):
     """
     Tests for CourseOverview signals.
     """
     ENABLED_SIGNALS = ['course_deleted', 'course_published']
     TODAY = datetime.datetime.utcnow()
     NEXT_WEEK = TODAY + datetime.timedelta(days=7)
+
+    @lazy
+    def searcher(self):
+        """ Centralized call to getting the search engine for the test """
+        # CourseAboutSearchIndexer.INDEX_NAME == 'courseware_index'
+        return SearchEngine.get_search_engine('courseware_index')
+
+    def search(self, field_dictionary=None, query_string=None):
+        """ Performs index search according to passed parameters """
+        fields = field_dictionary if field_dictionary else {}
+        # CourseAboutSearchIndexer.DISCOVERY_DOCUMENT_TYPE == 'course_info'
+        return self.searcher.search(query_string=query_string, field_dictionary=fields, doc_type='course_info')
 
     @ddt.data(ModuleStoreEnum.Type.mongo, ModuleStoreEnum.Type.split)
     def test_caching(self, modulestore_type):
@@ -89,3 +106,25 @@ class CourseOverviewSignalsTestCase(ModuleStoreTestCase):
     @patch('openedx.core.djangoapps.content.course_overviews.signals.COURSE_PACING_CHANGED.send')
     def test_pacing_changed(self, mock_signal):
         self.assert_changed_signal_sent('self_paced', True, False, mock_signal)
+
+    @ddt.data(ModuleStoreEnum.Type.mongo, ModuleStoreEnum.Type.split)
+    def test_delete_course_from_search_index_after_course_deletion(self, modulestore_type):
+        """
+        Test that course will also be delete from search_index after course deletion.
+        """
+        with self.store.default_store(modulestore_type):
+            response = self.search()
+            course = CourseFactory.create(mobile_available=True, default_store=modulestore_type)
+            self.assertEqual(response["total"], 0)
+
+            # index the course in search_index
+            from cms.djangoapps.contentstore.courseware_index import CoursewareSearchIndexer
+            CoursewareSearchIndexer.do_course_reindex(self.store, course.id)
+            response = self.search()
+            self.assertEqual(response["total"], 1)
+
+            # delete the course and look course in search_index
+            modulestore().delete_course(course.id, ModuleStoreEnum.UserID.test)
+            self.assertIsNone(modulestore().get_course(course.id))
+            response = self.search()
+            self.assertEqual(response["total"], 0)
