@@ -496,7 +496,7 @@ class CourseDetailsViewTest(CourseTestCase, MilestonesTestCaseMixin):
             content_type='application/json',
             HTTP_ACCEPT='application/json'
         )
-        self.assertEquals(response.status_code, 200)
+        assert response.status_code == 200
 
         assert milestones_helpers.any_unfulfilled_milestones(self.course.id, self.user.id), message
                         msg='The entrance exam should be required.')
