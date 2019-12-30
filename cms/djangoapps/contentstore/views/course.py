@@ -1165,7 +1165,9 @@ def settings_handler(request, course_key_string):
                                 get_namespace_choices().get('ENTRANCE_EXAM'),
                                 course_key
                             )
-                            if not milestone["namespace"] == ee_milestone_namespace:
+                            if milestone["namespace"] != generate_milestone_namespace(
+                                    get_namespace_choices().get('ENTRANCE_EXAM'), course_key
+                            ):
                                 remove_prerequisite_course(course_key, milestone)
 
                 # If the entrance exams feature has been enabled, we'll need to check for some
