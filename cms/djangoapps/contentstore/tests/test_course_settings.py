@@ -452,6 +452,7 @@ class CourseDetailsViewTest(CourseTestCase, MilestonesTestCaseMixin):
                          msg='The initial empty state should be: no entrance exam')
 
         settings_details_url = get_url(self.course.id)
+        # Enable the entrance exam.
         data = {
             'entrance_exam_enabled': 'true',
             'entrance_exam_minimum_score_pct': '60',
