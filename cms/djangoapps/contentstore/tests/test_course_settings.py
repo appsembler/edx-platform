@@ -431,7 +431,7 @@ class CourseDetailsViewTest(CourseTestCase, MilestonesTestCaseMixin):
     @mock.patch.dict("django.conf.settings.FEATURES", {'ENABLE_PREREQUISITE_COURSES': True})
     def test_entrance_after_changing_other_setting(self):
         """
-       Test entrance exam is not deactivated when prerequisites removed.
+        Test entrance exam is not deactivated when prerequisites removed.
 
         This test ensures that the entrance milestone is not deactivated after
         course details are saves without pre requisite courses active.
