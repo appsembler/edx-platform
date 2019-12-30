@@ -471,7 +471,7 @@ class CourseDetailsViewTest(CourseTestCase, MilestonesTestCaseMixin):
             HTTP_ACCEPT='application/json'
         )
 
-        self.assertEquals(response.status_code, 200)
+        assert response.status_code == 200
         course = modulestore().get_course(self.course.id)
         self.assertTrue(course.entrance_exam_enabled)
         self.assertEquals(course.entrance_exam_minimum_score_pct, .60)
