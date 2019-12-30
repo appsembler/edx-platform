@@ -498,7 +498,7 @@ class CourseDetailsViewTest(CourseTestCase, MilestonesTestCaseMixin):
         )
         self.assertEquals(response.status_code, 200)
 
-        self.assertTrue(milestones_helpers.any_unfulfilled_milestones(self.course.id, self.user.id),
+        assert milestones_helpers.any_unfulfilled_milestones(self.course.id, self.user.id), message
                         msg='The entrance exam should be required.')
 
     def test_editable_short_description_fetch(self):
