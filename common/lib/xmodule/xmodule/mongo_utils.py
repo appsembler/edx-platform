@@ -33,7 +33,7 @@ def connect_to_mongodb(
     # The MongoReplicaSetClient class is deprecated in Mongo 3.x, in favor of using
     # the MongoClient class for all connections. Update/simplify this code when using
     # PyMongo 3.x.
-    if kwargs.get('replicaSet'):
+    if kwargs.pop('replicaSet', '') != '':
         # Enable reading from secondary nodes in the MongoDB replicaset by using the
         # MongoReplicaSetClient class.
         # The 'replicaSet' parameter in kwargs is required for secondary reads.
