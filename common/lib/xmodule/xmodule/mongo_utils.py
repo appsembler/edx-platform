@@ -30,10 +30,18 @@ def connect_to_mongodb(
     handles AutoReconnect errors by retrying read operations, since these exceptions
     typically indicate a temporary step-down condition for MongoDB.
     """
+    # Appsembler Specific: This code allow us to have a default replica set value
+    # in our configuration playbooks.
+    if kwargs.get('replicaSet', '') == '':
+        # If the replicaSet is empty let's set it as None, that is the default
+        # value that pymongo has. If not, will look for a '' replica set.
+        kwargs.get('replicaSet') = None
     # The MongoReplicaSetClient class is deprecated in Mongo 3.x, in favor of using
     # the MongoClient class for all connections. Update/simplify this code when using
     # PyMongo 3.x.
-    if kwargs.pop('replicaSet', '') != '':
+    if kwargs.get('replicaSet') and kwargs.get('replicaSet') is not None:
+        # Apppsembler Specific, we check here not only if replicaSet parameter exists,
+        # we also check is not None
         # Enable reading from secondary nodes in the MongoDB replicaset by using the
         # MongoReplicaSetClient class.
         # The 'replicaSet' parameter in kwargs is required for secondary reads.
