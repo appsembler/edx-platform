@@ -35,7 +35,7 @@ def connect_to_mongodb(
     if kwargs.get('replicaSet', '') == '':
         # If the replicaSet is empty let's set it as None, that is the default
         # value that pymongo has. If not, will look for a '' replica set.
-        kwargs.get('replicaSet') = None
+        kwargs['replicaSet'] = None
     # The MongoReplicaSetClient class is deprecated in Mongo 3.x, in favor of using
     # the MongoClient class for all connections. Update/simplify this code when using
     # PyMongo 3.x.
