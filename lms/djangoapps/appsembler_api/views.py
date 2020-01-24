@@ -2,6 +2,7 @@ import json
 import logging
 import string
 import random
+import pytz
 
 import search
 from dateutil import parser
@@ -701,7 +702,6 @@ class GetBatchEnrollmentDataView(APIView):
     def get(self, request):
         """
         /appsembler_api/v0/analytics/accounts/batch[?course_id=course_slug&time-parameter]
-
         course_slug an optional query parameter; if specified will only show enrollments
             for that particular course. The course_id need to be URL encoded, so:
                 course_id=course-v1:edX+DemoX+Demo_Course
@@ -718,7 +718,8 @@ class GetBatchEnrollmentDataView(APIView):
         course_id = request.GET.get('course_id')
         username = request.GET.get('username')
 
-        query_filter = {}
+        enrollment_query_filter = {}
+        cert_query_filter = {}
 
         if course_id:
             course_id = course_id.replace(' ', '+')
@@ -726,20 +727,27 @@ class GetBatchEnrollmentDataView(APIView):
 
         if course_id:
             course_key = CourseKey.from_string(course_id)
-            query_filter['course_id'] = course_key
+            enrollment_query_filter['course_id'] = course_key
+            cert_query_filter['course_id'] = course_key
 
         if username:
-            query_filter['user__username'] = username
+            enrollment_query_filter['user__username'] = username
+            cert_query_filter['user__username'] = username
 
         if updated_min:
-            min_date = parser.parse(updated_min)
-            query_filter['created__gt'] = min_date
+            min_date = parser.parse(updated_min).replace(tzinfo=pytz.UTC)
+            enrollment_query_filter['created__gt'] = min_date
+            cert_query_filter['created_date__gt'] = min_date
 
         if updated_max:
-            max_date = parser.parse(updated_max)
-            query_filter['created__lt'] = max_date
+            max_date = parser.parse(updated_max).replace(tzinfo=pytz.UTC)
+            enrollment_query_filter['created__lt'] = max_date
+            cert_query_filter['created_date__lt'] = max_date
 
-        enrollments = CourseEnrollment.objects.filter(**query_filter)
+        user_ids_with_certs = GeneratedCertificate.objects.filter(**cert_query_filter).values('user_id')
+
+        enrollments = CourseEnrollment.objects.filter(
+            Q(user_id__in=user_ids_with_certs) | Q(**enrollment_query_filter))
 
         enrollment_list = []
         for enrollment in enrollments:
