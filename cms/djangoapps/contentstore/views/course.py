@@ -1160,7 +1160,10 @@ def settings_handler(request, course_key_string):
                         set_prerequisite_courses(course_key, prerequisite_course_keys)
                     else:
                         # None is chosen, so remove the course prerequisites
-                        course_milestones = milestones_api.get_course_milestones(course_key=course_key, relationship="requires")
+                        course_milestones = milestones_api.get_course_milestones(
+                            course_key=course_key,
+                            relationship="requires",
+                        )
                         for milestone in course_milestones:
                             ee_milestone_namespace = generate_milestone_namespace(
                                 get_namespace_choices().get('ENTRANCE_EXAM'),
