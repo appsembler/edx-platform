@@ -71,7 +71,7 @@ def toggle_self_generated_certs(course_key, course_self_paced):
 
 
 @receiver(COURSE_GRADE_NOW_PASSED, dispatch_uid="new_passing_learner")
-def _listen_for_passing_grade(sender, user, course_id, **kwargs):  # pylint: disable=unused-argument
+def _listen_for_passing_grade(sender, user, course_key, **kwargs):  # pylint: disable=unused-argument
     """
     Listen for a learner passing a course, send cert generation task,
     downstream signal from COURSE_GRADE_CHANGED
@@ -93,12 +93,10 @@ def _listen_for_passing_grade(sender, user, course_id, **kwargs):  # pylint: dis
     elif waffle.waffle().is_enabled(waffle.INSTRUCTOR_PACED_ONLY):
         if courses.get_course_by_id(course_key, depth=0).self_paced:
             return
-    if GeneratedCertificate.certificate_for_student(self.user, self.course_id) is None:
-        generate_certificate.apply_async(
-            student=user,
-            course_key=course_id,
-        )
+    if GeneratedCertificate.certificate_for_student(user, course_key) is None:
+        kwargs = dict(student=user.id, course_key=unicode(course_key),)
+        generate_certificate.apply_async(kwargs=kwargs)
         log.info(u'Certificate generation task initiated for {user} : {course} via passing grade'.format(
             user=user.id,
-            course=course_id
+            course=course_key
         ))

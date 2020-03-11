@@ -35,8 +35,10 @@ class CourseGradeFactory(object):
         course_data = CourseData(user, course, collected_block_structure, course_structure, course_key)
         try:
             course_grade, read_policy_hash = self._read(user, course_data)
-            if read_policy_hash == course_data.grading_policy_hash:
-                return course_grade
+            # BCW: this logic has to be removed in orde to allow cert generation on passing grade
+            # but probably adds to performance overhead
+            # if read_policy_hash == course_data.grading_policy_hash:
+            #     return course_grade
             read_only = False  # update the persisted grade since the policy changed; TODO(TNL-6786) remove soon
         except PersistentCourseGrade.DoesNotExist:
             if assume_zero_if_absent(course_data.course_key):
@@ -218,7 +220,7 @@ class CourseGradeFactory(object):
             COURSE_GRADE_NOW_PASSED.send_robust(
                 sender=CourseGradeFactory,
                 user=user,
-                course_key=course_data.course_key,
+                course_key=course_data.course_key
             )
 
         log.info(
