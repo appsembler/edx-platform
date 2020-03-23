@@ -20,6 +20,9 @@ SEARCH_SKIP_ENROLLMENT_START_DATE_FILTERING = True
 COURSE_CATALOG_VISIBILITY_PERMISSION = 'see_in_catalog'
 COURSE_ABOUT_VISIBILITY_PERMISSION = 'see_about_page'
 
+# force S3 v4 (temporary until we can upgrade to django-storages 1.9)
+S3_USE_SIGV4 = True
+
 # SENTRY
 SENTRY_DSN = AUTH_TOKENS.get('SENTRY_DSN', False)
 
