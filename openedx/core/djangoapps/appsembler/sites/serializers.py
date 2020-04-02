@@ -135,7 +135,7 @@ class RegistrationSerializer(serializers.Serializer):
             site_configuration.save()
 
         # clone course
-        if settings.FEATURES.get("APPSEMBLER_IMPORT_DEFAULT_COURSE_ON_SITE_CREATION", False):
+        if settings.APPSEMBLER_FEATURES.get("APPSEMBLER_IMPORT_DEFAULT_COURSE_ON_SITE_CREATION", False):
             import_course_on_site_creation.apply_async(
                 organization,
                 queue="edx.core.cms.high"
