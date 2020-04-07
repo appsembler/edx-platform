@@ -187,6 +187,17 @@ def _preview_module_system(request, descriptor, field_data):
         # stick the license wrapper in front
         wrappers.insert(0, wrap_with_license)
 
+    def get_real_user(*_args):
+        """
+        Get the request.user object if logged logged in.
+
+        Appsembler: This is used for the LTI processors in Studio. It mimics `user_by_anonymous_id` on the lms.
+
+        :param _args: Ignored parameters.
+        :return: User
+        """
+        return request.user if request.user.is_authenticated else None
+
     return PreviewModuleSystem(
         static_url=settings.STATIC_URL,
         # TODO (cpennington): Do we want to track how instructors are using the preview problems?
@@ -207,6 +218,7 @@ def _preview_module_system(request, descriptor, field_data):
         wrappers=wrappers,
         wrappers_asides=wrappers_asides,
         error_descriptor_class=ErrorDescriptor,
+        get_real_user=get_real_user,
         get_user_role=lambda: get_user_role(request.user, course_id),
         # Get the raw DescriptorSystem, not the CombinedSystem
         descriptor_runtime=descriptor._runtime,  # pylint: disable=protected-access

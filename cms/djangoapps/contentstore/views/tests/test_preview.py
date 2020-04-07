@@ -200,3 +200,18 @@ class StudioXBlockServiceBindingTest(ModuleStoreTestCase):
         )
         service = runtime.service(descriptor, expected_service)
         self.assertIsNotNone(service)
+
+    @XBlock.register_temp_plugin(PureXBlock, identifier='pure')
+    def test_get_real_user(self):
+        """
+        Tests the `runtime.get_real_user` function exists on the Studio runtime.
+
+        Appsembler: This is useful for LTI XBlock processor parameters.
+        """
+        descriptor = ItemFactory(category="pure", parent=self.course)
+        runtime = _preview_module_system(
+            self.request,
+            descriptor,
+            self.field_data,
+        )
+        assert runtime.get_real_user(), 'Ensure get_real_user exists on CMS'
