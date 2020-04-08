@@ -2,68 +2,118 @@
 This file contains celery tasks for contentstore views
 """
 import logging
+import requests
+import os
+import tarfile
+import datetime
+
+from backports.tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile
+
 from celery.task import task
 from celery.utils.log import get_task_logger
 
-from django.contrib.auth.models import User
+from django.conf import settings
+
+from student.roles import CourseAccessRole
 
 from opaque_keys.edx.keys import CourseKey
 
-from student.roles import CourseInstructorRole, CourseStaffRole
+from organizations.models import Organization
+from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.django import modulestore
-from xmodule.modulestore.exceptions import DuplicateCourseError, ItemNotFoundError
+from xmodule.modulestore.exceptions import ItemNotFoundError
+from xmodule.modulestore.xml_importer import import_course_from_xml
 
 LOGGER = get_task_logger(__name__)
-FULL_COURSE_REINDEX_THRESHOLD = 1
+
+
+def import_course_on_site_creation_apply_async(organization):
+    """
+    Apply the `import_course_on_site_creation` task async. with proper call and configurations.
+
+    This helper ensures that the configuration is tested properly even if
+    the `RegistrationSerializer` has no tests.
+
+    :param organization:
+    :return: ResultBase.
+    """
+    return import_course_on_site_creation.apply_async(
+        kwargs={'organization_id': organization.id},
+        retry=False,  # The task is not expected to be able to recover after a failure.
+    )
 
 
 @task()
-def clone_course(source_course_key_string, destination_course_key_string, user_id, fields=None):
+def import_course_on_site_creation(organization_id):
     """
-    Reruns a course in a new celery task.
+    Celery task to copy the template course for new sites.
+
+    :param organization_id: The integer ID for the organization object in database.
     """
-    # import here, at top level this import prevents the celery workers from starting up correctly
-    from edxval.api import copy_course_videos
-    from contentstore.utils import initialize_permissions
-    from contentstore.courseware_index import SearchIndexingError
-    from contentstore.views.course import reindex_course_and_check_access
+    try:
+        organization = Organization.objects.get(pk=organization_id)
+
+        course_name = settings.TAHOE_DEFAULT_COURSE_NAME
+        course_github_org = settings.TAHOE_DEFAULT_COURSE_GITHUB_ORG
+        course_github_name = settings.TAHOE_DEFAULT_COURSE_GITHUB_NAME
+        course_version = settings.TAHOE_DEFAULT_COURSE_VERSION
+
+        # Create the course key object with the current created rganization, the course
+        # name from the settings and the current year
+        course_target_id = CourseKey.from_string(
+            'course-v1:{}+{}+{}'.format(
+                organization.short_name,
+                course_name,
+                datetime.datetime.now().year,
+            )
+        )
+
+        # Build the GitHub download URL from settings to download the course in tar.gz format
+        # from the GitHub releases
+        course_download_url = 'https://github.com/{}/{}/archive/{}.tar.gz'.format(
+            course_github_org,
+            course_github_name,
+            course_version,
+        )
+    except Exception as exc:  # pylint: disable=broad-except
+        logging.exception(u'Course Clone Error')
+        return u'exception: ' + unicode(exc)
 
     try:
-        # deserialize the payload
-        source_course_key = CourseKey.from_string(source_course_key_string)
-        destination_course_key = CourseKey.from_string(destination_course_key_string)
+        # Download the course in tar.gz format from github in a temp. file using a random file name
+        with TemporaryDirectory() as dir_name, NamedTemporaryFile() as temp_file:
+            response = requests.get(course_download_url)
+            file_path = temp_file.name
+            with open(file_path, 'wb') as fd:
+                for chunk in response.iter_content(chunk_size=128):
+                    fd.write(chunk)
 
-        # use the split modulestore as the store for the rerun course,
-        # as the Mongo modulestore doesn't support multiple runs of the same course.
-        store = modulestore()
-        with store.default_store('split'):
-            store.clone_course(source_course_key, destination_course_key, user_id, fields=fields)
+            # untar the downloaded file in the temp. directory just created
+            with tarfile.open(file_path) as tar:
+                extracted_course_folder = tar.getnames()[0]
+                tar.extractall(path=dir_name)
 
-        # Send statistics
-        from appsembler.models import update_course_statistics
-        update_course_statistics()
+            # Import the course
+            m_store = modulestore()
+            import_course_from_xml(
+                m_store,
+                ModuleStoreEnum.UserID.system,
+                os.path.join(dir_name, extracted_course_folder),
+                source_dirs=[os.path.join(dir_name, extracted_course_folder, 'course')],
+                target_id=course_target_id,
+                create_if_not_present=True,
+            )
 
-        # set initial permissions for the user to access the course.
-        user = User.objects.get(id=user_id)
-        initialize_permissions(destination_course_key, user)
-
-        # add course intructor and staff roles to the new user
-        CourseInstructorRole(destination_course_key).add_users(user)
-        CourseStaffRole(destination_course_key).add_users(user)
-
-        # call edxval to attach videos to the rerun
-        copy_course_videos(source_course_key, destination_course_key)
-
-        return "succeeded"
-
-    except DuplicateCourseError as exc:
-        # do NOT delete the original course, only update the status
-        logging.exception(u'Course Clone Error')
-        return "duplicate course"
-
-    except SearchIndexingError as search_err:
-        logging.exception(u'Course Clone index Error')
-        return "index error"
+            # TODO: Remove this line once we implement OrgStaffRole in Tahoe.
+            # Add the new registered user as admin in the course
+            CourseAccessRole.objects.get_or_create(
+                # TODO: Ensure only an admin get this course (`is_amc_admin`).
+                user=organization.users.first(),
+                role='instructor',  # This is called "Course Admin" in Studio.
+                course_id=course_target_id,
+                org=organization.short_name
+            )
 
     # catch all exceptions so we can update the state and properly cleanup the course.
     except Exception as exc:  # pylint: disable=broad-except
@@ -72,9 +122,9 @@ def clone_course(source_course_key_string, destination_course_key_string, user_i
 
         try:
             # cleanup any remnants of the course
-            modulestore().delete_course(destination_course_key, user_id)
+            modulestore().delete_course(course_target_id, ModuleStoreEnum.UserID.system)
         except ItemNotFoundError:
             # it's possible there was an error even before the course module was created
             pass
 
-        return "exception: " + unicode(exc)
+        return u'exception: ' + unicode(exc)
