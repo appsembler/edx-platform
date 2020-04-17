@@ -1,6 +1,7 @@
 import hashlib
+import json
 import pkg_resources
-from mock import patch, mock_open
+from mock import patch, mock_open, MagicMock
 from StringIO import StringIO
 
 from django.conf import settings
@@ -8,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from openedx.core.djangoapps.appsembler.sites.management.commands.create_devstack_site import Command
 from openedx.core.djangoapps.appsembler.sites.management.commands.export_site import Command as ExportSiteCommand
+from openedx.core.djangoapps.appsembler.sites.management.commands.import_site import Command as ImportSiteCommand
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 from openedx.core.djangoapps.theming.models import SiteTheme
 from django.core.management import call_command
@@ -266,3 +268,102 @@ class TestExportSiteCommand(TestCase):
                 objects.append(key)
 
         return instance, objects
+
+
+class TestImportSiteCommand(TestCase):
+    """
+    Test ./manage.py lms import_site export_path
+    """
+
+    def setUp(self):
+        self.site_name = 'site'
+        self.site_domain = '{}.localhost:18000'.format(self.site_name)
+
+        self.site = Site.objects.create(domain=self.site_domain, name=self.site_name)
+
+        self.command = ImportSiteCommand()
+
+    def test_get_pip_packages(self):
+        packages = self.command.get_pip_packages()
+        assert isinstance(packages, dict)
+
+        for package in pkg_resources.working_set:
+            assert packages.pop(package.project_name) == package.version
+
+    @patch('openedx.core.djangoapps.appsembler.sites.management.commands.import_site.Command.get_pip_packages')
+    @patch('openedx.core.djangoapps.appsembler.sites.management.commands.import_site.Command.check')
+    def test_check_project(self, mock_check, mock_get_pip_packages):
+        exports = {
+            "date": "2020-04-06T17:57:40.704",
+            "host_name": "5d73f5706988",
+            "ip_address": "172.18.0.15",
+            "site_domain": "red.localhost:18000",
+            "libraries": {},
+            "objects": [],
+            "version": 1
+        }
+
+        # Should not fail, even if objects and libraries are empty
+        self.command.check_project(exports)
+
+        # Django's check should be called
+        assert mock_check.called
+
+        # Should check pip packages
+        assert mock_get_pip_packages.called
+
+        # If exports doen't have a site_domain the command fails
+        with self.assertRaises(CommandError):
+            exports.pop('site_domain')
+            self.command.check_project(exports)
+
+    def test_process_input(self):
+        path = '/dummy/path.json'
+        content = '{"tetst": "contetnt"}'
+
+        # File doesn't exist
+        with self.assertRaises(CommandError):
+            self.command.process_input(path)
+
+        with patch('os.path.exists', return_value=True):
+            with patch('__builtin__.open', mock_open(read_data=content)):
+                data = self.command.process_input(path)
+
+        assert data == json.loads(content)
+
+    @patch('django.db.backends.sqlite3.base.DatabaseWrapper.check_constraints')
+    @patch('django.db.backends.base.base.BaseDatabaseWrapper.constraint_checks_disabled')
+    @patch('openedx.core.djangoapps.appsembler.sites.management.commands.import_site.Command.load_objects', return_value=None)
+    def test_loaddata(self, mock_load_objects, mock_constraint_checks_disabled, mock_check_constraints):
+        self.command.loaddata([])
+        assert mock_constraint_checks_disabled.called
+
+        # Since we disabled constraint checks, we must manually check for
+        # any invalid keys that might have been added
+        assert mock_check_constraints.called
+
+        # If constraints fail, loaddata should fail
+        with self.assertRaises(Exception):
+            mock_check_constraints.side_effect = Exception('mocked error')
+            self.command.loaddata([])
+
+    @patch('openedx.core.djangoapps.appsembler.sites.management.commands.import_site.Command.process_input')
+    @patch('openedx.core.djangoapps.appsembler.sites.management.commands.import_site.Command.check_project', return_value=None)
+    @patch('openedx.core.djangoapps.appsembler.sites.management.commands.import_site.Command.loaddata', return_value=None)
+    def test_handle(self, mock_loaddata, mock_check_project, mock_process_input):
+        mock_process_input.return_value = {'objects': [], 'site_domain': 'test'}
+
+        with patch('django.db.transaction.atomic') as m:
+            call_command('import_site', '/dummy/path.json')
+            assert m.called
+
+    @patch('django.db.utils.ConnectionRouter.allow_migrate_model')
+    def test_load_objects(self, mock_allow_migrate_model):
+        objects = [MagicMock(), MagicMock()]
+
+        with patch('openedx.core.djangoapps.appsembler.sites.management.commands.import_site.Deserializer', return_value=objects):
+            self.command.export_object_count = 0
+            self.command.loaded_object_count = 0
+            self.command.load_objects(objects)
+
+        assert self.command.export_object_count == len(objects)

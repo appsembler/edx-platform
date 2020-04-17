@@ -11,7 +11,7 @@ from django.contrib.sites.models import Site
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.management.base import BaseCommand, CommandError
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db.models import ForeignKey
+from django.db.models import ForeignKey, ManyToManyRel
 from django.db.models.fields.files import ImageFieldFile
 
 from django_countries.fields import Country
@@ -40,6 +40,7 @@ class Command(BaseCommand):
         self.debug = False
         self.version = self.VERSION
         self.default_path = os.getcwd()
+        self.errors = []
 
         super(Command, self).__init__(*args, **kwargs)
 
@@ -155,6 +156,15 @@ class Command(BaseCommand):
 
             processed_objects.add(instance)
 
+        self.stdout.write('\n\n')
+        for error in self.errors:
+            self.stdout.write(self.style.WARNING('Error processing field %s from %s: %s' % error))
+
+        self.stdout.write(
+            'Total exported objects is %d (%d processed, %d field errors)'
+            % (len(objects), len(processed_objects), len(self.errors))
+        )
+
         return objects
 
     def process_instance(self, instance):
@@ -176,38 +186,46 @@ class Command(BaseCommand):
         }
 
         if self.debug:
-            self.stdout.write(self.style.MIGRATE_LABEL('Processing a %s object...' % data['model']))
+            self.stdout.write(self.style.MIGRATE_LABEL('Processing %s object %s...' % (data['model'], instance.id)))
 
         # We are going to iterate over the fields one by one, and depending
         # on the type, we determine how to process them.
         for field in opts.get_fields():
-            if isinstance(field, ForeignKey):
-                value, item = self._process_foreign_key(instance, field)
-                data['fields'][field.name] = value
-                to_process.add(item)
+            try:
+                if isinstance(field, ForeignKey):
+                    value, item = self._process_foreign_key(instance, field)
+                    data['fields'][field.name] = value
+                    to_process.add(item)
 
-            elif field.one_to_many:
-                items = self._process_one_to_many_relation(instance, field)
-                to_process.update(items)
+                elif field.one_to_many:
+                    items = self._process_one_to_many_relation(instance, field)
+                    to_process.update(items)
 
-            elif field.one_to_one:
-                items = self._process_one_to_one_relation(instance, field)
-                to_process.update(items)
+                elif field.one_to_one:
+                    items = self._process_one_to_one_relation(instance, field)
+                    to_process.update(items)
 
-            elif field in opts.many_to_many:
-                value, items = self._process_many_to_many_relation(instance, field)
-                data['fields'][field.name] = value
-                to_process.update(items)
+                elif field.many_to_many:
+                    value, items = self._process_many_to_many_relation(instance, field)
 
-            elif field in opts.concrete_fields or field in opts.private_fields:
-                # Django stores the primary key under `id`
-                if field.name == 'id':
-                    data['pk'] = field.value_from_object(instance)
+                    if value is not None:
+                        data['fields'][field.name] = value
+
+                    to_process.update(items)
+
+                elif field in opts.concrete_fields or field in opts.private_fields:
+                    # Django stores the primary key under `id`
+                    if field.name == 'id':
+                        data['pk'] = field.value_from_object(instance)
+                    else:
+                        data['fields'][field.name] = field.value_from_object(instance)
                 else:
-                    data['fields'][field.name] = field.value_from_object(instance)
+                    self.stdout.write(self.style.MIGRATE_LABEL('SKIPPED %s' % str(field)))
+            except Exception as e:
+                self.errors.append((instance, field, e))
 
         if self.debug:
-            self.stdout.write('Finished processing %s object successfully!' % data['model'])
+            self.stdout.write('Finished processing %s object' % data['model'])
             self.stdout.write('%d new items to process' % len(to_process))
         else:
             self.stdout.write('.', ending='')
@@ -235,7 +253,7 @@ class Command(BaseCommand):
         Unlike ForeignKey, we just need too return the instances pointing at this
         object so we can process them later.
         """
-        manager = getattr(instance, field.name, [])
+        manager = getattr(instance, field.get_accessor_name())
         to_process = [obj for obj in manager.all()] if manager else []
 
         return to_process
@@ -262,6 +280,11 @@ class Command(BaseCommand):
         """
         data = []
         to_process = []
+
+        if isinstance(field, ManyToManyRel):
+            # This is a ManyToMany Field in another model
+            manager = getattr(instance, field.get_accessor_name())
+            return None, [x for x in manager.all()]
 
         for relation in field.value_from_object(instance):
             data.append(relation.id)
@@ -306,4 +329,4 @@ class Command(BaseCommand):
         with open(path, 'w') as file:
             file.write(content)
 
-        self.stdout.write(self.style.SQL_KEYWORD('\nExported objects saved in %s' % path))
+        self.stdout.write(self.style.MIGRATE_LABEL('\nExported objects saved in %s' % path))
