@@ -1,6 +1,7 @@
 """HTTP end-points for the User API. """
 
 from django.contrib.auth.models import User
+from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import NON_FIELD_ERRORS, PermissionDenied, ValidationError
 from django.db import transaction
 from django.http import HttpResponse, HttpResponseForbidden
@@ -9,6 +10,7 @@ from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import csrf_exempt, csrf_protect, ensure_csrf_cookie
 from django.views.decorators.debug import sensitive_post_parameters
 from django_filters.rest_framework import DjangoFilterBackend
+from organizations.models import Organization
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx import locator
 from opaque_keys.edx.keys import CourseKey
@@ -127,7 +129,38 @@ class RegistrationView(APIView):
         username = data.get('username')
 
         # Handle duplicate email/username
-        conflicts = check_account_exists(email=email, username=username)
+        if not data.get('registered_from_amc'):
+            # The user isn't comming from AMC, we only need to check if already
+            # exists inside the current organization
+            current_org = get_current_site(request).organizations.first()
+            conflicts = check_account_exists(email=email, username=username, organization=current_org)
+        else:
+            org_name = data.get('organization', False)
+            if data.get('organization', False):
+                # The user is comming from AMC but the organization already
+                # exists. The user is being invited to an existing org through
+                # AMC user management page.
+                org_name = data.get('organization')
+                current_org = Organization.objects.get(name=org_name)
+
+                if current_org.userorganizationmapping_set.filter(user__email=email).exists():
+                    # If the user already exists in the organization, we just
+                    # return ok. Since the user already exists, the next step
+                    # will be to create the OAuth tokens only.
+                    # TODO In the AMC side, make sure to veryfy for the user
+                    # before allowing to regiter it.
+                    response = JsonResponse({"success": True})
+                    return response
+
+                else:
+                    conflicts = check_account_exists(email=None, username=username, organization=None)
+
+            else:
+                # The new user is comming from AMC but the org hasn't been
+                # created yet. The user is being created though the signup
+                # wizard
+                conflicts = check_account_exists(email=None, username=username, organization=None)
+
         if conflicts:
             conflict_messages = {
                 "email": accounts.EMAIL_CONFLICT_MSG.format(email_address=email),
