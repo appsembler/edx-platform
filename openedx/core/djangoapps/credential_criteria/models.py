@@ -6,6 +6,7 @@ import logging
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
 from django_extensions.db.models import TimeStampedModel
@@ -86,7 +87,6 @@ class CredentialCriteria(TimeStampedModel):
         raise NotImplementedError
 
 
-
 class BadgeCriteria(CredentialCriteria):
     """
     A collection of criteria sufficient to award a Badge.
@@ -113,12 +113,16 @@ class CredentialCriterion(TimeStampedModel):
     Each criterion type must have a corresponding logic to determine
     satisfaction of the criterion.
     """
-    criterion_type = models.CharField(values=constants.CREDENTIAL_CRITERION_TYPES)
+    criterion_type = models.CharField(values=_choices(constants.CREDENTIAL_CRITERION_TYPES))
     satisfaction_threshold = models.FloatField(min=0.0, max=1.0)  # not sure about min/max
     criteria = models.GenericForeignKey(CredentialCriteria)
 
     class Meta(object):
         abstract = True
+
+    @cached_property
+    def criteria(self):
+        return self.criteria_set.all()
 
     @property
     def criterion_class(self):
@@ -137,3 +141,4 @@ class CredentialUsageKeyCriterion(CredentialCriterion):
     Can be based on either learner's grade or completion percentage.
     """
     block_id = models.UsageKeyField()
+

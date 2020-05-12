@@ -26,12 +26,8 @@ class CredentialsConfig(AppConfig):
             ProjectType.LMS: {
                 PluginSignals.RECEIVERS: [
                     # {
-                    #     PluginSignals.RECEIVER_FUNC_NAME: u'handle_grade_change',
+                    #     PluginSignals.RECEIVER_FUNC_NAME: u'handle_aggregator_update',
                     #     PluginSignals.SIGNAL_PATH: u'openedx.core.djangoapps.signals.signals.COURSE_GRADE_CHANGED',
-                    # },
-                    # {
-                    #     PluginSignals.RECEIVER_FUNC_NAME: u'handle_cert_change',
-                    #     PluginSignals.SIGNAL_PATH: u'openedx.core.djangoapps.signals.signals.COURSE_CERT_CHANGED',
                     # },
                 ],
             },
@@ -41,3 +37,5 @@ class CredentialsConfig(AppConfig):
     def ready(self):
         # Register celery workers
         from .tasks.v1 import tasks  # pylint: disable=unused-variable
+        from . import signals
+        signals.register()

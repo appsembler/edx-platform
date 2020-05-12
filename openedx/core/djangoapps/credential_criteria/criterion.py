@@ -34,7 +34,7 @@ class CompletionCriterionType(AbstractCriterion):
     Calculate satisfaction of a criterion based on a completion threshold.
     """
 
-    def _can_use_aggregator(self, block_type):
+    def _can_use_aggregator(block_type):
         """
         Raise an exception if Completion Aggregaton cannot be used for an aggregator type
         """
@@ -50,7 +50,8 @@ class CompletionCriterionType(AbstractCriterion):
         if err_msg:
             raise ImproperlyConfigured(err_msg.format(str(block_type)))
 
-    def is_satisfied(self, user, credential_criterion):
+    @classmethod
+    def is_satisfied(cls, user, credential_criterion):
         """
         If BlockCompletion or Aggregator percentage is above the threshold,
         return True.
