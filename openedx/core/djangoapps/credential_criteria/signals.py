@@ -9,41 +9,51 @@ by the event represented in the Signal.
 
 import logging
 
-from django.conf import settings
+from celery import subtask
 
-from xmodule.modulestore.django import SignalHandler
+import django.dispatch
 
 try:
     from completion_aggregator import models as agg_models, signals
 except ImportError:
     pass
 
-from . import criterion, models, tasks
+from . import constants, tasks, waffle
 
 
 logger = logging.getLogger(__name__)
 
 
-def register():
-    """
-    Register signal handlers.
-    Do this here since we can't assume completion_aggregator is installed.
-    """
-    signals.aggregator_updated.connect(aggregator_updated_handler, sender=agg_models.AggregatorUpdater)
+satisfied_usercriterion = django.dispatch.Signal(providing_args=["user", "criterion"])
 
 
-# Signal handlers frequently ignore arguments passed to them.  No need to lint them.
-# pylint: disable=unused-argument
-
-def aggregator_updated_handler(aggregator, **kwargs):
+def handle_aggregator_update(aggregator, **kwargs):
     """
     Check completion credential criteria when completion Aggregators are updated.
     """
+    import pdb; pdb.set_trace()
 
     logger.debug("Checking credential criteria after Aggregator completion for {}".format(
         aggregator.block_id)
     )
-    # do some more stuff
-    criterion  # pylint
-    models  # pylint
-    tasks  # pylint
+
+    if not waffle.credentential_criteria_is_active():
+        logger.debug(
+            "Taking no action on Aggregator completion for {}. "
+            "Credential Criteria feature not active".format(aggregator.block_id)
+        )
+        return
+
+    # satisfy any pertinent CredentialCriterion
+    tasks.satisfy_credential_criterion(
+        constants.CREDENTIAL_CRITERION_TYPE_COMPLETION,
+        **{"user": aggregator.user, "block_id": aggregator.block_id}
+    ).delay(callback=subtask(tasks.evaluate_credential_criteria))
+
+
+def handle_new_usercredentialcriterion(sender, **kwargs):
+    """
+    Evaluate any full CredentialCriteria for satisfaction when saving a satisfied UserCredentialCriterion.
+    """
+    criteria = kwargs['criterion'].criteria
+    criteria.evaluate_for_user(kwargs['user'])

@@ -1,8 +1,10 @@
 """
 Credentials Criteria
 """
+
 from django.apps import AppConfig
 from django.utils.translation import ugettext_lazy as _
+
 from openedx.core.djangoapps.plugins.constants import ProjectType, SettingsType, PluginSettings, PluginSignals
 
 
@@ -25,10 +27,22 @@ class CredentialsConfig(AppConfig):
         PluginSignals.CONFIG: {
             ProjectType.LMS: {
                 PluginSignals.RECEIVERS: [
-                    # {
-                    #     PluginSignals.RECEIVER_FUNC_NAME: u'handle_aggregator_update',
-                    #     PluginSignals.SIGNAL_PATH: u'openedx.core.djangoapps.signals.signals.COURSE_GRADE_CHANGED',
-                    # },
+                    # just handling completion-based for now
+                    {
+                        PluginSignals.RECEIVER_FUNC_NAME: u'handle_aggregator_update',
+                        PluginSignals.SIGNAL_PATH: u'completion_aggregator.signals.AGGREGATORS_UPDATED',
+                    },
+                    {
+                        PluginSignals.RECEIVER_FUNC_NAME: u'handle_aggregator_update',
+                        PluginSignals.SIGNAL_PATH: u'django.db.models.signals.post_save',
+                        PluginSignals.SENDER: u'completion_aggregator.models.Aggregator',
+                    },
+                    {
+                        PluginSignals.RECEIVER_FUNC_NAME: u'handle_blockcompletion_update',
+                        PluginSignals.SIGNAL_PATH: u'django.db.models.signals.post_save',
+                        PluginSignals.SENDER: u'completion.models.BlockCompletion',
+                    },
+
                 ],
             },
         },
@@ -36,6 +50,4 @@ class CredentialsConfig(AppConfig):
 
     def ready(self):
         # Register celery workers
-        from .tasks.v1 import tasks  # pylint: disable=unused-variable
-        from . import signals
-        signals.register()
+        from . import tasks  # pylint: disable=unused-variable

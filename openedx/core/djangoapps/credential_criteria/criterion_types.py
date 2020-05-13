@@ -1,6 +1,6 @@
 """
 Logic for calculating satisfaction of a CredentialCriterion,
-based on criterion_type.
+based on criterion_type; e.g., completion, score, etc..
 """
 
 from django.conf import settings
@@ -17,7 +17,32 @@ from xblock.completable import XBlockCompletionMode
 from xblock.core import XBlock
 from xblock.plugin import PluginMissingError
 
-from . import exceptions
+from . import constants, exceptions
+
+
+def get_model_for_criterion_type(criterion_type):
+    """
+    Return the AbstractCredentialCriterion subclass model which 
+    is used for this criterion_type.
+    """
+    if criterion_type in (
+        constants.CREDENTIAL_CRITERION_TYPE_COMPLETION,
+        constants.CREDENTIAL_CRITERION_TYPE_SCORE,
+        constants.CREDENTIAL_CRITERION_TYPE_GRADE,
+        constants.CREDENTIAL_CRITERION_TYPE_PASSFAIL,
+        constants.CREDENTIAL_CRITERION_TYPE_ENROLLMENT,
+        constants.CREDENTIAL_CRITERION_TYPE_CREDENTIAL
+    ):
+        # there may be some other cases to support later, like multiple usage keys, etc.
+        model_name = 'CredentialUsageKeyCriterion'
+    else:
+        raise NotImplementedError
+    try:
+        return ContentType.objects.get(app_label="credential_criteria", model=model_name)
+    except ContentType.DoesNotExist:
+        raise exception.CredentialCriteriaException(
+            "No credential criterion database model found for {}".format(criterion_type)
+        )
 
 
 class AbstractCriterionType(AbstractBaseClass):
@@ -25,7 +50,7 @@ class AbstractCriterionType(AbstractBaseClass):
     Abstract class for a criterion type class.
     """
 
-    def is_satisfied(self, user, credential_criterion):
+    def is_satisfied_for_user(self, user, credential_criterion):
         raise NotImplementedError
 
 
@@ -51,7 +76,7 @@ class CompletionCriterionType(AbstractCriterion):
             raise ImproperlyConfigured(err_msg.format(str(block_type)))
 
     @classmethod
-    def is_satisfied(cls, user, credential_criterion):
+    def is_satisfied_for_user(cls, user, credential_criterion):
         """
         If BlockCompletion or Aggregator percentage is above the threshold,
         return True.
