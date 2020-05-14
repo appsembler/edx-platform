@@ -8,9 +8,9 @@ from django.utils.translation import ugettext_lazy as _
 from openedx.core.djangoapps.plugins.constants import ProjectType, SettingsType, PluginSettings, PluginSignals
 
 
-class CredentialsConfig(AppConfig):
+class CredentialCriteriaConfig(AppConfig):
     """
-    Configuration class for credentials Django app
+    Configuration class for credential_criteria Django app
     """
     name = 'openedx.core.djangoapps.credential_criteria'
     verbose_name = _("Credential Criteria")
@@ -20,8 +20,8 @@ class CredentialsConfig(AppConfig):
             ProjectType.LMS: {
                 SettingsType.AWS: {PluginSettings.RELATIVE_PATH: u'settings.aws'},
                 SettingsType.COMMON: {PluginSettings.RELATIVE_PATH: u'settings.common'},
-                SettingsType.DEVSTACK: {PluginSettings.RELATIVE_PATH: u'settings.devstack'},
-                SettingsType.TEST: {PluginSettings.RELATIVE_PATH: u'settings.test'},
+                # SettingsType.DEVSTACK: {PluginSettings.RELATIVE_PATH: u'settings.devstack'},
+                # SettingsType.TEST: {PluginSettings.RELATIVE_PATH: u'settings.test'},
             }
         },
         PluginSignals.CONFIG: {
@@ -31,17 +31,19 @@ class CredentialsConfig(AppConfig):
                     {
                         PluginSignals.RECEIVER_FUNC_NAME: u'handle_aggregator_update',
                         PluginSignals.SIGNAL_PATH: u'completion_aggregator.signals.AGGREGATORS_UPDATED',
+                        PluginSignals.SENDER_PATH: u'completion_aggregator.core.AggregationUpdater',
                     },
-                    {
-                        PluginSignals.RECEIVER_FUNC_NAME: u'handle_aggregator_update',
-                        PluginSignals.SIGNAL_PATH: u'django.db.models.signals.post_save',
-                        PluginSignals.SENDER: u'completion_aggregator.models.Aggregator',
-                    },
-                    {
-                        PluginSignals.RECEIVER_FUNC_NAME: u'handle_blockcompletion_update',
-                        PluginSignals.SIGNAL_PATH: u'django.db.models.signals.post_save',
-                        PluginSignals.SENDER: u'completion.models.BlockCompletion',
-                    },
+                    # the post_save should only send a single Aggregator object
+                    # {
+                    #     PluginSignals.RECEIVER_FUNC_NAME: u'handle_aggregator_update',
+                    #     PluginSignals.SIGNAL_PATH: u'django.db.models.signals.post_save',
+                    #     PluginSignals.SENDER_PATH: u'completion_aggregator.models.Aggregator',
+                    # },
+                    # {
+                    #     PluginSignals.RECEIVER_FUNC_NAME: u'handle_blockcompletion_update',
+                    #     PluginSignals.SIGNAL_PATH: u'django.db.models.signals.post_save',
+                    #     PluginSignals.SENDER_PATH: u'completion.models.BlockCompletion',
+                    # },
 
                 ],
             },

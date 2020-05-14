@@ -5,7 +5,7 @@ Models for credentials criteria.
 import logging
 
 from django.contrib.auth.models import User
-from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -14,9 +14,10 @@ from django.utils.translation import ugettext_lazy as _
 
 from django_extensions.db.models import TimeStampedModel
 from opaque_keys import InvalidKeyError
-from opaque_keys.edx.keys import CourseKey, UsageKey
+from opaque_keys.edx.keys import UsageKey
+from opaque_keys.edx.django.models import UsageKeyField
 
-from . import constants, criterion_types, exceptions, signals, tasks
+from . import constants, criterion_types, exceptions
 
 
 logger = logging.getLogger(__name__)
@@ -27,16 +28,6 @@ def _choices(*values):
     Helper for use with model field 'choices'.
     """
     return [(value,) * 2 for value in values]
-
-
-def validate_course_key(course_key):
-    """
-    Validate the course_key is correct.
-    """
-    try:
-        CourseKey.from_string(course_key)
-    except InvalidKeyError:
-        raise ValidationError(_("Invalid course key."))
 
 
 def validate_usage_key(usage_key):
@@ -56,16 +47,55 @@ class CredentialCriteria(TimeStampedModel):
     """
     is_active = models.BooleanField()
     credential_id = models.PositiveIntegerField()  # the db id of the Credential in Credentials service
-    criteria_narrative = models.TextField()
-
-    class Meta(object):
-        abstract = True
+    credential_type = models.CharField(max_length=255, choices=_choices('badge', 'coursecertificate', 'programcertificate'))
+    _criteria_narrative = models.TextField()
+    _criteria_url = models.URLField()
+    _evidence_narrative = models.TextField()
+    _evidence_url = models.URLField()
 
     @property
     def criteria_url(self):
         """Implement as a cached property."""
-        return "https://criteria_url.foo"
-        # TODO: raise NotImplementedError
+        if self._criteria_url:
+            return self._criteria_url
+        else:
+            # TODO: calculate a URL which might be a view that explains criteria
+            # using their display names and values
+            return "https://criteria_url.foo"
+
+    @criteria_url.setter
+    def criteria_url(self, value):
+        self._criteria_url = value
+
+    @property
+    def criteria_narrative(self):
+        return self._criteria_narrative
+
+    @criteria_narrative.setter
+    def criteria_narrative(self, value):
+        self._criteria_narrative = value
+
+    @property
+    def evidence_url(self):
+        if self._evidence_url:
+            return self._evidence_url
+        else:
+            # TODO: calculate an evidence url
+            # the idea is that the evidence for a credential
+            # may be different depending on the award criteria used to achieve it
+            return "https://evidence_url.foo"
+
+    @evidence_url.setter
+    def evidence_url(self, value):
+        self._evidence_url = value
+
+    @property
+    def evidence_narrative(self):
+        return self._criteria_narrative
+
+    @evidence_narrative.setter
+    def evidence_narrative(self, value):
+        self._evidence_narrative = value
 
     def evaluate_for_user(self, user):
         """
@@ -87,13 +117,15 @@ class CredentialCriteria(TimeStampedModel):
         #  - store a reference to the Criteria and its timestamp 
         #    as a UserCredentialAttribute
         # use a Celery task
-        tasks.award_credential_for_user(
+        from tasks import award_credential_for_user
+        award_credential_for_user(
             user=self.user,
-            cred=self.credential_id,
-            criteria_narr=self.criteria_narrative,
+            credential=self.credential_id,
+            credential_type=self.credential_type,
+            criteria_narrative=self.criteria_narrative,
             criteria_url=self.criteria_url,
-            evidence_narr=self.evidence_narrative,
-            evidence_url=self.generate_evidence_url()
+            evidence_narrative=self.evidence_narrative,
+            evidence_url=self.evidence_url
         ).delay()
 
     # TODO: think about caching/ cache invalidation
@@ -118,35 +150,56 @@ class CredentialCriteria(TimeStampedModel):
         raise NotImplementedError
 
 
-class BadgeCriteria(CredentialCriteria):
-    """
-    A collection of criteria sufficient to award a Badge.
-    OpenBadges spec provides for evidence as a narrative or URL.
-    For our purposes, URL should be specific to a user but the narrative could
-    be derived from the Badge Class or specific to the criteria used to earn it.
-    """
-    evidence_narrative = models.TextField()
+# class BadgeCriteria(CredentialCriteria):
+#     """
+#     A collection of criteria sufficient to award a Badge.
+#     OpenBadges spec provides for evidence as a narrative or URL.
+#     For our purposes, URL should be specific to a user but the narrative could
+#     be derived from the Badge Class or specific to the criteria used to earn it.
+#     """
+#     evidence_narrative = models.TextField()
 
-    def generate_evidence_url(self, user):
-        """
-        Calculate a URL to evidence for this criteria.
-        """
-        return "https://evidenceurl.foo"
-        # TODO: raise NotImplementedError
+#     def generate_evidence_url(self, user):
+#         """
+#         Calculate a URL to evidence for this criteria.
+#         """
+#         return "https://evidenceurl.foo"
+#         # TODO: raise NotImplementedError
+
+#     class Meta(object):
+#         verbose_name = "Badge Criteria"
+
+
+class UserCredentialCriterion(TimeStampedModel):
+    """
+    Status of user for a criterion.
+    TODO: think about how this may become no longer satisfied
+    """
+    user = models.ForeignKey(User)
+    criterion_content_type = models.ForeignKey(
+        ContentType, limit_choices_to={'model__in': ('credentialusagekeycriterion',)}
+    )
+    criterion_id = models.PositiveIntegerField()
+    criterion = GenericForeignKey('criterion_content_type', 'criterion_id')
+    satisfied = models.BooleanField()
 
     class Meta(object):
-        verbose_name = "Badge Criteria"
+        unique_together = (('user', 'criterion_id'))
 
 
 class AbstractCredentialCriterion(TimeStampedModel):
     """
     A single criterion making up part of the CredentialCriteria.
-    Each criterion type must have a corresponding logic to determine
-    satisfaction of the criterion.
+    The concrete model subclass provides additional fields relating to the *context*
+    of the criterion.  Each criterion *type* has a corresponding logic
+    to determine satisfaction of the criterion.
+
+    For example, a criterion with a UsageKey context can be satisfied by a score,
+    completion, a letter grade, etc.
     """
-    criterion_type = models.CharField(values=_choices(constants.CREDENTIAL_CRITERION_TYPES))
-    satisfaction_threshold = models.FloatField(min=0.0, max=1.0)  # not sure about min/max
-    criteria = models.GenericForeignKey(CredentialCriteria)
+    criterion_type = models.CharField(max_length=255, choices=_choices(constants.CREDENTIAL_CRITERION_TYPES))
+    satisfaction_threshold = models.FloatField()
+    criteria = models.ForeignKey(CredentialCriteria)
 
     user_criterions = GenericRelation(
         UserCredentialCriterion,
@@ -157,10 +210,6 @@ class AbstractCredentialCriterion(TimeStampedModel):
 
     class Meta(object):
         abstract = True
-
-    @cached_property
-    def criteria(self):
-        return self.criteria_set.all()
 
     @property
     def criterion_type_class(self):
@@ -182,9 +231,10 @@ class AbstractCredentialCriterion(TimeStampedModel):
                 criterion_id=self.id
             )
             if created and satisfied:
-                # any new satisfied criterion should cause its CredentialCriteria to 
+                # any new, satisfied criterion should cause its CredentialCriteria to 
                 # be evaluated
-                signals.satisfied_usercriterion.send(
+                from . import signals
+                signals.SATISFIED_USERCRITERION.send(
                     sender=ucc.__class__,
                     user=user,
                     criterion=ucc.criterion
@@ -193,24 +243,9 @@ class AbstractCredentialCriterion(TimeStampedModel):
 
 class CredentialUsageKeyCriterion(AbstractCredentialCriterion):
     """
-    A single criterion based on score for a given set of opaque_keys.edx.keys.UsageKey
-    Can be based on either learner's grade or completion percentage.
+    A criterion in the context of a single opaque_keys.edx.keys.UsageKey
     """
-    block_id = models.UsageKeyField()
-
-
-class UserCredentialCriterion(models.TimeStampedModel):
-    """
-    Status of user for a criterion.
-    TODO: think about how this may become no longer satisfied
-    """
-    user = models.ForeignKey(User)
-    criterion_content_type = models.ForeignKey(
-        ContentType, limit_choices_to={'model__in': ('credentialusagekeycriterion',)}
-    )
-    criterion_id = models.PositiveIntegerField()
-    criterion = GenericForeignKey('criterion_content_type', 'criterion_id')
-    satisfied = models.BooleanField()
+    block_id = UsageKeyField(max_length=255, validators=[validate_usage_key, ])
 
     class Meta(object):
-        unique_together = (('user', 'criterion'))
+        verbose_name = 'UsageKey Credential Criterion'

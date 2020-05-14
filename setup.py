@@ -68,6 +68,7 @@ setup(
             "ace_common = openedx.core.djangoapps.ace_common.apps:AceCommonConfig",
             "appsembler_settings = openedx.core.djangoapps.appsembler.settings.apps:SettingsConfig",
             "credentials = openedx.core.djangoapps.credentials.apps:CredentialsConfig",
+            "credential_criteria = openedx.core.djangoapps.credential_criteria.apps:CredentialCriteriaConfig",
             "discussion = lms.djangoapps.discussion.apps:DiscussionConfig",
             "grades = lms.djangoapps.grades.apps:GradesConfig",
             "plugins = openedx.core.djangoapps.plugins.apps:PluginsConfig",

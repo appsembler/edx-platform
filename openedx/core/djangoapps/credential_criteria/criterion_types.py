@@ -3,6 +3,8 @@ Logic for calculating satisfaction of a CredentialCriterion,
 based on criterion_type; e.g., completion, score, etc..
 """
 
+from abc import ABCMeta, abstractmethod
+
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
@@ -45,16 +47,18 @@ def get_model_for_criterion_type(criterion_type):
         )
 
 
-class AbstractCriterionType(AbstractBaseClass):
+class AbstractCriterionType(object):
     """
     Abstract class for a criterion type class.
     """
+    __metaclass__ = ABCMeta
 
-    def is_satisfied_for_user(self, user, credential_criterion):
+    @classmethod
+    def is_satisfied_for_user(cls, user, credential_criterion):
         raise NotImplementedError
 
 
-class CompletionCriterionType(AbstractCriterion):
+class CompletionCriterionType(AbstractCriterionType):
     """
     Calculate satisfaction of a criterion based on a completion threshold.
     """
