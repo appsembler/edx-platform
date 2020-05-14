@@ -31,7 +31,8 @@ def handle_aggregator_update(sender, **kwargs):
     aggregators passed from AggregationUpdater.update() are not Aggregator model objects
     but a dictionary of aggregator blocks by block_id.
     """
-    if not waffle.credentential_criteria_is_active():
+    import pdb; pdb.set_trace()
+    if not waffle.WAFFLE_SWITCHES.is_enabled(waffle.ENABLE_CREDENTIAL_CRITERIA_APP):
         logger.debug(
             "Taking no action on Aggregator completion for {}. "
             "Credential Criteria feature not active".format(aggregator.block_id)
