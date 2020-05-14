@@ -105,6 +105,13 @@ class CredentialCriteria(TimeStampedModel):
     def evidence_narrative(self, value):
         self._evidence_narrative = value
 
+    def __repr__(self):
+        return "<CredentialCriteria: awards {credential_type} id {credential_id} active={is_active}>".format(
+            credential_type=self.credential_type,
+            credential_id=self.credential_id,
+            is_active=self.is_active
+        )
+
     def evaluate_for_user(self, user):
         """
         Award the linked Credential if satisfied for user.
@@ -258,3 +265,10 @@ class CredentialLocatorCriterion(AbstractCredentialCriterion):
 
     class Meta(object):
         verbose_name = '{} Credential Criterion'.format(model_key_class.__name__)
+
+    def __repr__(self):
+        return "<CredentialLocatorCriterion: satisfied by {criterion_type} {satisfaction_threshold} for {locator}>".format(
+            criterion_type=self.criterion_type,
+            satisfaction_threshold=self.satisfaction_threshold,
+            locator=self.locator
+        )
