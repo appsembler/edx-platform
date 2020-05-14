@@ -9,13 +9,21 @@ from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelatio
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
 from django_extensions.db.models import TimeStampedModel
 from opaque_keys import InvalidKeyError
-from opaque_keys.edx.keys import UsageKey
-from opaque_keys.edx.django.models import UsageKeyField
+
+try:
+    from opaque_keys.edx.keys import LearningContextKey
+    from opaque_keys.edx.django.models import LearningContextKeyField
+    model_keyfield_type = LearningContextKeyField
+    model_key_class = LearningContextKey
+except ImportError:
+    from opaque_keys.edx.keys import UsageKey
+    from opaque_keys.edx.django.models import UsageKeyField
+    model_keyfield_type = UsageKeyField
+    model_key_class = UsageKey
 
 from . import constants, criterion_types, exceptions
 
@@ -30,14 +38,14 @@ def _choices(*values):
     return [(value,) * 2 for value in values]
 
 
-def validate_usage_key(usage_key):
+def validate_locator_field(key):
     """
     Validate the usage_key is correct.
     """
     try:
-        UsageKey.from_string(usage_key)
+        model_key_class.from_string(key)
     except InvalidKeyError:
-        raise ValidationError(_("Invalid usage key."))
+        raise ValidationError(_("Invalid {}".format(key.KEY_TYPE)))
 
 
 class CredentialCriteria(TimeStampedModel):
@@ -177,7 +185,7 @@ class UserCredentialCriterion(TimeStampedModel):
     """
     user = models.ForeignKey(User)
     criterion_content_type = models.ForeignKey(
-        ContentType, limit_choices_to={'model__in': ('credentialusagekeycriterion',)}
+        ContentType, limit_choices_to={'model__in': ('credentiallocatorcriterion',)}
     )
     criterion_id = models.PositiveIntegerField()
     criterion = GenericForeignKey('criterion_content_type', 'criterion_id')
@@ -241,11 +249,12 @@ class AbstractCredentialCriterion(TimeStampedModel):
                 )
 
 
-class CredentialUsageKeyCriterion(AbstractCredentialCriterion):
+class CredentialLocatorCriterion(AbstractCredentialCriterion):
     """
-    A criterion in the context of a single opaque_keys.edx.keys.UsageKey
+    A criterion in the context of a single opaque_keys.edx.keys key type
+    depending on version of opaque_keys will be OpaqueKey or LearningContextKey
     """
-    block_id = UsageKeyField(max_length=255, validators=[validate_usage_key, ])
+    locator = model_keyfield_type(max_length=255, validators=[validate_locator_field, ])
 
     class Meta(object):
-        verbose_name = 'UsageKey Credential Criterion'
+        verbose_name = '{} Credential Criterion'.format(model_key_class.__name__)

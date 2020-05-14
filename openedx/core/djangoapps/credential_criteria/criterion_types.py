@@ -36,7 +36,7 @@ def get_model_for_criterion_type(criterion_type):
         constants.CREDENTIAL_CRITERION_TYPE_CREDENTIAL
     ):
         # there may be some other cases to support later, like multiple usage keys, etc.
-        model_name = 'CredentialUsageKeyCriterion'
+        model_name = 'CredentialLocatorCriterion'
     else:
         raise NotImplementedError
     try:
@@ -86,7 +86,10 @@ class CompletionCriterionType(AbstractCriterionType):
         return True.
         """
         crit = credential_criterion
-        block_type = crit.block_id.block_type
+        try:
+            block_type = crit.locator.block_type
+        except AttributeError:
+            raise ValueError("{} is not a completable block".format(crit.locator))
 
         try:
             mode = XBlockCompletionMode.get_mode(XBlock.load_class(block_type))
@@ -95,7 +98,7 @@ class CompletionCriterionType(AbstractCriterionType):
             mode = XBlockCompletionMode.EXCLUDED
 
         if mode not in (XBlockCompletionMode.COMPETABLE, XBlockCompletionMode.AGGREGATOR):
-            raise ValueError("{} is not a completable block".format(crit.block_id))
+            raise ValueError("{} is not a completable block".format(crit.locator))
 
         if mode == XBlockCompletionMode.AGGREGATOR:
             try:
@@ -107,7 +110,7 @@ class CompletionCriterionType(AbstractCriterionType):
             completion_model = BlockCompletion
 
         try:
-            cmp_obj = completion_model.objects.get(user=user, block_key=crit.block_id)
+            cmp_obj = completion_model.objects.get(user=user, block_key=crit.locator)
             completion = getattr(cmp_obj, cmp_field)
             return completion >= crit.satisfaction_threshold
         except completion_model.DoesNotExist:
