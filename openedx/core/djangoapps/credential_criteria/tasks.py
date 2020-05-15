@@ -5,8 +5,10 @@ Celery tasks for credential_criteria Django app.
 import logging
 
 from celery import task
-
 from django.conf import settings
+from django.contrib.auth.models import User
+
+from openedx.core.djangoapps.credentials.utils import get_credentials_api_client
 
 from . import criterion_types
 from .models import UserCredentialCriterion
@@ -43,8 +45,8 @@ def satisfy_credential_criterion(criterion_type, **kwargs):
         criterion.satisfy_for_user(user)
 
 
-@task(routing_key=settings.CREDENTIAL_CRITERIA_ROUTING_KEY, ignore_result=True)
-def award_credential_for_user(**kwargs):
+@task(bind=True, routing_key=settings.CREDENTIAL_CRITERIA_ROUTING_KEY, ignore_result=True)
+def award_credential_for_user(self, **kwargs):
     """
     Contact Credentials service to award the credential to the user.
     """
@@ -52,3 +54,27 @@ def award_credential_for_user(**kwargs):
         kwargs['credential_id'], kwargs['user'])
     )
     # eventually we should notify the user based on the task result
+
+    countdown = 2 ** self.request.retries
+
+    try:
+        credentials_client = get_credentials_api_client(
+            User.objects.get(username=settings.CREDENTIALS_SERVICE_USERNAME)
+        )
+
+        credentials_client.credentials.post({
+            'username': kwargs['user'].username,
+            'credential': kwargs['credential_id'],
+            'certificate_url': kwargs['evidence_url'],
+            'attributes': {
+                'credential_type': kwargs['credential_type'],
+                'criteria_narrative': kwargs['criteria_narrative'],
+                'criteria_url': kwargs['criteria_url'],
+                'evidence_narrative': kwargs['evidence_narrative'],
+                'evidence_url': kwargs['evidence_url'],
+            }
+        })
+
+    except Exception as exc:
+        logger.exception('Failed to complete Credentials issue call for {} {}'.format(kwargs['credential_type'], kwargs['credential_id']))
+        raise self.retry(exc=exc, countdown=countdown, max_retries=MAX_RETRIES)
