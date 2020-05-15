@@ -33,6 +33,10 @@ class CredentialCriteriaConfig(AppConfig):
                         PluginSignals.SIGNAL_PATH: u'completion_aggregator.signals.AGGREGATORS_UPDATED',
                         PluginSignals.SENDER_PATH: u'completion_aggregator.core.AggregationUpdater',
                     },
+                    {
+                        PluginSignals.RECEIVER_FUNC_NAME: u'handle_satisfied_usercredentialcriterion',
+                        PluginSignals.SIGNAL_PATH: u'openedx.core.djangoapps.credential_criteria.signals.SATISFIED_USERCRITERION',
+                    },
                     # the post_save should only send a single Aggregator object
                     # {
                     #     PluginSignals.RECEIVER_FUNC_NAME: u'handle_aggregator_update',

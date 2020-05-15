@@ -39,11 +39,7 @@ def satisfy_credential_criterion(criterion_type, **kwargs):
 
 
 @task(routing_key=settings.CREDENTIAL_CRITERIA_ROUTING_KEY)
-def evaluate_credential_criteria(criterion_type, **kwargs):
+def award_credential_for_user(credential_id, **kwargs):
     """
-    Evaluate whether any CredentialCriteria have been met for affected block id.
-    Contact Credentials service for award where appropriate.
+    Contact Credentials service to award the credential to the user.
     """
-    # find CredentialCriteria which use criterion of type
-
-    # and then from that CredentialCriteria see if all member CredentialCriterion are satisfied

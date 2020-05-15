@@ -2,6 +2,7 @@
 Models for credentials criteria.
 """
 
+import itertools
 import logging
 
 from django.contrib.auth.models import User
@@ -9,6 +10,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelatio
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
 from django_extensions.db.models import TimeStampedModel
@@ -56,6 +58,7 @@ class CredentialCriteria(TimeStampedModel):
     is_active = models.BooleanField()
     credential_id = models.PositiveIntegerField()  # the db id of the Credential in Credentials service
     credential_type = models.CharField(max_length=255, choices=_choices('badge', 'coursecertificate', 'programcertificate'))
+    # criteria and evidence fields are typically generated but can be set directly
     _criteria_narrative = models.TextField()
     _criteria_url = models.URLField()
     _evidence_narrative = models.TextField()
@@ -105,6 +108,14 @@ class CredentialCriteria(TimeStampedModel):
     def evidence_narrative(self, value):
         self._evidence_narrative = value
 
+    @cached_property
+    def criterions(self):
+        """Get union value of related set from all subclasses of AbstractCredentialCriterion."""
+        # using cached_property this is evaluated only once per instance (in memory)
+        concretes = [sc.__name__.lower() for sc in AbstractCredentialCriterion.__subclasses__()]
+        related_managers = [getattr(self, '{}_set'.format(cname)) for cname in concretes]
+        return tuple(itertools.chain(*[list(manager.all()) for manager in related_managers]))
+
     def __repr__(self):
         return "<CredentialCriteria: awards {credential_type} id {credential_id} active={is_active}>".format(
             credential_type=self.credential_type,
@@ -133,15 +144,15 @@ class CredentialCriteria(TimeStampedModel):
         #    as a UserCredentialAttribute
         # use a Celery task
         from tasks import award_credential_for_user
-        award_credential_for_user(
-            user=self.user,
+        award_credential_for_user.delay(
+            user=user,
             credential=self.credential_id,
             credential_type=self.credential_type,
             criteria_narrative=self.criteria_narrative,
             criteria_url=self.criteria_url,
             evidence_narrative=self.evidence_narrative,
             evidence_url=self.evidence_url
-        ).delay()
+        )
 
     # TODO: think about caching/ cache invalidation
     # would avoid needing to create a UserCredentialCriteria model, too
@@ -150,16 +161,16 @@ class CredentialCriteria(TimeStampedModel):
         """
         Return True only if all related CredentialCriterion are True for the given user
         """
-        if not self.is_active():  # never sastified if not active
+        # TODO: what happens when a CredentialCriteria becomes active after?
+        # probably shouldn't allow creation of a UserCredentialCriterion for inactive Criteria
+        if not self.is_active:  # never sastified if not active
             return False
 
-        # TODO: this needs to be generic
-        criterion_set = self.criterion_set.all()
-        if not criterion_set:
+        if not self.criterions:
             msg = "Cannot evalute credential criteria: no member criterion"
             raise exceptions.CredentialCriteriaException(msg, user)
 
-        return all([crit.is_satisfied_for_user(user) for crit in criterion_set])
+        return all(crit.is_satisfied_for_user(user) for crit in self.criterions)
 
     def generate_evidence_url(self):
         raise NotImplementedError
@@ -214,7 +225,7 @@ class AbstractCredentialCriterion(TimeStampedModel):
     """
     criterion_type = models.CharField(max_length=255, choices=_choices(constants.CREDENTIAL_CRITERION_TYPES))
     satisfaction_threshold = models.FloatField()
-    criteria = models.ForeignKey(CredentialCriteria)
+    criteria = models.ForeignKey(CredentialCriteria, related_query_name='%(class)ss')
 
     user_criterions = GenericRelation(
         UserCredentialCriterion,

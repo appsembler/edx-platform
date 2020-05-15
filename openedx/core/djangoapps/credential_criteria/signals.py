@@ -9,7 +9,7 @@ by the event represented in the Signal.
 
 import logging
 
-from django.dispatch import Signal
+from django.dispatch import Signal, receiver
 
 try:
     from completion_aggregator import models as agg_models, signals
@@ -49,7 +49,8 @@ def handle_aggregator_update(sender, **kwargs):
             **{"user": aggregator.user, "locator": aggregator.block_key})
 
 
-def handle_new_usercredentialcriterion(sender, **kwargs):
+@receiver(SATISFIED_USERCRITERION) 
+def handle_satisfied_usercredentialcriterion(sender, **kwargs):
     """
     Evaluate any full CredentialCriteria for satisfaction when saving a satisfied UserCredentialCriterion.
     """
