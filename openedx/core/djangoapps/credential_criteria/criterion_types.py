@@ -36,8 +36,7 @@ def get_model_for_criterion_type(criterion_type):
         constants.CREDENTIAL_CRITERION_TYPE_ENROLLMENT,
         constants.CREDENTIAL_CRITERION_TYPE_CREDENTIAL
     ):
-        # there may be some other cases to support later, like multiple locators,
-        # block type, etc.  
+        # there may be some other cases to support later, like block type, etc.
         model_name = 'CredentialLocatorCriterion'
     else:
         raise NotImplementedError

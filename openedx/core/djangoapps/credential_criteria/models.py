@@ -45,9 +45,13 @@ def validate_locator_field(key):
     Validate the usage_key is correct.
     """
     try:
-        model_key_class.from_string(key)
+        locator = model_key_class.from_string(key)
     except InvalidKeyError:
         raise ValidationError(_("Invalid {}".format(key.KEY_TYPE)))
+    else:
+        from . import settings
+        if locator.block_type not in settings.CREDENTIAL_CONFERRING_BLOCK_TYPES:  # this can't be Site aware
+            raise ValidationError(_("{} cannot be used as criteria for credentials".format(locator.block_type)))
 
 
 class CredentialCriteria(TimeStampedModel):
@@ -143,15 +147,15 @@ class CredentialCriteria(TimeStampedModel):
         #  - store a reference to the Criteria and its timestamp 
         #    as a UserCredentialAttribute
         # use a Celery task
-        from tasks import award_credential_for_user
-        award_credential_for_user.delay(
+        from .tasks import award_credential_for_user
+        award_credential_for_user.delay(**dict(
             user=user,
-            credential=self.credential_id,
+            credential_id=self.credential_id,
             credential_type=self.credential_type,
             criteria_narrative=self.criteria_narrative,
             criteria_url=self.criteria_url,
             evidence_narrative=self.evidence_narrative,
-            evidence_url=self.evidence_url
+            evidence_url=self.evidence_url)
         )
 
     # TODO: think about caching/ cache invalidation
@@ -174,26 +178,6 @@ class CredentialCriteria(TimeStampedModel):
 
     def generate_evidence_url(self):
         raise NotImplementedError
-
-
-# class BadgeCriteria(CredentialCriteria):
-#     """
-#     A collection of criteria sufficient to award a Badge.
-#     OpenBadges spec provides for evidence as a narrative or URL.
-#     For our purposes, URL should be specific to a user but the narrative could
-#     be derived from the Badge Class or specific to the criteria used to earn it.
-#     """
-#     evidence_narrative = models.TextField()
-
-#     def generate_evidence_url(self, user):
-#         """
-#         Calculate a URL to evidence for this criteria.
-#         """
-#         return "https://evidenceurl.foo"
-#         # TODO: raise NotImplementedError
-
-#     class Meta(object):
-#         verbose_name = "Badge Criteria"
 
 
 class UserCredentialCriterion(TimeStampedModel):

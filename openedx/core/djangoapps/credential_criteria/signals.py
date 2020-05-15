@@ -11,12 +11,7 @@ import logging
 
 from django.dispatch import Signal, receiver
 
-try:
-    from completion_aggregator import models as agg_models, signals
-except ImportError:
-    pass
-
-from . import constants, tasks, waffle
+from . import constants, tasks, util
 
 
 logger = logging.getLogger(__name__)
@@ -31,7 +26,7 @@ def handle_aggregator_update(sender, **kwargs):
     aggregators passed from AggregationUpdater.update() are not Aggregator model objects
     but a dictionary of aggregator blocks by block_key.
     """
-    if not waffle.WAFFLE_SWITCHES.is_enabled(waffle.ENABLE_CREDENTIAL_CRITERIA_APP):
+    if not util.feature_is_enabled():
         logger.debug(
             "Taking no action on Aggregator completion for {}. "
             "Credential Criteria feature not active".format(aggregator.block_key)
@@ -39,14 +34,13 @@ def handle_aggregator_update(sender, **kwargs):
         return
 
     # satisfy any pertinent CredentialCriterion
-    # TODO: how performant is this?
     for aggregator in kwargs['aggregators']:
-
-        logger.debug("Checking credential criteria after Aggregator completion for {}".format(
-            aggregator.block_key)
-        )
-        tasks.satisfy_credential_criterion.delay(constants.CREDENTIAL_CRITERION_TYPE_COMPLETION,
-            **{"user": aggregator.user, "locator": aggregator.block_key})
+        if util.block_can_confer_credentials(aggregator.block_key):
+            logger.debug("Checking credential criteria after Aggregator completion for {}".format(
+                aggregator.block_key)
+            )
+            tasks.satisfy_credential_criterion.delay(constants.CREDENTIAL_CRITERION_TYPE_COMPLETION,
+                **{"user": aggregator.user, "locator": aggregator.block_key})
 
 
 @receiver(SATISFIED_USERCRITERION) 

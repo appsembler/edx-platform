@@ -2,6 +2,8 @@
 Celery tasks for credential_criteria Django app.
 """
 
+import logging
+
 from celery import task
 
 from django.conf import settings
@@ -9,6 +11,8 @@ from django.conf import settings
 from . import criterion_types
 from .models import UserCredentialCriterion
 
+
+logger = logging.getLogger(__name__)
 
 
 @task(routing_key=settings.CREDENTIAL_CRITERIA_ROUTING_KEY, ignore_result=True)
@@ -22,7 +26,7 @@ def satisfy_credential_criterion(criterion_type, **kwargs):
     if not criterions:
         return
 
-    # find an existing user criterions satisfied for this type
+    # find any existing user criterions satisfied for this type
     user_satisfied = UserCredentialCriterion.objects.filter(
         user=user, criterion_content_type=criterion_model,
         satisfied=True).values_list('criterions', flat=True).distinct()
@@ -35,11 +39,16 @@ def satisfy_credential_criterion(criterion_type, **kwargs):
         except AttributeError:
             pass  # no user_satisfied
 
-        criterion.satisfy_for_user(user)  # doesn't necessarily mean it is satisfied
+        # see if the criterion is satisfied for this user
+        criterion.satisfy_for_user(user)
 
 
-@task(routing_key=settings.CREDENTIAL_CRITERIA_ROUTING_KEY)
-def award_credential_for_user(credential_id, **kwargs):
+@task(routing_key=settings.CREDENTIAL_CRITERIA_ROUTING_KEY, ignore_result=True)
+def award_credential_for_user(**kwargs):
     """
     Contact Credentials service to award the credential to the user.
     """
+    logger.info("Contacting Credentials service to award {} for {}".format(
+        kwargs['credential_id'], kwargs['user'])
+    )
+    # eventually we should notify the user based on the task result
