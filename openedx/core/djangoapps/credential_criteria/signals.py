@@ -29,13 +29,12 @@ def handle_aggregator_update(sender, **kwargs):
     """
     Check completion credential criteria when completion Aggregators are updated.
     aggregators passed from AggregationUpdater.update() are not Aggregator model objects
-    but a dictionary of aggregator blocks by block_id.
+    but a dictionary of aggregator blocks by block_key.
     """
-    import pdb; pdb.set_trace()
     if not waffle.WAFFLE_SWITCHES.is_enabled(waffle.ENABLE_CREDENTIAL_CRITERIA_APP):
         logger.debug(
             "Taking no action on Aggregator completion for {}. "
-            "Credential Criteria feature not active".format(aggregator.block_id)
+            "Credential Criteria feature not active".format(aggregator.block_key)
         )
         return
 
@@ -44,12 +43,10 @@ def handle_aggregator_update(sender, **kwargs):
     for aggregator in kwargs['aggregators']:
 
         logger.debug("Checking credential criteria after Aggregator completion for {}".format(
-            aggregator.block_id)
+            aggregator.block_key)
         )
-        tasks.satisfy_credential_criterion(
-            constants.CREDENTIAL_CRITERION_TYPE_COMPLETION,
-            **{"user": aggregator.user, "block_id": aggregator.block_id}
-        ).delay()
+        tasks.satisfy_credential_criterion.delay(constants.CREDENTIAL_CRITERION_TYPE_COMPLETION,
+            **{"user": aggregator.user, "locator": aggregator.block_key})
 
 
 def handle_new_usercredentialcriterion(sender, **kwargs):

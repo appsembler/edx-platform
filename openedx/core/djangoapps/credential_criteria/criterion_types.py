@@ -6,6 +6,7 @@ based on criterion_type; e.g., completion, score, etc..
 from abc import ABCMeta, abstractmethod
 
 from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ImproperlyConfigured
 
 from completion.models import BlockCompletion
@@ -35,7 +36,8 @@ def get_model_for_criterion_type(criterion_type):
         constants.CREDENTIAL_CRITERION_TYPE_ENROLLMENT,
         constants.CREDENTIAL_CRITERION_TYPE_CREDENTIAL
     ):
-        # there may be some other cases to support later, like multiple usage keys, etc.
+        # there may be some other cases to support later, like multiple locators,
+        # block type, etc.  
         model_name = 'CredentialLocatorCriterion'
     else:
         raise NotImplementedError
@@ -63,10 +65,12 @@ class CompletionCriterionType(AbstractCriterionType):
     Calculate satisfaction of a criterion based on a completion threshold.
     """
 
-    def _can_use_aggregator(block_type):
+    @classmethod
+    def _can_use_aggregator(cls, block_type):
         """
         Raise an exception if Completion Aggregaton cannot be used for an aggregator type
         """
+        err_msg = None
         if not completion_aggregator_installed:
             err_msg = "completion_aggregator must be installed to compute completion criterion for {}"
         try:
@@ -97,17 +101,19 @@ class CompletionCriterionType(AbstractCriterionType):
             # Do not count blocks that aren't registered
             mode = XBlockCompletionMode.EXCLUDED
 
-        if mode not in (XBlockCompletionMode.COMPETABLE, XBlockCompletionMode.AGGREGATOR):
+        if mode not in (XBlockCompletionMode.COMPLETABLE, XBlockCompletionMode.AGGREGATOR):
             raise ValueError("{} is not a completable block".format(crit.locator))
 
         if mode == XBlockCompletionMode.AGGREGATOR:
             try:
-                self._can_use_aggregator(block_type)
+                CompletionCriterionType._can_use_aggregator(block_type)
             except ImproperlyConfigured as e:
                 raise exceptions.CredentialCriteriaException(e.msg, user)
             completion_model = Aggregator
+            cmp_field = 'percent'
         else:
             completion_model = BlockCompletion
+            cmp_field = 'completion'
 
         try:
             cmp_obj = completion_model.objects.get(user=user, block_key=crit.locator)

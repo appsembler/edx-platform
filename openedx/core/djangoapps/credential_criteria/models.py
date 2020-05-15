@@ -228,10 +228,10 @@ class AbstractCredentialCriterion(TimeStampedModel):
 
     @property
     def criterion_type_class(self):
-        return getattr(criterion_types, self.criterion_type + 'CriterionType')
+        return getattr(criterion_types, self.criterion_type.title() + 'CriterionType')
 
     def is_satisfied_for_user(self, user):
-        return self.user_criterions.filter(user=user, satisfied=True)
+        return self.user_criterions.filter(user=user, satisfied=True).exists()
 
     def satisfy_for_user(self, user):
         try:
@@ -239,10 +239,11 @@ class AbstractCredentialCriterion(TimeStampedModel):
         except Exception as e:
             raise exceptions.CredentialCriteriaException(e.msg, user)
         else:
-            ucc, created = self.user_criterions.objects.update_or_create(
+            criterion_content_type=ContentType.objects.get_for_model(self)
+            ucc, created = self.user_criterions.update_or_create(
                 user=user,
                 satisfied=satisfied,
-                criterion=self,
+                criterion_content_type=criterion_content_type,
                 criterion_id=self.id
             )
             if created and satisfied:

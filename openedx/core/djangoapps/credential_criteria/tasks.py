@@ -14,22 +14,28 @@ from .models import UserCredentialCriterion
 @task(routing_key=settings.CREDENTIAL_CRITERIA_ROUTING_KEY, ignore_result=True)
 def satisfy_credential_criterion(criterion_type, **kwargs):
     # satisfy any pertinent CredentialCriterion
-    criterion_model = criterion.get_model_for_criterion_type(criterion_type)
-    criterions = criterion_model.objects.filter(
+    user = kwargs['user']
+    del kwargs['user']
+    criterion_model = criterion_types.get_model_for_criterion_type(criterion_type)
+    criterions = criterion_model.model_class().objects.filter(
         criterion_type=criterion_type, **kwargs)
+    if not criterions:
+        return
 
-    user_satisfied = models.UserCredentialCriterion.objects.filter(
-        user=kwargs['user'], criterion__in=criterions,
-        satisfied=True).values('criterion')
+    # find an existing user criterions satisfied for this type
+    user_satisfied = UserCredentialCriterion.objects.filter(
+        user=user, criterion_content_type=criterion_model,
+        satisfied=True).values_list('criterions', flat=True).distinct()
 
     for criterion in criterions:
-        if criterion in user_satisfied:
-            # any already satisfied don't need to be rechecked
-            continue
+        try:
+            if criterion.id in user_satisfied:
+                # any already satisfied don't need to be rechecked
+                continue
+        except AttributeError:
+            pass  # no user_satisfied
 
-        UserCredentialCriterion.objects.update(
-            satisfied=criterion.is_satisfied_for_user(**kwargs),
-            user=kwargs['user'], criterion=criterion)
+        criterion.satisfy_for_user(user)  # doesn't necessarily mean it is satisfied
 
 
 @task(routing_key=settings.CREDENTIAL_CRITERIA_ROUTING_KEY)
