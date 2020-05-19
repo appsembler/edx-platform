@@ -27,12 +27,6 @@ class CredentialCriteriaConfig(AppConfig):
         PluginSignals.CONFIG: {
             ProjectType.LMS: {
                 PluginSignals.RECEIVERS: [
-                    # just handling completion-based for now
-                    {
-                        PluginSignals.RECEIVER_FUNC_NAME: u'handle_aggregator_update',
-                        PluginSignals.SIGNAL_PATH: u'completion_aggregator.signals.AGGREGATORS_UPDATED',
-                        PluginSignals.SENDER_PATH: u'completion_aggregator.core.AggregationUpdater',
-                    },
                     {
                         PluginSignals.RECEIVER_FUNC_NAME: u'handle_satisfied_usercredentialcriterion',
                         PluginSignals.SIGNAL_PATH: u'openedx.core.djangoapps.credential_criteria.signals.SATISFIED_USERCRITERION',
@@ -57,3 +51,5 @@ class CredentialCriteriaConfig(AppConfig):
     def ready(self):
         # Register celery workers
         from . import tasks  # pylint: disable=unused-variable
+        from . import signals
+        signals.register_conditional_handlers()

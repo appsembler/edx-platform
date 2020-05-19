@@ -43,10 +43,21 @@ def handle_aggregator_update(sender, **kwargs):
                 **{"user": aggregator.user, "locator": aggregator.block_key})
 
 
-@receiver(SATISFIED_USERCRITERION) 
+@receiver(SATISFIED_USERCRITERION)
 def handle_satisfied_usercredentialcriterion(sender, **kwargs):
     """
     Evaluate any full CredentialCriteria for satisfaction when saving a satisfied UserCredentialCriterion.
     """
     criteria = kwargs['criterion'].criteria
     criteria.evaluate_for_user(kwargs['user'])
+
+
+def register_conditional_handlers():
+    """
+    Register signal handlers for conditionally-available signals.
+    """
+    try:
+        from completion_aggregator.signals import AGGREGATORS_UPDATED
+        AGGREGATORS_UPDATED.connect(handle_aggregator_update)
+    except ImportError:
+        logger.debug("Can't register handle_aggregator_update.  Signal not available.")
