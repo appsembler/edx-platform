@@ -37,7 +37,7 @@ def _choices(*values):
     """
     Helper for use with model field 'choices'.
     """
-    return [(value,) * 2 for value in values]
+    return [[value, value] for value in values]
 
 
 def validate_locator_field(key):
