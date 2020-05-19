@@ -19,13 +19,10 @@ from opaque_keys import InvalidKeyError
 try:
     from opaque_keys.edx.keys import LearningContextKey
     from opaque_keys.edx.django.models import LearningContextKeyField
-    model_keyfield_type = LearningContextKeyField
-    model_key_class = LearningContextKey
 except ImportError:
-    from opaque_keys.edx.keys import UsageKey
-    from opaque_keys.edx.django.models import UsageKeyField
-    model_keyfield_type = UsageKeyField
-    model_key_class = UsageKey
+    # compatibility with opaque_keys >= 2.0, blockstore compat.
+    from opaque_keys.edx.keys import UsageKey as LearningContextKey
+    from opaque_keys.edx.django.models import UsageKeyField as LearningContextKeyField
 
 from . import constants, criterion_types, exceptions
 
@@ -45,7 +42,7 @@ def validate_locator_field(key):
     Validate the usage_key is correct.
     """
     try:
-        locator = model_key_class.from_string(key)
+        locator = LearningContextKey.from_string(key)
     except InvalidKeyError:
         raise ValidationError(_("Invalid {}".format(key.KEY_TYPE)))
     else:
@@ -257,10 +254,10 @@ class CredentialLocatorCriterion(AbstractCredentialCriterion):
     A criterion in the context of a single opaque_keys.edx.keys key type
     depending on version of opaque_keys will be OpaqueKey or LearningContextKey
     """
-    locator = model_keyfield_type(max_length=255, validators=[validate_locator_field, ])
+    locator = LearningContextKeyField(max_length=255, validators=[validate_locator_field, ])
 
     class Meta(object):
-        verbose_name = '{} Credential Criterion'.format(model_key_class.__name__)
+        verbose_name = 'Locator Credential Criterion'
 
     def __repr__(self):
         return "<CredentialLocatorCriterion: satisfied by {criterion_type} {satisfaction_threshold} for {locator}>".format(
