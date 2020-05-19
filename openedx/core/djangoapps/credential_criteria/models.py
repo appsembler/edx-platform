@@ -254,7 +254,7 @@ class CredentialLocatorCriterion(AbstractCredentialCriterion):
     A criterion in the context of a single opaque_keys.edx.keys key type
     depending on version of opaque_keys will be OpaqueKey or LearningContextKey
     """
-    locator = LearningContextKeyField(max_length=255, validators=[validate_locator_field, ])
+    locator = LearningContextKeyField(max_length=255, validators=[validate_locator_field])
 
     class Meta(object):
         verbose_name = 'Locator Credential Criterion'
