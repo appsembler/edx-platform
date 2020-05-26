@@ -779,6 +779,9 @@ EVENT_TRACKING_BACKENDS = {
                     }
                 },
                 {
+                    'ENGINE': 'openedx.core.djangoapps.appsembler.eventtracking.segment.SegmentTopLevelPropertiesProcessor'
+                },
+                {
                     'ENGINE': 'track.shim.GoogleAnalyticsProcessor'
                 }
             ]
@@ -3104,7 +3107,7 @@ MODULESTORE_FIELD_OVERRIDE_PROVIDERS = ()
 # occurring when a user uploads a new profile image to replace an
 # earlier one (the file will temporarily be deleted).
 PROFILE_IMAGE_BACKEND = {
-    'class': 'storages.backends.overwrite.OverwriteStorage',
+    'class': 'django.core.files.storage.FileSystemStorage',
     'options': {
         'location': os.path.join(MEDIA_ROOT, 'profile-images/'),
         'base_url': os.path.join(MEDIA_URL, 'profile-images/'),
