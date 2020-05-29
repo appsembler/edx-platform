@@ -4,7 +4,7 @@
     "dependencies": {
         "annotator": "1.2.6",
         "backbone-relational": "0.9.0",
-        "codemirror": "3.21.0",
+        "codemirror": "5.54.0",
         "date": "1.0",
         "domready": "2.0.1",
         "draggabilly": "1.2.4",
