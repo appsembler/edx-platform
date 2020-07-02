@@ -17,12 +17,15 @@ from django.forms import widgets
 from django.utils.http import int_to_base36
 from django.utils.translation import ugettext_lazy as _
 
+from organizations.models import UserOrganizationMapping
+
 from edx_ace import ace
 from edx_ace.recipient import Recipient
+from openedx.core.djangoapps.appsembler.sites.utils import is_request_for_new_amc_site
 from openedx.core.djangoapps.ace_common.template_context import get_base_template_context
 from openedx.core.djangoapps.lang_pref import LANGUAGE_KEY
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
-from openedx.core.djangoapps.theming.helpers import get_current_site
+from openedx.core.djangoapps.theming.helpers import get_current_request, get_current_site
 from openedx.core.djangoapps.user_api import accounts as accounts_settings
 from openedx.core.djangoapps.user_api.preferences.api import get_user_preference
 from student.message_types import PasswordReset
@@ -46,7 +49,18 @@ class PasswordResetFormNoActive(PasswordResetForm):
         """
         email = self.cleaned_data["email"]
         #The line below contains the only change, removing is_active=True
-        self.users_cache = User.objects.filter(email__iexact=email)
+        if settings.FEATURES.get('APPSEMBLER_MULTI_TENANT_EMAILS', False):
+            from openedx.core.djangoapps.appsembler.sites.utils import get_current_organization
+            current_org = get_current_organization()
+            found_mappings = UserOrganizationMapping.objects.filter(
+                user__email__iexact=email,
+                organization=current_org,
+                is_active=True,
+            )
+            self.users_cache = [mapping.user for mapping in found_mappings]
+        else:
+            self.users_cache = User.objects.filter(email__iexact=email)
+
         if not len(self.users_cache):
             raise forms.ValidationError(self.error_messages['unknown'])
         if any((user.password.startswith(UNUSABLE_PASSWORD_PREFIX))
@@ -299,7 +313,8 @@ class AccountCreationForm(forms.Form):
                 # reject the registration.
                 if not CourseEnrollmentAllowed.objects.filter(email=email).exists():
                     raise ValidationError(_("Unauthorized email address."))
-        if email_exists_or_retired(email):
+
+        if email_exists_or_retired(email, check_for_new_site=is_request_for_new_amc_site(get_current_request())):
             raise ValidationError(
                 _(
                     "It looks like {email} belongs to an existing account. Try again with a different email address."

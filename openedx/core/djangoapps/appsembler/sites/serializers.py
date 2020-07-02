@@ -1,12 +1,13 @@
 from django.conf import settings
 from django.contrib.sites.models import Site
+from django.db import transaction
 from rest_framework import serializers
 from organizations import api as organizations_api
 from organizations.models import Organization
 
+from student.forms import validate_username
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 from openedx.core.djangoapps.appsembler.sites.tasks import (
-    import_course_on_site_creation,
     import_course_on_site_creation_apply_async,
 )
 from openedx.core.djangoapps.appsembler.sites.models import AlternativeDomain
@@ -92,7 +93,8 @@ class OrganizationSerializer(serializers.ModelSerializer):
 class RegistrationSerializer(serializers.Serializer):
     site = SiteSerializer()
     organization = OrganizationSerializer()
-    user_email = serializers.EmailField(required=False)
+    username = serializers.CharField(required=False, validators=[validate_username])
+    user_email = serializers.EmailField(required=False)  # TODO: Remove after all MTE work is done.
     password = serializers.CharField(required=False)
     initial_values = serializers.DictField(required=False)
 
@@ -100,8 +102,8 @@ class RegistrationSerializer(serializers.Serializer):
         site_data = validated_data.pop('site')
         site = Site.objects.create(**site_data)
         organization_data = validated_data.pop('organization')
-        user_email = validated_data.pop('user_email', None)
-        organization, site, user = bootstrap_site(site, organization_data, user_email)
+        username = validated_data.pop('username', None)
+        organization, site, user = bootstrap_site(site, organization_data, username)
         site_configuration = site.configuration
         initial_values = validated_data.get('initial_values', {})
         if initial_values:
@@ -138,11 +140,16 @@ class RegistrationSerializer(serializers.Serializer):
 
         # clone course
         if settings.FEATURES.get("APPSEMBLER_IMPORT_DEFAULT_COURSE_ON_SITE_CREATION", False):
-            import_course_on_site_creation_apply_async(organization)
+            def import_task_on_commit():
+                """
+                Run the import task after the commit to avoid Organization.DoesNotExist error on the Celery.
+                """
+                import_course_on_site_creation_apply_async(organization)
+            transaction.on_commit(import_task_on_commit)
+
         return {
             'site': site,
             'organization': organization,
-            'user_email': user_email,
             'password': 'hashed',
             'initial_values': initial_values,
         }

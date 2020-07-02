@@ -7,6 +7,7 @@ Passes settings.MODULESTORE as kwargs to MongoModuleStore
 from __future__ import absolute_import
 
 from importlib import import_module
+import beeline
 import gettext
 import logging
 from pkg_resources import resource_filename
@@ -223,6 +224,7 @@ def load_function(path):
     return function
 
 
+@beeline.traced(name="create_modulestore_instance")
 def create_modulestore_instance(
         engine,
         content_store,
@@ -253,8 +255,10 @@ def create_modulestore_instance(
 
     try:
         metadata_inheritance_cache = caches['mongo_metadata_inheritance']
+        beeline.add_context_field("metadata_inheritance_cache_hit", True)
     except InvalidCacheBackendError:
         metadata_inheritance_cache = caches['default']
+        beeline.add_context_field("metadata_inheritance_cache_hit", False)
 
     if issubclass(class_, MixedModuleStore):
         _options['create_modulestore_instance'] = create_modulestore_instance

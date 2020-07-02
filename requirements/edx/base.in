@@ -33,7 +33,7 @@ botocore==1.8.17                    # via boto3, s3transfer
 celery==3.1.25                      # Asynchronous task execution library
 ddt==0.8.0                          # via xblock-drag-and-drop-v2 (which probably shouldn't require it)
 defusedxml==0.4.1                   # XML bomb protection for common XML parsers
-Django==1.11.23                     # Web application framework
+Django==1.11.29                     # Web application framework
 django-babel-underscore             # underscore template extractor for django-babel (internationalization utilities)
 django-config-models==0.1.8         # Configuration models for Django allowing config management with auditing
 django-cors-headers==2.1.0          # Used to allow to configure CORS headers for cross-domain requests
@@ -76,7 +76,7 @@ edx-django-sites-extensions==2.3.1
 edx-enterprise
 edx-milestones
 edx-oauth2-provider
-git+https://github.com/appsembler/edx-organizations.git@0.4.12-appsembler4  # edx-organizations
+git+https://github.com/appsembler/edx-organizations.git@0.4.12-appsembler5  # edx-organizations
 edx-proctoring
 edx-rest-api-client
 edx-search
@@ -91,7 +91,7 @@ fs==2.0.18
 fs-s3fs==0.1.8
 futures ; python_version == "2.7"   # via django-pipeline, python-swift-client, s3transfer
 glob2==0.3                          # Enhanced glob module, used in openedx.core.lib.rooted_paths
-gunicorn==0.17.4
+gunicorn==17.5
 help-tokens
 html5lib==0.999                     # HTML parser, used for capa problems
 ipaddr==2.1.11                      # Ip network support for Embargo feature

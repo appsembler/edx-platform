@@ -49,8 +49,11 @@ from pytz import UTC
 from six import text_type
 from slumber.exceptions import HttpClientError, HttpServerError
 from user_util import user_util
-from organizations.models import Organization, UserOrganizationMapping
-from openedx.core.djangoapps.theming.helpers import get_current_site
+from organizations.models import UserOrganizationMapping, OrganizationCourse
+from openedx.core.djangoapps.theming.helpers import (
+    get_current_request,
+    get_current_site,
+)
 
 import lms.lib.comment_client as cc
 from student.signals import UNENROLL_DONE, ENROLL_STATUS_CHANGE, ENROLLMENT_TRACK_UPDATED
@@ -64,6 +67,10 @@ from courseware.models import (
 )
 from enrollment.api import _default_course_mode
 
+from openedx.core.djangoapps.appsembler.sites.utils import (
+    is_request_for_new_amc_site,
+    get_current_organization,
+)
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.request_cache import clear_cache, get_cache
 from openedx.core.djangoapps.signals.signals import USER_ACCOUNT_ACTIVATED
@@ -250,21 +257,23 @@ def is_email_retired(email):
     return User.objects.filter(email__in=list(locally_hashed_emails)).exists()
 
 
-def email_exists_or_retired(email):
+def email_exists_or_retired(email, check_for_new_site=False):
     """
     Check an email against the User model for existence.
     """
     if settings.FEATURES.get('APPSEMBLER_MULTI_TENANT_EMAILS', False):
-        # TODO: Refactor into `get_current_organization` helper.
-        current_site = get_current_site()
-        if current_site.id == settings.SITE_ID:
-            raise NotImplementedError('email_exists_or_retired expecting multi-tenant site')
-        # Using `get` is expected to fail when multiple-orgs found for a site
-        # TODO: Handle both MultipleObjectsReturned and DoesNotExist in a better way
-        current_org = current_site.organizations.get()
-        return current_org.userorganizationmapping_set.filter(user__email=email).exists() or is_email_retired(email)
+        if check_for_new_site:
+            exists = User.objects.filter(
+                email=email,
+                userorganizationmapping__isnull=True,  # Allow learners to signup for trial site, but ensure the trial
+                                                       # workflow is completed.
+            ).exists()
+        else:
+            current_org = get_current_organization()
+            exists = current_org.userorganizationmapping_set.filter(user__email=email).exists()
     else:
-        return User.objects.filter(email=email).exists() or is_email_retired(email)
+        exists = User.objects.filter(email=email).exists()
+    return exists or is_email_retired(email)
 
 
 def get_retired_username_by_username(username):
@@ -2276,7 +2285,17 @@ class CourseEnrollmentAllowed(DeletableByUserValue, models.Model):
         This includes the ones that match the user's e-mail and excludes those CEA which were already consumed
         by a different user.
         """
-        return cls.objects.filter(email=user.email).filter(Q(user__isnull=True) | Q(user=user))
+        queryset = cls.objects.filter(email=user.email).filter(Q(user__isnull=True) | Q(user=user))
+
+        if settings.FEATURES.get('APPSEMBLER_MULTI_TENANT_EMAILS', False):
+            if not is_request_for_new_amc_site(get_current_request()):
+                current_organization = get_current_organization()
+                return queryset.filter(course_id__in=OrganizationCourse.objects.filter(
+                    organization=current_organization,
+                    active=True,
+                ).values('course_id'))
+
+        return queryset
 
     def valid_for_user(self, user):
         """
