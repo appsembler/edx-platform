@@ -12,6 +12,7 @@ structure:
 }
 """
 
+import beeline
 import copy
 from datetime import datetime
 from importlib import import_module
@@ -758,6 +759,7 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
 
         return metadata_to_inherit
 
+    @beeline.traced(name="xmodule.mongo.base._get_cached_metadata_inheritance_tree")
     def _get_cached_metadata_inheritance_tree(self, course_id, force_refresh=False):
         '''
         Compute the metadata inheritance for the course.
@@ -766,9 +768,12 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
 
         course_id = self.fill_in_run(course_id)
         if not force_refresh:
+            beeline.add_context_field("force_refresh", False)
             # see if we are first in the request cache (if present)
             if self.request_cache is not None and unicode(course_id) in self.request_cache.data.get('metadata_inheritance', {}):
+                beeline.add_context_field("metadata_inheritance_cache_hit", True)
                 return self.request_cache.data['metadata_inheritance'][unicode(course_id)]
+            beeline.add_context_field("metadata_inheritance_cache_hit", False)
 
             # then look in any caching subsystem (e.g. memcached)
             if self.metadata_inheritance_cache_subsystem is not None:
@@ -834,6 +839,7 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
         }
         return list(self.collection.find(query))
 
+    @beeline.traced(name="xmodule.mongo.base._cache_children")
     def _cache_children(self, course_key, items, depth=0):
         """
         Returns a dictionary mapping Location -> item data, populated with json data
@@ -843,6 +849,8 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
         This will make a number of queries that is linear in the depth.
         """
 
+        beeline.add_context_field("course_key", course_key)
+        beeline.add_context_field("depth", depth)
         data = {}
         to_process = list(items)
         course_key = self.fill_in_run(course_key)
@@ -875,6 +883,7 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
 
         return data
 
+    @beeline.traced(name="xmodule.mongo.base._load_item")
     @contract(
         course_key=CourseKey,
         item=dict,
@@ -907,9 +916,11 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
 
         cached_metadata = {}
         if apply_cached_metadata:
+            beeline.add_context_field("apply_cached_metadata", True)
             cached_metadata = self._get_cached_metadata_inheritance_tree(course_key)
 
         if using_descriptor_system is None:
+            beeline.add_context_field("using_descriptor_system", False)
             services = {}
             if self.i18n_service:
                 services["i18n"] = self.i18n_service
@@ -941,6 +952,7 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
                 services=services,
             )
         else:
+            beeline.add_context_field("using_descriptor_system", True)
             system = using_descriptor_system
             system.module_data.update(data_cache)
             system.cached_metadata.update(cached_metadata)
@@ -954,11 +966,14 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
         item.course_version = None
         return item
 
+    @beeline.traced(name="xmodule.mongo.base._load_items")
     def _load_items(self, course_key, items, depth=0, using_descriptor_system=None, for_parent=None):
         """
         Load a list of xmodules from the data in items, with children cached up
         to specified depth
         """
+        beeline.add_context_field("course_key", course_key)
+        beeline.add_context_field("depth", depth)
         course_key = self.fill_in_run(course_key)
         data_cache = self._cache_children(course_key, items, depth)
 
@@ -1035,6 +1050,7 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
 
         return courses_summaries
 
+    @beeline.traced(name="xmodule.mongo.base.get_courses")
     @autoretry_read()
     def get_courses(self, **kwargs):
         '''
@@ -1043,6 +1059,7 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
         '''
 
         course_org_filter = kwargs.get('org')
+        beeline.add_context_field("course_org_filter", course_org_filter)
 
         if course_org_filter:
             course_records = self.collection.find({'_id.category': 'course', '_id.org': course_org_filter})
@@ -1099,11 +1116,14 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
         """
         return BlockUsageLocator(course_key, 'course', course_key.run)
 
+    @beeline.traced(name="xmodule.mongo.base.get_course")
     def get_course(self, course_key, depth=0, **kwargs):
         """
         Get the course with the given courseid (org/course/run)
         """
         assert isinstance(course_key, CourseKey)
+        beeline.add_context_field("course_key", course_key)
+        beeline.add_context_field("depth", depth)
 
         if not course_key.deprecated:  # split course_key
             # The supplied CourseKey is of the wrong type, so it can't possibly be stored in this modulestore.
