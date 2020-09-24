@@ -155,7 +155,6 @@ class TestInstructorDashboard(ModuleStoreTestCase, LoginEnrollmentTestCase, XssT
             content('#field-course-organization b').contents()[0].strip()
         )
 
-    @override_settings(DEFAULT_SITE_THEME='edx-theme-codebase')
     @unittest.expectedFailure  # Appsembler: Unable to fix the test -- Omar
     def test_membership_site_configuration_role(self):
         """
@@ -177,6 +176,34 @@ class TestInstructorDashboard(ModuleStoreTestCase, LoginEnrollmentTestCase, XssT
                 'course_id': unicode(self.course_info.id)
             }
         )
+
+        response = self.client.get(url)
+        self.assertIn('<option value="role1">role1</option>', response.content)
+        self.assertIn('<option value="role2">role2</option>', response.content)
+
+    @patch.dict('django.conf.settings.FEATURES', {'INDIVIDUAL_DUE_DATES': True})
+    def test_membership_site_configuration_role(self):
+        """
+        Verify that the role choices set via site configuration are loaded in the membership tab
+        of the instructor dashboard
+        """
+        url = reverse(
+            'instructor_dashboard',
+            kwargs={
+                'course_id': unicode(self.course_info.id)
+            }
+        )
+        response = self.client.get(url)
+
+        configuration_values = {
+            "MANUAL_ENROLLMENT_ROLE_CHOICES": [
+                "role1",
+                "role2",
+            ]
+        }
+        site = Site.objects.first()
+        SiteConfiguration.objects.create(site=site, values=configuration_values, enabled=True)
+
 
         response = self.client.get(url)
         self.assertIn('<option value="role1">role1</option>', response.content)
