@@ -14,6 +14,7 @@ from django.dispatch import Signal
 from django.utils.http import cookie_date
 
 from openedx.core.djangoapps.user_api.accounts.utils import retrieve_last_sitewide_block_completed
+from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from student.models import CourseEnrollment
 
 CREATE_LOGON_COOKIE = Signal(providing_args=['user', 'response'])
@@ -30,10 +31,12 @@ def standard_cookie_settings(request):
         expires_time = time.time() + max_age
         expires = cookie_date(expires_time)
 
+    domain = configuration_helpers.get_value('SESSION_COOKIE_DOMAIN') or settings.SESSION_COOKIE_DOMAIN
+
     cookie_settings = {
         'max_age': max_age,
         'expires': expires,
-        'domain': settings.SESSION_COOKIE_DOMAIN,
+        'domain': domain,
         'path': '/',
         'httponly': None,
     }

@@ -57,3 +57,6 @@ class CookieTests(SharedModuleStoreTestCase):
         }
 
         self.assertDictEqual(actual, expected)
+
+    @skipIf(settings.ROOT_URLCONF == 'lms.urls', '')
+    def test_multi_site_cookie_domain(self):
