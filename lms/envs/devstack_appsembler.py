@@ -125,11 +125,14 @@ FEATURES['ENABLE_COURSE_DISCOVERY'] = ENV_TOKENS['FEATURES'].get('ENABLE_COURSE_
 
 # Enable Figures if it is included
 if 'figures' in INSTALLED_APPS:
-    import figures
-    figures.update_settings(
-        WEBPACK_LOADER,
-        CELERYBEAT_SCHEDULE,
-        ENV_TOKENS.get('FIGURES', {}))
+    from figures.settings.lms_production import (
+        update_webpack_loader,
+        update_celerybeat_schedule
+    )
+    update_webpack_loader(WEBPACK_LOADER,
+                          ENV_TOKENS.get('FIGURES', {}))
+    update_celerybeat_schedule(CELERYBEAT_SCHEDULE,
+                               ENV_TOKENS.get('FIGURES', {}))
 
 # use configured course mode defaults as for aws, not standard devstack's
 COURSE_MODE_DEFAULTS.update(ENV_TOKENS.get('COURSE_MODE_DEFAULTS', COURSE_MODE_DEFAULTS))

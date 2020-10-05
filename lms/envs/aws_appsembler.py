@@ -132,8 +132,11 @@ except ImportError:
 
 # Enable Figures if it is included
 if 'figures' in INSTALLED_APPS:
-    import figures
-    figures.update_settings(
-        WEBPACK_LOADER,
-        CELERYBEAT_SCHEDULE,
-        ENV_TOKENS.get('FIGURES', {}))
+    from figures.settings.lms_production import (
+        update_webpack_loader,
+        update_celerybeat_schedule
+    )
+    update_webpack_loader(WEBPACK_LOADER,
+                          ENV_TOKENS.get('FIGURES', {}))
+    update_celerybeat_schedule(CELERYBEAT_SCHEDULE,
+                               ENV_TOKENS.get('FIGURES', {}))
