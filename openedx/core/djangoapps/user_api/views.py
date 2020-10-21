@@ -9,9 +9,6 @@ from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import csrf_exempt, csrf_protect, ensure_csrf_cookie
 from django.views.decorators.debug import sensitive_post_parameters
 from django_filters.rest_framework import DjangoFilterBackend
-from opaque_keys import InvalidKeyError
-from opaque_keys.edx import locator
-from opaque_keys.edx.keys import CourseKey
 from rest_framework import authentication, generics, status, viewsets
 from rest_framework.exceptions import ParseError
 from rest_framework.views import APIView
@@ -20,12 +17,19 @@ from six import text_type
 
 import accounts
 from django_comment_common.models import Role
+
 from openedx.core.djangoapps.appsembler.sites.utils import (
     is_request_for_new_amc_site,
     is_request_for_amc_admin,
     get_current_organization,
 )
 from organizations.models import UserOrganizationMapping
+
+from edx_rest_framework_extensions.auth.session.authentication import SessionAuthenticationAllowInactiveUser
+from opaque_keys import InvalidKeyError
+from opaque_keys.edx import locator
+from opaque_keys.edx.keys import CourseKey
+
 from openedx.core.djangoapps.user_api.accounts.api import check_account_exists
 from openedx.core.djangoapps.user_api.api import (
     RegistrationFormFactory,
@@ -36,10 +40,10 @@ from openedx.core.djangoapps.user_api.helpers import require_post_params, shim_s
 from openedx.core.djangoapps.user_api.models import UserPreference
 from openedx.core.djangoapps.user_api.preferences.api import get_country_time_zones, update_email_opt_in
 from openedx.core.djangoapps.user_api.serializers import CountryTimeZoneSerializer, UserPreferenceSerializer, UserSerializer
-from openedx.core.lib.api.authentication import SessionAuthenticationAllowInactiveUser
+from openedx.core.djangoapps.user_authn.cookies import set_logged_in_cookies
+from openedx.core.djangoapps.user_authn.views.register import create_account_with_params
 from openedx.core.lib.api.permissions import ApiKeyHeaderPermission
-from student.cookies import set_logged_in_cookies
-from student.views import AccountValidationError, create_account_with_params
+from student.helpers import AccountValidationError
 from util.json_request import JsonResponse
 
 
@@ -88,7 +92,7 @@ class LoginSessionView(APIView):
         """
         # For the initial implementation, shim the existing login view
         # from the student Django app.
-        from student.views import login_user
+        from openedx.core.djangoapps.user_authn.views.login import login_user
         return shim_student_view(login_user, check_logged_in=True)(request)
 
     @method_decorator(sensitive_post_parameters("password"))

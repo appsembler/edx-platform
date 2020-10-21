@@ -5,6 +5,9 @@ from django.contrib import admin
 from django.contrib.admin.sites import NotRegistered
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.forms import ReadOnlyPasswordHashField, UserChangeForm as BaseUserChangeForm
+from django.db import models
+from django.http.request import QueryDict
 from django.utils.translation import ugettext_lazy as _
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
@@ -13,6 +16,7 @@ from openedx.core.djangoapps.waffle_utils import WaffleSwitch
 from openedx.core.lib.courses import clean_course_id
 from student import STUDENT_WAFFLE_NAMESPACE
 from student.models import (
+    AccountRecovery,
     CourseAccessRole,
     CourseEnrollment,
     CourseEnrollmentAllowed,
@@ -147,13 +151,26 @@ class LinkedInAddToProfileConfigurationAdmin(admin.ModelAdmin):
 class CourseEnrollmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
+        # If args is a QueryDict, then the ModelForm addition request came in as a POST with a course ID string.
+        # Change the course ID string to a CourseLocator object by copying the QueryDict to make it mutable.
+        if args and 'course' in args[0] and isinstance(args[0], QueryDict):
+            args_copy = args[0].copy()
+            try:
+                args_copy['course'] = CourseKey.from_string(args_copy['course'])
+            except InvalidKeyError:
+                raise forms.ValidationError("Cannot make a valid CourseKey from id {}!".format(args_copy['course']))
+            args = [args_copy]
+
         super(CourseEnrollmentForm, self).__init__(*args, **kwargs)
 
         if self.data.get('course'):
             try:
                 self.data['course'] = CourseKey.from_string(self.data['course'])
-            except InvalidKeyError:
-                raise forms.ValidationError("Cannot make a valid CourseKey from id {}!".format(self.data['course']))
+            except AttributeError:
+                # Change the course ID string to a CourseLocator.
+                # On a POST request, self.data is a QueryDict and is immutable - so this code will fail.
+                # However, the args copy above before the super() call handles this case.
+                pass
 
     def clean_course_id(self):
         course_id = self.cleaned_data['course']
@@ -180,6 +197,21 @@ class CourseEnrollmentAdmin(admin.ModelAdmin):
     raw_id_fields = ('user',)
     search_fields = ('course__id', 'mode', 'user__username',)
     form = CourseEnrollmentForm
+
+    def get_search_results(self, request, queryset, search_term):
+        qs, use_distinct = super(CourseEnrollmentAdmin, self).get_search_results(request, queryset, search_term)
+
+        # annotate each enrollment with whether the username was an
+        # exact match for the search term
+        qs = qs.annotate(exact_username_match=models.Case(
+            models.When(user__username=search_term, then=models.Value(True)),
+            default=models.Value(False),
+            output_field=models.BooleanField()))
+
+        # present exact matches first
+        qs = qs.order_by('-exact_username_match', 'user__username', 'course_id')
+
+        return qs, use_distinct
 
     def queryset(self, request):
         return super(CourseEnrollmentAdmin, self).queryset(request).select_related('user')
@@ -224,9 +256,32 @@ class UserProfileInline(admin.StackedInline):
     verbose_name_plural = _('User profile')
 
 
+class AccountRecoveryInline(admin.StackedInline):
+    """ Inline admin interface for AccountRecovery model. """
+    model = AccountRecovery
+    can_delete = False
+    verbose_name = _('Account recovery')
+    verbose_name_plural = _('Account recovery')
+
+
+class UserChangeForm(BaseUserChangeForm):
+    """
+    Override the default UserChangeForm such that the password field
+    does not contain a link to a 'change password' form.
+    """
+    password = ReadOnlyPasswordHashField(
+        label=_("Password"),
+        help_text=_(
+            "Raw passwords are not stored, so there is no way to see this "
+            "user's password."
+        ),
+    )
+
+
 class UserAdmin(BaseUserAdmin):
     """ Admin interface for the User model. """
-    inlines = (UserProfileInline,)
+    inlines = (UserProfileInline, AccountRecoveryInline)
+    form = UserChangeForm
 
     def get_readonly_fields(self, request, obj=None):
         """

@@ -23,7 +23,7 @@ from opaque_keys.edx.keys import CourseKey
 from opaque_keys.edx.locator import LibraryLocator
 from path import Path as path
 from six import text_type
-from storages.backends.s3boto3 import S3Boto3Storage
+from storages.backends.s3boto import S3BotoStorage
 from user_tasks.conf import settings as user_tasks_settings
 from user_tasks.models import UserTaskArtifact, UserTaskStatus
 from wsgiref.util import FileWrapper
@@ -138,7 +138,7 @@ def _write_chunk(request, courselike_key):
             )
 
         temp_filepath = course_dir / filename
-        if not course_dir.isdir():  # pylint: disable=no-value-for-parameter
+        if not course_dir.isdir():
             os.mkdir(course_dir)
 
         logging.debug('importing course to {0}'.format(temp_filepath))
@@ -208,7 +208,7 @@ def _write_chunk(request, courselike_key):
     # Send errors to client with stage at which error occurred.
     except Exception as exception:  # pylint: disable=broad-except
         _save_request_status(request, courselike_string, -1)
-        if course_dir.isdir():  # pylint: disable=no-value-for-parameter
+        if course_dir.isdir():
             shutil.rmtree(course_dir)
             log.info("Course import %s: Temp data cleared", courselike_key)
 
@@ -373,17 +373,14 @@ def export_status_handler(request, course_key_string):
         artifact = UserTaskArtifact.objects.get(status=task_status, name='Output')
         if isinstance(artifact.file.storage, FileSystemStorage):
             output_url = reverse_course_url('export_output_handler', course_key)
-        elif isinstance(artifact.file.storage, S3Boto3Storage):
-            disposition = 'attachment; filename="{}"'.format(artifact.file.name)
-            params = {
-                'ResponseContentDisposition': disposition,
-                'ResponseContentEncoding': 'application/octet-stream',
-                'ResponseContentType': 'application/x-tgz',
-            }
-            output_url = artifact.file.storage.url(
-                artifact.file.name,
-                parameters=params
-            )
+        elif isinstance(artifact.file.storage, S3BotoStorage):
+            filename = os.path.basename(artifact.file.name).encode('utf-8')
+            disposition = 'attachment; filename="{}"'.format(filename)
+            output_url = artifact.file.storage.url(artifact.file.name, response_headers={
+                'response-content-disposition': disposition,
+                'response-content-encoding': 'application/octet-stream',
+                'response-content-type': 'application/x-tgz'
+            })
         else:
             output_url = artifact.file.storage.url(artifact.file.name)
     elif task_status.state in (UserTaskStatus.FAILED, UserTaskStatus.CANCELED):

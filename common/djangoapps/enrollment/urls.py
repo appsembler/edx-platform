@@ -6,8 +6,13 @@ from django.conf import settings
 from django.conf.urls import url
 
 from openedx.core.djangoapps.appsembler.msft_lp.views import AppsemblerEnrollmentListView
-
-from .views import EnrollmentCourseDetailView, EnrollmentListView, EnrollmentView, UnenrollmentView
+from .views import (
+    CourseEnrollmentsApiListView,
+    EnrollmentCourseDetailView,
+    EnrollmentUserRolesView,
+    EnrollmentView,
+    UnenrollmentView,
+)
 
 
 urlpatterns = [
@@ -22,7 +27,9 @@ urlpatterns = [
     # the view, that changes the org to Microsoft if the course is set as
     # Microsoft course in advanced settings. Feature for MSFT LP only.
     url(r'^enrollment$', AppsemblerEnrollmentListView.as_view(), name='courseenrollments'),
+    url(r'^enrollments/?$', CourseEnrollmentsApiListView.as_view(), name='courseenrollmentsapilist'),
     url(r'^course/{course_key}$'.format(course_key=settings.COURSE_ID_PATTERN),
         EnrollmentCourseDetailView.as_view(), name='courseenrollmentdetails'),
     url(r'^unenroll/$', UnenrollmentView.as_view(), name='unenrollment'),
+    url(r'^roles/$', EnrollmentUserRolesView.as_view(), name='roles'),
 ]
