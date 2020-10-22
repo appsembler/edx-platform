@@ -27,11 +27,9 @@ env:
     - TRAVIS_FIXES="pip install -r requirements/edx/local.in"
   jobs:
     - TOXENV=pep8
-    - TOXENV=py27-common
-    - TOXENV=py27-lms-1
-    - TOXENV=py27-lms-2
-    - TOXENV=py27-mte
-    - TOXENV=py27-studio
+    - TOXENV=py35-django22
+    - TOXENV=py38-django22
+    - TOXENV=py38-django30
 
 script:
   - tox $ARGS
