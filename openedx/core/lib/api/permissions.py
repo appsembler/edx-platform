@@ -2,8 +2,10 @@
 API library for Django REST Framework permissions-oriented workflows
 """
 
+
 from django.conf import settings
 from django.http import Http404
+from edx_django_utils.monitoring import set_custom_metric
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
 from rest_condition import C
@@ -19,6 +21,9 @@ from .api_key_permissions import is_request_has_valid_api_key
 class ApiKeyHeaderPermission(permissions.BasePermission):
     """
     Django REST Framework permissions class used to manage API Key integrations
+
+    Deprecated
+
     """
 
     def has_permission(self, request, view):
@@ -27,6 +32,15 @@ class ApiKeyHeaderPermission(permissions.BasePermission):
         Allow the request if and only if settings.EDX_API_KEY is set and
         the X-Edx-Api-Key HTTP header is present in the request and
         matches the setting.
+        """
+        api_key = getattr(settings, "EDX_API_KEY", None)
+
+        if api_key is not None and request.META.get("HTTP_X_EDX_API_KEY") == api_key:
+            audit_log("ApiKeyHeaderPermission used",
+                      path=request.path,
+                      ip=request.META.get("REMOTE_ADDR"))
+            set_custom_metric('deprecated_api_key_header', True)
+            return True
 
         Appsembler: Actual implementation is now moved to
                     `is_request_has_valid_api_key` to break circular

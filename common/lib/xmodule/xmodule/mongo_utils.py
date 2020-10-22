@@ -45,7 +45,12 @@ def connect_to_mongodb(
         mongo_client_class = pymongo.MongoClient
 
     # If the MongoDB server uses a separate authentication database that should be specified here
-    auth_source = kwargs.pop('auth_source', '') or None
+    auth_source = kwargs.get('authsource', '') or None
+
+    # sanitize a kwarg which may be present and is no longer expected
+    # AED 2020-03-02 TODO: Remove this when 'auth_source' will no longer exist in kwargs
+    if 'auth_source' in kwargs:
+        kwargs.pop('auth_source')
 
     # If read_preference is given as a name of a valid ReadPreference.<NAME>
     # constant such as "SECONDARY_PREFERRED" or a mongo mode such as
@@ -77,15 +82,9 @@ def connect_to_mongodb(
             mongo_conn,
             wait_time=retry_wait_time
         )
-
-    # default the authSource to be whatever db we are connecting to (for backwards compatiblity)
-    authSource = db
-    if kwargs.get('authSource'):
-        authSource = kwargs.get('authSource')
-
     # If credentials were provided, authenticate the user.
     if user is not None and password is not None:
-        mongo_conn.authenticate(user, password, authSource)
+        mongo_conn.authenticate(user, password, source=auth_source)
 
     return mongo_conn
 

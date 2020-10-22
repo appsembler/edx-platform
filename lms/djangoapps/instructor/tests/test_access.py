@@ -5,18 +5,17 @@ Test instructor.access
 from mock import patch, Mock
 from nose.plugins.attrib import attr
 import pytest
+from six.moves import range
 
-from django_comment_common.models import FORUM_ROLE_MODERATOR, Role
 from lms.djangoapps.instructor.access import allow_access, list_with_level, revoke_access, update_forum_role
-from openedx.core.lib.tests import attr
 from openedx.core.djangoapps.ace_common.tests.mixins import EmailTemplateTagMixin
+from openedx.core.djangoapps.django_comment_common.models import FORUM_ROLE_MODERATOR, Role
 from student.roles import CourseBetaTesterRole, CourseCcxCoachRole, CourseStaffRole
 from student.tests.factories import UserFactory
 from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory
 
 
-@attr(shard=1)
 class TestInstructorAccessList(SharedModuleStoreTestCase):
     """ Test access listings. """
     @classmethod
@@ -26,10 +25,10 @@ class TestInstructorAccessList(SharedModuleStoreTestCase):
 
     def setUp(self):
         super(TestInstructorAccessList, self).setUp()
-        self.instructors = [UserFactory.create() for _ in xrange(4)]
+        self.instructors = [UserFactory.create() for _ in range(4)]
         for user in self.instructors:
             allow_access(self.course, user, 'instructor')
-        self.beta_testers = [UserFactory.create() for _ in xrange(4)]
+        self.beta_testers = [UserFactory.create() for _ in range(4)]
         for user in self.beta_testers:
             allow_access(self.course, user, 'beta')
 
@@ -97,7 +96,6 @@ class TestInstructorAccessAllow(EmailTemplateTagMixin, SharedModuleStoreTestCase
             allow_access(self.course, user, 'staff')
 
 
-@attr(shard=1)
 class TestInstructorAccessRevoke(SharedModuleStoreTestCase):
     """ Test access revoke. """
     @classmethod
@@ -107,10 +105,10 @@ class TestInstructorAccessRevoke(SharedModuleStoreTestCase):
 
     def setUp(self):
         super(TestInstructorAccessRevoke, self).setUp()
-        self.staff = [UserFactory.create() for _ in xrange(4)]
+        self.staff = [UserFactory.create() for _ in range(4)]
         for user in self.staff:
             allow_access(self.course, user, 'staff')
-        self.beta_testers = [UserFactory.create() for _ in xrange(4)]
+        self.beta_testers = [UserFactory.create() for _ in range(4)]
         for user in self.beta_testers:
             allow_access(self.course, user, 'beta')
 
@@ -135,7 +133,6 @@ class TestInstructorAccessRevoke(SharedModuleStoreTestCase):
             revoke_access(self.course, user, 'robot-not-a-level')
 
 
-@attr(shard=1)
 class TestInstructorAccessForum(SharedModuleStoreTestCase):
     """
     Test forum access control.
@@ -151,7 +148,7 @@ class TestInstructorAccessForum(SharedModuleStoreTestCase):
             course_id=self.course.id,
             name=FORUM_ROLE_MODERATOR
         )
-        self.moderators = [UserFactory.create() for _ in xrange(4)]
+        self.moderators = [UserFactory.create() for _ in range(4)]
         for user in self.moderators:
             self.mod_role.users.add(user)
 

@@ -17,6 +17,8 @@ interface, as well.
 .. _Django-Pipeline: https://django-pipeline.readthedocs.org/
 .. _Django-Require: https://github.com/etianen/django-require
 """
+
+
 import os
 from collections import OrderedDict
 
@@ -50,7 +52,7 @@ class ThemeFilesFinder(BaseFinder):
                 prefix=theme.theme_dir_name,
             )
             theme_storage = self.storage_class(
-                os.path.join(theme.path, self.source_dir),
+                location=os.path.join(theme.path, self.source_dir),
                 prefix=theme.theme_dir_name,
             )
             self.customer_storages[theme.theme_dir_name] = customer_theme_storage
