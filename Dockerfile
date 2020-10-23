@@ -1,61 +1,90 @@
-FROM ubuntu:16.04
+FROM ubuntu:xenial as base
 
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh
-
-RUN apt-get update \
-  && apt-get upgrade -y \
-  && apt-get install -y \
-    apt-transport-https \
+# Install system requirements
+RUN apt-get update && \
+    apt-get install -y software-properties-common && \
+    apt-add-repository -y ppa:deadsnakes/ppa && apt-get update && \
+    # Global requirements
+    DEBIAN_FRONTEND=noninteractive apt-get install --yes \
     build-essential \
-    gcc \
+    curl \
+    # If we don't need gcc, we should remove it.
     g++ \
-    gettext \
+    gcc \
     git \
     git-core \
-    gfortran \
-    golang \
-    graphviz \
-    graphviz-dev \
     language-pack-en \
-    libblas-dev \
-    liblapack-dev \
-    libatlas-base-dev \
     libfreetype6-dev \
-    libssl-dev \
-    libffi-dev \
-    libgeos-dev \
-    libjpeg8-dev \
-    libsqlite3-dev \
     libmysqlclient-dev \
-    libpng12-dev \
-    libpq-dev \
+    libssl-dev \
     libxml2-dev \
     libxmlsec1-dev \
     libxslt1-dev \
-    memcached \
-    mongodb \
-    openssl \
-    pkg-config \
-    python-apt \
-    python-dev \
-    python-mysqldb \
-    python-cryptography \
-    python-pip \
-    python-setuptools \
-    python-virtualenv \
-    software-properties-common \
     swig \
-  && pip install setuptools -U \
-  && pip install virtualenv \
-  && pip install more-itertools==5.0.0 \
-  && pip install tox
+    # openedx requirements
+    gettext \
+    gfortran \
+    graphviz \
+    libffi-dev \
+    libfreetype6-dev \
+    libgeos-dev \
+    libgraphviz-dev \
+    libjpeg8-dev \
+    liblapack-dev \
+    libpng-dev \
+    libsqlite3-dev \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libxslt1-dev \
+    ntp \
+    pkg-config \
+    python3.8-dev \
+    python3.8-venv \
+    && rm -rf /var/lib/apt/lists/*
 
-# COPY nodesource.gpg.key /tmp/nodesource.gpg.key
-# RUN apt-key add /tmp/nodesource.gpg.key \
-#   && echo 'deb https://deb.nodesource.com/node_8.x xenial main' > /etc/apt/sources.list.d/nodesource.list \
-#   && echo 'deb-src https://deb.nodesource.com/node_8.x xenial main' >> /etc/apt/sources.list.d/nodesource.list \
-#   && apt-get update \
-#   && apt-get install -y nodejs
+# Appsembler: mongodb for tests
+RUN apt-get update && \
+    apt-get install -y \
+    libpq-dev \
+    mongodb
+
+RUN locale-gen en_US.UTF-8
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
+
+WORKDIR /edx/app/edxapp/edx-platform
+
+ENV PATH /edx/app/edxapp/nodeenv/bin:${PATH}
+ENV PATH ./node_modules/.bin:${PATH}
+ENV CONFIG_ROOT /edx/etc/
+ENV PATH /edx/app/edxapp/edx-platform/bin:${PATH}
+ENV SETTINGS production
+RUN mkdir -p /edx/etc/
+
+ENV VIRTUAL_ENV=/edx/app/edxapp/venvs/edxapp
+RUN python3.8 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Install Python requirements
+COPY setup.py setup.py
+COPY common common
+COPY openedx openedx
+COPY lms lms
+COPY cms cms
+COPY requirements/pip.txt requirements/pip.txt
+RUN pip install -r requirements/pip.txt
+COPY requirements/edx/base.txt requirements/edx/base.txt
+RUN pip install -r requirements/edx/base.txt
+COPY requirements/edx/appsembler.txt requirements/edx/appsembler.txt
+RUN pip install -r requirements/edx/appsembler.txt
+RUN pip install tox==3.20.1
+
+# Copy just JS requirements and install them.
+COPY package.json package.json
+COPY package-lock.json package-lock.json
+RUN nodeenv /edx/app/edxapp/nodeenv --node=12.11.1 --prebuilt
+RUN npm set progress=false && npm install
 
 WORKDIR /app
 COPY . /app

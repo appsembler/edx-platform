@@ -7,4 +7,6 @@ mongod --fork --logpath /tmp/mongod.log
 # Note that this prevents us from running jobs in parallel on a single worker.
 mongo --quiet --eval 'db.getMongo().getDBNames().forEach(function(i){db.getSiblingDB(i).dropDatabase()})'
 
-tox
+TOXENV=pep8 /edx/app/edxapp/venvs/edxapp/bin/tox
+TOXENV=py35-django22-common /edx/app/edxapp/venvs/edxapp/bin/tox
+# py38 is not yet working

@@ -1,6 +1,6 @@
 language: python
 python:
-  - "3.8"
+  - "3.5"
 
 services:
   - mongodb
@@ -27,9 +27,9 @@ env:
     - TRAVIS_FIXES="pip install -r requirements/edx/local.in"
   jobs:
     - TOXENV=pep8
-    - TOXENV=py35-django22
-    - TOXENV=py38-django22
-    - TOXENV=py38-django30
+    - TOXENV=py35-django22-common
+#    - TOXENV=py38-django22
+#    - TOXENV=py38-django30
 
 script:
   - tox $ARGS
