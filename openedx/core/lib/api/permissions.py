@@ -42,6 +42,7 @@ class ApiKeyHeaderPermission(permissions.BasePermission):
             set_custom_metric('deprecated_api_key_header', True)
             return True
 
+        """
         Appsembler: Actual implementation is now moved to
                     `is_request_has_valid_api_key` to break circular
                     dependency.

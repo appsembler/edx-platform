@@ -128,7 +128,7 @@ class PasswordResetFormNoActive(PasswordResetForm):
             msg = PasswordReset().personalize(
                 recipient=Recipient(user.username, user.email),
                 language=get_user_preference(user, LANGUAGE_KEY),
-                user_context=message_context,
+                user_context=message_context)
             send_password_reset_email_for_user(user, request)
 
 

@@ -62,13 +62,13 @@ class AppsemblerEnrollmentListView(EnrollmentListView):
                     enrollment['course_details']['course_id'])
                 course_obj = modulestore().get_course(course_id, depth=0)
                 if course_obj.is_microsoft_course:
-                    enrollment['course_details']['course_id'] = re.sub('\:.*?\+', ':Microsoft+', enrollment['course_details']['course_id'])
+                    enrollment['course_details']['course_id'] = re.sub(r'\:.*?\+', ':Microsoft+', enrollment['course_details']['course_id'])
             return Response(enrollment_data)
         filtered_data = []
         for enrollment in enrollment_data:
             course_key = CourseKey.from_string(
                 enrollment["course_details"]["course_id"])
             if user_has_role(request.user, CourseStaffRole(course_key)):
-                enrollment['course_details']['course_id'] = re.sub('\:.*?\+', ':Microsoft+', enrollment['course_details']['course_id'])
+                enrollment['course_details']['course_id'] = re.sub(r'\:.*?\+', ':Microsoft+', enrollment['course_details']['course_id'])
                 filtered_data.append(enrollment)
         return Response(filtered_data)
