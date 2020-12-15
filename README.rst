@@ -1,4 +1,4 @@
-Appsembler Changes
+Appsembler Changes 
 ------------------
 
 As part of separating out our custom features from the main edx-platform branch, we've created our own environment. We now have an "aws_appsembler" setting. It can be used as follows:
