@@ -1016,13 +1016,11 @@ urlpatterns += (
 )
 
 # Tahoe API
-if not settings.TAHOE_TEMP_MONKEYPATCHING_JUNIPER_TESTS:
-    # TODO: This URL import is broken in Juniper and needs upgrade
-    urlpatterns += (
-        url(r'^tahoe/api/',
-            include('openedx.core.djangoapps.appsembler.api.urls',
-                    namespace='tahoe-api')),
-    )
+urlpatterns += (
+    url(r'^tahoe/api/',
+        include('openedx.core.djangoapps.appsembler.api.urls',
+                namespace='tahoe-api')),
+)
 
 urlpatterns.extend(plugin_urls.get_patterns(plugin_constants.ProjectType.LMS))
 
