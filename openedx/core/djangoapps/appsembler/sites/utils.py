@@ -1,3 +1,6 @@
+from django.db.models import Q, F
+from django.utils import timezone
+
 import beeline
 import json
 from itertools import izip
@@ -10,6 +13,7 @@ from django.core.files.storage import get_storage_class
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
+from django.core.exceptions import ImproperlyConfigured
 from django.db.models.query import Q
 from provider.oauth2.models import AccessToken, RefreshToken, Client
 from django.utils.text import slugify
@@ -48,6 +52,45 @@ def get_site_by_organization(org):
     """
     assert org.sites.count() == 1, 'Should have one and only one site.'
     return org.sites.all()[0]
+
+
+def get_active_organizations():
+    """
+    Get active organizations based on Tiers information.
+
+    Note: This mostly a hack that's needed for improving the performance of
+          batch operations by excluding dead sites.
+
+    TODO: This helper should live in a future Tahoe Sites package.
+    """
+    from tiers.models import Tier
+    # This queries the AMC Postgres database
+    active_tiers = Tier.objects.filter(
+        Q(tier_enforcement_exempt=True) |
+        Q(tier_expires_at__gte=timezone.now())
+    ).annotate(
+        organization_edx_uuid=F('organization__edx_uuid')
+    ).values_list('organization_edx_uuid', flat=True)
+
+    # Now back to the LMS MySQL database
+    return Organization.objects.filter(
+        edx_uuid__in=[str(edx_uuid) for edx_uuid in active_tiers],
+    )
+
+
+def get_active_sites():
+    """
+    Get active sites based on Tiers information.
+
+    Note: This mostly a hack that's needed for improving the performance of
+          batch operations by excluding dead sites.
+
+    TODO: This helper should live in a future Tahoe Sites package.
+    """
+    sites = []
+    for organization in get_active_organizations():
+        sites.extend(organization.sites.all())
+    return sites
 
 
 @beeline.traced(name="get_amc_oauth_client")
@@ -233,10 +276,22 @@ def get_current_organization(failure_return_none=False):
                     )
             else:
                 try:
-                    # TODO: Using `get` is expected to fail when multiple-orgs found for a site.
-                    #       Maybe catch MultipleObjectsReturned?
-                    current_org = current_site.organizations.get()
-                except Organization.DoesNotExist:
+                    if settings.FEATURES.get('TAHOE_ENABLE_MULTI_ORGS_PER_SITE', False):
+                        if settings.FEATURES.get('APPSEMBLER_MULTI_TENANT_EMAILS', False):
+                            raise ImproperlyConfigured(
+                                'TAHOE_ENABLE_MULTI_ORGS_PER_SITE and '
+                                'APPSEMBLER_MULTI_TENANT_EMAILS are incompatible as '
+                                'we are not able to determine the exact Org when more than one '
+                                'is associated with a Site.')
+                        current_org = current_site.organizations.first()
+                        if not current_org:
+                            raise Organization.DoesNotExist(
+                                'TAHOE_ENABLE_MULTI_ORGS_PER_SITE: Could not find current '
+                                'organization for site `{}`'.format(repr(current_site))
+                            )
+                    else:
+                        current_org = current_site.organizations.get()
+                except (Organization.DoesNotExist, ImproperlyConfigured):
                     if not failure_return_none:
                         raise  # Re-raise the exception
         else:
