@@ -113,4 +113,8 @@ def plugin_settings(settings):
 
     settings.USE_S3_FOR_CUSTOMER_THEMES = True
 
+    settings.FEATURES['TAHOE_ENABLE_DEFAULT_SITE_REDIRECT'] = settings.ENV_TOKENS['FEATURES'].get(
+        'TAHOE_ENABLE_DEFAULT_SITE_REDIRECT', True
+    )
+
     _add_theme_static_dirs(settings)

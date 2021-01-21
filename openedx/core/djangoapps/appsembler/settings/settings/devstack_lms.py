@@ -33,6 +33,10 @@ def plugin_settings(settings):
         if path.isdir(customer_themes_dir):
             settings.STATICFILES_DIRS.insert(0, ('customer_themes', customer_themes_dir))
 
+    settings.FEATURES['TAHOE_ENABLE_DEFAULT_SITE_REDIRECT'] = settings.ENV_TOKENS['FEATURES'].get(
+        'TAHOE_ENABLE_DEFAULT_SITE_REDIRECT', True
+    )
+
     # This is used in the appsembler_sites.middleware.RedirectMiddleware to exclude certain paths
     # from the redirect mechanics.
     settings.MAIN_SITE_REDIRECT_WHITELIST += ['/media/']

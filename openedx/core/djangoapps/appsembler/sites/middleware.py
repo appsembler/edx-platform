@@ -48,19 +48,20 @@ class RedirectMiddleware(object):
         Redirects the current request if there is a matching Redirect model
         with the current request URL as the old_path field.
         """
-        site = request.site
-        try:
-            beeline.add_trace_field("site_id", site.id)
-            in_whitelist = any(map(
-                lambda p: p in request.path,
-                settings.MAIN_SITE_REDIRECT_WHITELIST))
-            if (site.id == settings.SITE_ID) and not in_whitelist:
-                return redirect("https://appsembler.com/tahoe/")
-        except Exception:
-            # I'm not entirely sure this middleware get's called only in LMS or in other apps as well.
-            # Soooo just in case
-            beeline.add_trace_field("redirect_middleware_exception", True)
-            pass
+        if settings.FEATURES.get("TAHOE_ENABLE_DEFAULT_SITE_REDIRECT", True):
+            site = request.site
+            try:
+                beeline.add_trace_field("site_id", site.id)
+                in_whitelist = any(map(
+                    lambda p: p in request.path,
+                    settings.MAIN_SITE_REDIRECT_WHITELIST))
+                if (site.id == settings.SITE_ID) and not in_whitelist:
+                    return redirect("https://appsembler.com/tahoe/")
+            except Exception:
+                # I'm not entirely sure this middleware get's called only in LMS or in other apps as well.
+                # Soooo just in case
+                beeline.add_trace_field("redirect_middleware_exception", True)
+                pass
         cache_key = '{prefix}-{site}'.format(prefix=settings.REDIRECT_CACHE_KEY_PREFIX, site=site.domain)
         redirects = cache.get(cache_key)
         if redirects is None:
