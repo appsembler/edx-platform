@@ -30,8 +30,6 @@ def get_initial_sass_variables():
 
     # TODO: Fix Site Configuration and Organizations hacks. https://github.com/appsembler/edx-platform/issues/329
     """
-    # TODO JUNIPER: Uncomment and fix
-    return []
     from openedx.core.djangoapps.appsembler.sites import utils
     return utils.get_initial_sass_variables()
 
@@ -94,8 +92,7 @@ class SiteConfiguration(models.Model):
         super(SiteConfiguration, self).save(**kwargs)
 
         # recompile SASS on every save
-        # TODO JUNIPER: Uncomment and fix
-        # self.compile_microsite_sass()
+        self.compile_microsite_sass()
         return self
 
     def get_value(self, name, default=None):

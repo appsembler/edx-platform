@@ -401,7 +401,7 @@ def compile_sass(sass_file, custom_branding=None):
     if custom_branding:
         importers = [(0, custom_branding)]
     css_output = sass.compile(
-        filename=sass_var_file,
+        dirname=(theme.path, theme.path),
         include_paths=[customer_specific_includes],
         importers=importers
     )

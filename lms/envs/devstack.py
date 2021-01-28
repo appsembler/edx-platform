@@ -401,4 +401,5 @@ COMPREHENSIVE_THEME_DIRS = [
 TEMPLATES[1]["DIRS"] = _make_mako_template_dirs
 derive_settings(__name__)
 
-DEFAULT_SITE_THEME = 'open-edx'
+DEFAULT_SITE_THEME = 'edx.org'
+TAHOE_SILENT_MISSING_CSS_CONFIG = True
