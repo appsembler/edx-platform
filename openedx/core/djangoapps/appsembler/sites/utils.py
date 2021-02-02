@@ -40,8 +40,7 @@ def get_lms_link_from_course_key(base_lms_url, course_key):
     try:
         site_domain = Site.objects.get(name=course_key.org).domain
     except Site.DoesNotExist:
-        site_domain = "{}.{}".format(course_key.org, base_lms_url)
-
+        site_domain = base_lms_url
     return site_domain
 
 
