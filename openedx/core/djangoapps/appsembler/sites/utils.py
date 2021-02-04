@@ -27,8 +27,6 @@ from openedx.core.lib.log_utils import audit_log
 from openedx.core.djangoapps.theming.helpers import get_current_request, get_current_site
 from openedx.core.djangoapps.theming.models import SiteTheme
 
-from openedx.core.djangoapps.appsembler.api.sites import get_site_for_course
-
 
 @beeline.traced(name="get_lms_link_from_course_key")
 def get_lms_link_from_course_key(base_lms_url, course_key):
@@ -39,6 +37,8 @@ def get_lms_link_from_course_key(base_lms_url, course_key):
     """
     beeline.add_context_field("base_lms_url", base_lms_url)
     beeline.add_context_field("course_key", course_key)
+    # avoid circular import
+    from openedx.core.djangoapps.appsembler.api.sites import get_site_for_course
     course_site = get_site_for_course(course_key)
     if course_site:
         return course_site.domain
