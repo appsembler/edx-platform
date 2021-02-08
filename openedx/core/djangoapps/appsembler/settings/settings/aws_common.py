@@ -67,9 +67,12 @@ def plugin_settings(settings):
         settings.MIDDLEWARE_CLASSES += (
             'tiers.middleware.TierMiddleware',
         )
-        settings.INSTALLED_APPS += (
-            'tiers',
-        )
+
+    # must be installed regardless of enabling or will fail on import
+    # TODO: may not be best approach BCW
+    settings.INSTALLED_APPS += (
+        'tiers',
+    )
 
     if settings.FEATURES.get('APPSEMBLER_MULTI_TENANT_EMAILS', False):
         settings.INSTALLED_APPS += (
