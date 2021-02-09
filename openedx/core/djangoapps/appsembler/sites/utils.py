@@ -29,16 +29,18 @@ from openedx.core.djangoapps.theming.models import SiteTheme
 
 
 @beeline.traced(name="get_lms_link_from_course_key")
-def get_lms_link_from_course_key(base_lms_url, course_key):
+def get_lms_link_from_course_key(base_lms_url, course_key, preview=False):
     """
     Returns the microsite-aware LMS link based on the organization the course
     belongs to. If there is a Custom Domain in use, will return the custom
-    domain URL instead.
+    domain URL instead.  If this is a Preview link just return that.
     """
     beeline.add_context_field("base_lms_url", base_lms_url)
     beeline.add_context_field("course_key", course_key)
     # avoid circular import
     from openedx.core.djangoapps.appsembler.api.sites import get_site_for_course
+    if base_lms_url == settings.FEATURES.get("PREVIEW_LMS_BASE", ""):
+        return base_lms_url
     course_site = get_site_for_course(course_key)
     if course_site:
         return course_site.domain
