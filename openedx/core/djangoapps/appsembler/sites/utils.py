@@ -54,6 +54,26 @@ def get_site_by_organization(org):
     return org.sites.all()[0]
 
 
+def _get_active_tiers_uuids():
+    """
+    Get active Tier organiation UUIDs from the Tiers (AMC Postgres) database.
+
+    Note: This mostly a hack that's needed for improving the performance of
+          batch operations by excluding dead sites.
+
+    TODO: This helper should live in a future Tahoe Sites package.
+    """
+    from tiers.models import Tier
+    # This queries the AMC Postgres database
+    active_tiers_uuids = Tier.objects.filter(
+        Q(tier_enforcement_exempt=True) |
+        Q(tier_expires_at__gte=timezone.now())
+    ).annotate(
+        organization_edx_uuid=F('organization__edx_uuid')
+    ).values_list('organization_edx_uuid', flat=True)
+    return active_tiers_uuids
+
+
 def get_active_organizations():
     """
     Get active organizations based on Tiers information.
@@ -63,22 +83,15 @@ def get_active_organizations():
 
     TODO: This helper should live in a future Tahoe Sites package.
     """
-    from tiers.models import Tier
-    # This queries the AMC Postgres database
-    active_tiers = Tier.objects.filter(
-        Q(tier_enforcement_exempt=True) |
-        Q(tier_expires_at__gte=timezone.now())
-    ).annotate(
-        organization_edx_uuid=F('organization__edx_uuid')
-    ).values_list('organization_edx_uuid', flat=True)
+    active_tiers_uuids = _get_active_tiers_uuids()
 
     # Now back to the LMS MySQL database
     return Organization.objects.filter(
-        edx_uuid__in=[str(edx_uuid) for edx_uuid in active_tiers],
+        edx_uuid__in=[str(edx_uuid) for edx_uuid in active_tiers_uuids],
     )
 
 
-def get_active_sites():
+def get_active_sites(order_by='domain'):
     """
     Get active sites based on Tiers information.
 
@@ -87,10 +100,9 @@ def get_active_sites():
 
     TODO: This helper should live in a future Tahoe Sites package.
     """
-    sites = []
-    for organization in get_active_organizations():
-        sites.extend(organization.sites.all())
-    return sites
+    return Site.objects.filter(
+        organizations__in=get_active_organizations()
+    ).order_by(order_by)
 
 
 @beeline.traced(name="get_amc_oauth_client")
@@ -438,10 +450,13 @@ def json_to_sass(json_input):
 def bootstrap_site(site, org_data=None, username=None):
     from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
     organization_slug = org_data.get('name')
+    beeline.add_context_field("org_data", org_data)
+    beeline.add_context_field("username", username)
     # don't use create because we need to call save() to set some values automatically
     site_config = SiteConfiguration(site=site, enabled=True)
     site_config.save()
     site.configuration_id = site_config.id
+    beeline.add_context_field("site_config_id", site_config.id)
     # temp workarounds while old staging is still up and running
     if organization_slug:
         organization_data = org_api.add_organization({
