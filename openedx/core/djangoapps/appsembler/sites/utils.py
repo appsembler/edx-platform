@@ -68,7 +68,7 @@ def get_active_organizations():
     """
     from tiers.models import Tier
     # This queries the AMC Postgres database
-    active_tiers = Tier.objects.filter(
+    active_tiers = Tier.objects.using('tiers').filter(
         Q(tier_enforcement_exempt=True) |
         Q(tier_expires_at__gte=timezone.now())
     ).annotate(

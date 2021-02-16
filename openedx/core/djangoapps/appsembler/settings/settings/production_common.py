@@ -63,7 +63,6 @@ def plugin_settings(settings):
 
         settings.TIERS_DATABASE_URL = settings.AUTH_TOKENS.get('TIERS_DATABASE_URL')
         settings.DATABASES['tiers'] = dj_database_url.parse(settings.TIERS_DATABASE_URL, ssl_require=True)
-        settings.DATABASE_ROUTERS += ['openedx.core.djangoapps.appsembler.sites.routers.TiersDbRouter']
 
         settings.MIDDLEWARE += (
             'tiers.middleware.TierMiddleware',
