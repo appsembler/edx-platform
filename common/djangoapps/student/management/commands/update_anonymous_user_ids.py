@@ -5,8 +5,13 @@ from django.db import IntegrityError
 from student.models import AnonymousUserId, anonymous_id_for_user
 from submissions.models import StudentItem, ScoreAnnotation
 from openassessment.assessment.models import (
-    AIGradingWorkflow, Assessment, PeerWorkflow, StaffWorkflow, StudentTrainingWorkflow,
+    Assessment, PeerWorkflow, StaffWorkflow, StudentTrainingWorkflow,
 )
+try:
+    from openassessment.assessment.models import AIGradingWorkflow
+    ora_has_ai_grading = True
+except ImportError:
+    ora_has_ai_grading = False
 try:
     from problem_builder.models import Answer
     has_problem_builder = True
@@ -39,17 +44,16 @@ class Command(BaseCommand):
 
         models_fields = [
             (StudentItem, 'student_id'),
-            (ScoreAnnotation, 'creator'),
-            (AIGradingWorkflow, 'student_id'),
+            (ScoreAnnotation, 'creator'),            
             (Assessment, 'scorer_id'),
             (PeerWorkflow, 'student_id'),
             (StaffWorkflow, 'scorer_id'),
             (StudentTrainingWorkflow, 'student_id'),
         ]
+        if ora_has_ai_grading:
+            models_fields.append((AIGradingWorkflow, 'student_id'))
         if has_problem_builder:
-            models_fields.append((
-                (Answer, 'student_id'),
-            ))
+            models_fields.append((Answer, 'student_id'))
 
         # Update each of the old anonymous IDs with the new one.
         for (model, field_name) in models_fields:
