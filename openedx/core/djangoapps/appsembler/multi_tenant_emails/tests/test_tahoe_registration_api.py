@@ -4,6 +4,7 @@ Tests to ensure the Tahoe Registration API end-point allows multi-tenant emails.
 
 from mock import patch
 from unittest import skipUnless, skipIf
+import ddt
 
 from django.conf import settings
 from django.urls import reverse
@@ -17,12 +18,11 @@ from .test_utils import with_organization_context
 APPSEMBLER_API_VIEWS_MODULE = 'openedx.core.djangoapps.appsembler.api.v1.views'
 
 
+@ddt.ddt
 @skip_unless_lms
 @patch(APPSEMBLER_API_VIEWS_MODULE + '.RegistrationViewSet.authentication_classes', [])
 @patch(APPSEMBLER_API_VIEWS_MODULE + '.RegistrationViewSet.permission_classes', [])
 @patch(APPSEMBLER_API_VIEWS_MODULE + '.RegistrationViewSet.throttle_classes', [])
-@skipUnless(settings.FEATURES['APPSEMBLER_MULTI_TENANT_EMAILS'], 'This only tests multi-tenancy')
-@skipIf(settings.TAHOE_TEMP_MONKEYPATCHING_JUNIPER_TESTS, 'fix in Juniper')
 class MultiTenantRegistrationAPITest(APITestCase):
     """
     Tests to ensure the Tahoe Registration API end-point allow multi-tenant emails.
@@ -43,17 +43,22 @@ class MultiTenantRegistrationAPITest(APITestCase):
             'name': 'Learner'
         })
 
-    def test_register_duplicate_email_same_org(self):
+    @ddt.data(False, True)
+    def test_register_duplicate_email_same_org(self, enable_feature):
         """
         The APPSEMBLER_MULTI_TENANT_EMAILS feature should prevent email reuse within the same organization.
         """
-        with with_organization_context(site_color='red1'):
-            response_1 = self.register_user('learner1')
-            assert response_1.status_code == status.HTTP_200_OK, response_1.content
+        with patch.dict('django.conf.settings.FEATURES',
+                        {'APPSEMBLER_MULTI_TENANT_EMAILS': enable_feature}):
+            with with_organization_context(site_color='red1'):
+                response_1 = self.register_user('learner1')
+                assert response_1.status_code == status.HTTP_200_OK, response_1.content
 
-            response_2 = self.register_user('learner2')  # Same email
-            assert response_2.status_code == status.HTTP_409_CONFLICT, response_2.content
+                response_2 = self.register_user('learner2')  # Same email
+                assert response_2.status_code == status.HTTP_409_CONFLICT, response_2.content
 
+    @patch.dict('django.conf.settings.FEATURES',
+                {'APPSEMBLER_MULTI_TENANT_EMAILS': True})
     def test_register_reuse_email_two_orgs(self):
         """
         The APPSEMBLER_MULTI_TENANT_EMAILS feature should allow email reuse in two different orgs.
