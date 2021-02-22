@@ -6,15 +6,21 @@ from mock import patch
 from django.core.exceptions import ImproperlyConfigured, MultipleObjectsReturned
 from django.test import TestCase
 from django.test.client import RequestFactory
+from django.test.utils import override_settings
 
-from openedx.core.djangoapps.appsembler.api.tests.factories import OrganizationFactory
+from openedx.core.djangoapps.appsembler.api.tests.factories import (
+    CourseOverviewFactory,
+    OrganizationFactory
+)
 from openedx.core.djangoapps.appsembler.sites.utils import (
     get_current_organization,
     get_initial_page_elements,
     get_active_sites,
+    get_lms_link_from_course_key
 )
 from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
-from organizations.models import Organization
+
+from organizations.models import Organization, OrganizationCourse
 
 
 class JSONMigrationUtilsTestCase(TestCase):
@@ -126,3 +132,36 @@ class OrganizationByRequestTestCase(TestCase):
         self.request.site = self.siteFoo
         with self.assertRaises(ImproperlyConfigured):
             get_current_organization()
+
+
+class LMSLinkByCourseOrgTestCase(TestCase):
+    """
+    Exercise getting the appropriate LMS Link for Studio "View in LMS" 
+    based on the organization value set on the course that is being viewed.
+    (note we don't test with custom domains since that is handled by middleware)
+    """
+    def setUp(self):
+        super(LMSLinkByCourseOrgTestCase, self).setUp()
+        self.siteFoo = SiteFactory.create(domain='foo.dev', name='foo.dev')
+        self.courseKey = "course-v1:org+course+run"
+        self.base_lms_url = "lms_base.domain"
+
+    @patch('openedx.core.djangoapps.appsembler.api.sites.get_site_for_course')
+    def test_lms_link_happy_path(self, mocked_get_site_for_course):
+        mocked_get_site_for_course.return_value = self.siteFoo
+        url = get_lms_link_from_course_key(self.base_lms_url, self.courseKey)
+        self.assertEqual(url, "foo.dev")
+
+    @patch('openedx.core.djangoapps.appsembler.api.sites.get_site_for_course')
+    def test_lms_link_no_site_matching_course(self, mocked_get_site_for_course):
+        mocked_get_site_for_course.return_value = None
+        url = get_lms_link_from_course_key(self.base_lms_url, self.courseKey)
+        self.assertEqual(url, self.base_lms_url)
+
+    @patch.dict('django.conf.settings.FEATURES', {
+        'PREVIEW_LMS_BASE': 'preview.lms_base.domain'
+    })
+    def test_lms_link_for_preview_always_return_preview_domain(self):
+        preview_url = "preview.lms_base.domain"
+        url = get_lms_link_from_course_key(preview_url, self.courseKey)
+        self.assertEqual(url, preview_url)

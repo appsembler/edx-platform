@@ -29,7 +29,7 @@ from openedx.core.djangoapps.theming.models import SiteTheme
 
 
 @beeline.traced(name="get_lms_link_from_course_key")
-def get_lms_link_from_course_key(base_lms_url, course_key, preview=False):
+def get_lms_link_from_course_key(base_lms_url, course_key):
     """
     Returns the microsite-aware LMS link based on the organization the course
     belongs to. If there is a Custom Domain in use, will return the custom
