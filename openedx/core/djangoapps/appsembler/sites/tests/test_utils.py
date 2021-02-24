@@ -154,6 +154,12 @@ class LMSLinkByCourseOrgTestCase(TestCase):
         url = get_lms_link_from_course_key(self.base_lms_url, self.courseKey)
         self.assertEqual(url, self.base_lms_url)
 
+    @patch('openedx.core.djangoapps.appsembler.api.sites.get_site_for_course')
+    def test_lms_link_with_error_getting_site(self, mocked_get_site_for_course):
+        mocked_get_site_for_course.side_effect = AssertionError
+        url = get_lms_link_from_course_key(self.base_lms_url, self.courseKey)
+        self.assertEqual(url, self.base_lms_url)
+
     @patch.dict('django.conf.settings.FEATURES', {
         'PREVIEW_LMS_BASE': 'preview.lms_base.domain'
     })

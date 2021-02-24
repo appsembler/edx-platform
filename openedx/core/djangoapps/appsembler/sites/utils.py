@@ -39,7 +39,11 @@ def get_lms_link_from_course_key(base_lms_url, course_key):
     beeline.add_context_field("course_key", course_key)
     # avoid circular import
     from openedx.core.djangoapps.appsembler.api.sites import get_site_for_course
-    course_site = get_site_for_course(course_key)
+    try:
+        course_site = get_site_for_course(course_key)
+    except AssertionError:
+        # catch problems like Org w/ 0 or >=1 Sites w/o breaking whole views like Studio courses list
+        course_site = None
     if course_site:
         return course_site.domain
     return base_lms_url
