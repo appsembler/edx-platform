@@ -11,7 +11,7 @@ from django.test import TestCase
 from mock import patch
 from testfixtures import LogCapture
 
-from common.test.utils import MockS3BotoMixin
+from common.test.utils import MockS3Boto3Mixin
 from lms.djangoapps.verify_student.models import SoftwareSecurePhotoVerification
 from lms.djangoapps.verify_student.tests.test_models import FAKE_SETTINGS, mock_software_secure_post
 from student.tests.factories import UserFactory
@@ -21,7 +21,7 @@ LOGGER_NAME = 'lms.djangoapps.verify_student.management.commands.populate_expiry
 
 @patch.dict(settings.VERIFY_STUDENT, FAKE_SETTINGS)
 @patch('lms.djangoapps.verify_student.models.requests.post', new=mock_software_secure_post)
-class TestPopulateExpiryDate(MockS3BotoMixin, TestCase):
+class TestPopulateExpiryDate(MockS3Boto3Mixin, TestCase):
     """ Tests for django admin command `populate_expiry_date` in the verify_student module """
 
     def create_and_submit(self, user):

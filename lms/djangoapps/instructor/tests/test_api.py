@@ -16,7 +16,7 @@ import unittest
 import ddt
 import pytest
 import six
-from boto.exception import BotoServerError
+from botocore.exceptions import BotoCoreError
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
@@ -3345,21 +3345,25 @@ class TestInstructorAPILevelsDataDump(SharedModuleStoreTestCase, LoginEnrollment
     @patch('lms.djangoapps.instructor_task.models.logger.error')
     @patch.dict(settings.GRADES_DOWNLOAD, {'STORAGE_TYPE': 's3', 'ROOT_PATH': 'tmp/edx-s3/grades'})
     def test_list_report_downloads_error(self, mock_error):
-        """
-        Tests the Rate-Limit exceeded is handled and does not raise 500 error.
-        """
-        ex_status = 503
-        ex_reason = 'Slow Down'
-        url = reverse('list_report_downloads', kwargs={'course_id': text_type(self.course.id)})
-        with patch('storages.backends.s3boto.S3BotoStorage.listdir', side_effect=BotoServerError(ex_status, ex_reason)):
-            response = self.client.post(url, {})
-        mock_error.assert_called_with(
-            u'Fetching files failed for course: %s, status: %s, reason: %s',
-            self.course.id,
-            ex_status,
-            ex_reason,
-        )
+        """Tests exception handling that a Boto3 error does not raise 500 error
 
+        Originally this was a fake test to ensure rate limiting didn't raise a
+        500 error. This test was reworked to handle botocore.exceptions.BotoCoreError
+        and any BotoCoreError inherited exceptions.
+        """
+        ex_err = BotoCoreError()
+        # get_storage returns a storage class instance that must have a listdir method
+        mock_storage = Mock()
+        # return value 2-tuple of lists: first list is of directories, second of files
+        mock_storage.listdir.side_effect = ex_err
+        url = reverse('list_report_downloads', kwargs={'course_id': text_type(self.course.id)})
+        with patch('storages.backends.s3boto3.S3Boto3Storage.listdir',
+                   side_effect=ex_err):
+            with patch('lms.djangoapps.instructor_task.models.get_storage', return_value=mock_storage):
+                response = self.client.post(url, {})
+        log_msg = ('Fetching files failed for course: {course_id}, '
+                   'message: {msg}')
+        mock_error.assert_called_with(log_msg.format(course_id=str(self.course.id), msg=ex_err))
         res_json = json.loads(response.content.decode('utf-8'))
         self.assertEqual(res_json, {"downloads": []})
 

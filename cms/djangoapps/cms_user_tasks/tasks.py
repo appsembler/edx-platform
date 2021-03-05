@@ -3,7 +3,8 @@ Celery tasks used by cms_user_tasks
 """
 
 
-from boto.exception import NoAuthHandlerFound
+# was from boto.exception import NoAuthHandlerFound
+from botocore.exceptions import NoCredentialsError
 from celery.exceptions import MaxRetriesExceededError
 from celery.task import task
 from celery.utils.log import get_task_logger
@@ -44,7 +45,12 @@ def send_task_complete_email(self, task_name, task_state_text, dest_addr, detail
     try:
         mail.send_mail(subject, message, from_address, [dest_addr], fail_silently=False)
         LOGGER.info(u"Task complete email has been sent to User %s", dest_addr)
-    except NoAuthHandlerFound:
+    except NoCredentialsError:
+        # JLB what sense does it make to retry when there's a credentials error?
+
+        # boto.exception.NoAuthHandlerFound was the previous exception
+        # Readings on the web indicate this can happen when Boto cannot find
+        # credentials
         LOGGER.info(
             u'Retrying sending email to user %s, attempt # %s of %s',
             dest_addr,

@@ -23,7 +23,7 @@ import os.path
 from uuid import uuid4
 
 import six
-from boto.exception import BotoServerError
+from botocore.exceptions import BotoCoreError
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
@@ -212,7 +212,7 @@ class ReportStore(object):
         storage_type = config.get('STORAGE_TYPE', '').lower()
         if storage_type == 's3':
             return DjangoStorageReportStore(
-                storage_class='storages.backends.s3boto.S3BotoStorage',
+                storage_class='storages.backends.s3boto3.S3Boto3Storage',
                 storage_kwargs={
                     'bucket': config['BUCKET'],
                     'location': config['ROOT_PATH'],
@@ -279,11 +279,6 @@ class DjangoStorageReportStore(ReportStore):
         object, ready to be read from the beginning.
         """
         path = self.path_to(course_id, filename)
-        # See https://github.com/boto/boto/issues/2868
-        # Boto doesn't play nice with unicod in python3
-        if not six.PY2:
-            buff = ContentFile(buff.read().encode('utf-8'))
-
         self.storage.save(path, buff)
 
     def store_rows(self, course_id, filename, rows):
@@ -313,13 +308,14 @@ class DjangoStorageReportStore(ReportStore):
             # Django's FileSystemStorage fails with an OSError if the course
             # dir does not exist; other storage types return an empty list.
             return []
-        except BotoServerError as ex:
-            logger.error(
-                u'Fetching files failed for course: %s, status: %s, reason: %s',
-                course_id,
-                ex.status,
-                ex.reason
-            )
+        except BotoCoreError as e:
+            # There are a number of exceptions that can happen. See the
+            # BotoCoreError inherited exception classes in botocore.exceptions
+            # Therefore we will initially handle this at the scope of
+            # botocore.exceptions.BotoCoreError
+            log_msg = ('Fetching files failed for course: {course_id}, '
+                       'message: {msg}')
+            logger.error(log_msg.format(course_id=str(course_id), msg=e))
             return []
         files = [(filename, os.path.join(course_dir, filename)) for filename in filenames]
         files.sort(key=lambda f: self.storage.get_modified_time(f[1]), reverse=True)

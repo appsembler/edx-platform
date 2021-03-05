@@ -26,7 +26,7 @@ from opaque_keys.edx.locator import CourseLocator
 from six.moves import zip
 from waffle.testutils import override_switch
 
-from common.test.utils import MockS3BotoMixin, XssTestMixin
+from common.test.utils import MockS3Boto3Mixin, XssTestMixin
 from course_modes.models import CourseMode
 from course_modes.tests.factories import CourseModeFactory
 from lms.djangoapps.commerce.models import CommerceConfiguration
@@ -1413,7 +1413,7 @@ class TestCreateOrderView(ModuleStoreTestCase):
 
 @ddt.ddt
 @patch.dict(settings.FEATURES, {'AUTOMATIC_VERIFY_STUDENT_IDENTITY_FOR_TESTING': True})
-class TestSubmitPhotosForVerification(MockS3BotoMixin, TestVerificationBase):
+class TestSubmitPhotosForVerification(MockS3Boto3Mixin, TestVerificationBase):
     """
     Tests for submitting photos for verification.
     """

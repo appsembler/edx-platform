@@ -4,7 +4,7 @@ import mock
 from django.conf import settings
 from mock import patch
 
-from common.test.utils import MockS3BotoMixin
+from common.test.utils import MockS3Boto3Mixin
 from verify_student.tests import TestVerificationBase
 from verify_student.tests.test_models import FAKE_SETTINGS, mock_software_secure_post_unavailable
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
@@ -14,7 +14,7 @@ LOGGER_NAME = 'lms.djangoapps.verify_student.tasks'
 
 @patch.dict(settings.VERIFY_STUDENT, FAKE_SETTINGS)
 @ddt.ddt
-class TestPhotoVerificationTasks(TestVerificationBase, MockS3BotoMixin, ModuleStoreTestCase):
+class TestPhotoVerificationTasks(TestVerificationBase, MockS3Boto3Mixin, ModuleStoreTestCase):
 
     @mock.patch('lms.djangoapps.verify_student.tasks.log')
     def test_logs_for_retry_until_failure(self, mock_log):

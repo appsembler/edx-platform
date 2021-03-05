@@ -116,22 +116,24 @@ def skip_signal(signal, **kwargs):
         signal.connect(**kwargs)
 
 
-class MockS3BotoMixin(object):
+class MockS3Boto3Mixin(object):
     """
-    TestCase mixin that mocks the S3BotoStorage save method and s3 connection.
+    TestCase mixin that mocks the S3Boto3Storage save method and s3 connection.
     """
     def setUp(self):
-        super(MockS3BotoMixin, self).setUp()
-        self._mocked_connection = patch('boto.connect_s3', return_value=Mock())
+        super(MockS3Boto3Mixin, self).setUp()
+        # Original boto was 'boto.connect_s3'
+        # This will probably need to be fixed, but trying this initially
+        self._mocked_connection = patch('boto3.resource', return_value=Mock())
         self.mocked_connection = self._mocked_connection.start()
 
-        self.patcher = patch('storages.backends.s3boto.S3BotoStorage.save')
+        self.patcher = patch('storages.backends.s3boto3.S3Boto3Storage.save')
         self.patcher.start()
 
     def tearDown(self):
         self._mocked_connection.stop()
         self.patcher.stop()
-        super(MockS3BotoMixin, self).tearDown()
+        super(MockS3Boto3Mixin, self).tearDown()
 
 
 class reprwrapper(object):
