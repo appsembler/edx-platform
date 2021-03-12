@@ -571,27 +571,32 @@ ICP_LICENSE_INFO = {}
 
 LOGGING_ENV = 'sandbox'
 
+# Public domain name of Studio (should be resolvable from the end-user's browser)
+CMS_BASE = 'localhost:18010'
+CMS_ROOT_URL = '//localhost:18010'
+
 LMS_BASE = 'localhost:18000'
 LMS_ROOT_URL = "https://localhost:18000"
 LMS_INTERNAL_ROOT_URL = LMS_ROOT_URL
 
 LOGIN_REDIRECT_URL = EDX_ROOT_URL + '/home/'
 # TODO: Determine if LOGIN_URL could be set to the FRONTEND_LOGIN_URL value instead.
-LOGIN_URL = reverse_lazy('login_redirect_to_lms')
-FRONTEND_LOGIN_URL = lambda settings: settings.LMS_ROOT_URL + '/login'
+LMS_REDIRECT_LOGIN_URL = reverse_lazy('login_redirect_to_lms')
+LOGIN_URL = reverse_lazy('login-page')
+FRONTEND_LOGIN_URL = lambda settings: settings.CMS_ROOT_URL + '/login'
 derived('FRONTEND_LOGIN_URL')
-FRONTEND_LOGOUT_URL = lambda settings: settings.LMS_ROOT_URL + '/logout'
+FRONTEND_LOGOUT_URL = lambda settings: settings.CMS_ROOT_URL + '/logout2'
 derived('FRONTEND_LOGOUT_URL')
 FRONTEND_REGISTER_URL = lambda settings: settings.LMS_ROOT_URL + '/register'
 derived('FRONTEND_REGISTER_URL')
+
+LOGOUT_REDIRECT_URL = reverse_lazy('home')
 
 LMS_ENROLLMENT_API_PATH = "/api/enrollment/v1/"
 ENTERPRISE_API_URL = LMS_INTERNAL_ROOT_URL + '/enterprise/api/v1/'
 ENTERPRISE_CONSENT_API_URL = LMS_INTERNAL_ROOT_URL + '/consent/api/v1/'
 ENTERPRISE_MARKETING_FOOTER_QUERY_PARAMS = {}
 
-# Public domain name of Studio (should be resolvable from the end-user's browser)
-CMS_BASE = 'localhost:18010'
 
 LOG_DIR = '/edx/var/log/edx'
 
