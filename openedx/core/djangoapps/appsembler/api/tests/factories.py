@@ -2,8 +2,6 @@
 import datetime
 
 import factory
-import factory.fuzzy
-
 from openedx.core.djangoapps.content.course_overviews.models import (
     CourseOverview,
 )
