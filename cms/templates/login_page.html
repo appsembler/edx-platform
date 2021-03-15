@@ -4,6 +4,7 @@
 <%def name="online_help_token()"><% return "login" %></%def>
 <%!
 from django.utils.translation import ugettext as _
+from django.urls import reverse
 %>
 <%block name="title">${_("Sign In")}</%block>
 <%block name="bodyclass">not-signedin view-signin</%block>
@@ -16,17 +17,15 @@ from django.utils.translation import ugettext as _
       <h1 class="title title-1">${_("Sign In to {studio_name}").format(studio_name=settings.STUDIO_NAME)}</h1>
     </header>
     <article class="content-primary">
-      %if show_login_failed_message:
-        <!-- tried_login_and_failed: -->
-        <div class=""><!-- Set the proper class for this div -->
-          <!-- TODO I18n this -->
-          <h3 class="title title-2">Your login attempt failed</h3>
-          <p>Set a proper login failed message here.</p>
-          <br/>
-        </div>
-      %endif
-      <div class=""><!-- Set the proper class for this div -->
-        <form method="post" action="login">
+      <div class=""><!-- What class for a dive to wrap the form? -->
+        <form method="post" action="${reverse('login')}">
+          %if show_login_error_message: 
+            <div id="login_error"
+                 class="message message-status error is-shown"
+                 style="display: block;">
+               ${_("Email or password is incorrect. Please ensure that you are a course staff in order to use Studio.")}
+             </div>
+          %endif
           <fieldset>
             <input type="hidden" id="csrf_token" name="csrfmiddlewaretoken" value="${csrf_token}">
             <ol class="list-input">

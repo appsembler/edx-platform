@@ -4,7 +4,7 @@ Views here provide Studio local login/logout
 """
 
 from django.conf import settings
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login
 from django.shortcuts import redirect
 from django.views import View
 from django.views.decorators.clickjacking import xframe_options_deny
@@ -26,11 +26,11 @@ def platform_name():
     return configuration_helpers.get_value('platform_name', settings.PLATFORM_NAME)
 
 
-def render_login_page(show_login_failed_message=False):
+def render_login_page(show_login_error_message=False):
     """Convenience function to put the login page
 
     Arguments:
-        show_login_failed_message (bool): flag to show if a login attempt failed
+        show_login_error_message (bool): flag to show if a login attempt failed
 
     Returns:
         django.http.response.HttpResponse object with the login page content
@@ -38,7 +38,7 @@ def render_login_page(show_login_failed_message=False):
     return render_to_response(
         'login_page.html',
         {
-            'show_login_failed_message': show_login_failed_message,
+            'show_login_error_message': show_login_error_message,
             'forgot_password_link': forgot_password_link(),
             'platform_name': platform_name(),
         }
@@ -63,18 +63,7 @@ class LoginView(View):
             user = authenticate(request, username=user.username, password=password)
 
         if not user:
-            return render_login_page(show_login_failed_message=True)
+            return render_login_page(show_login_error_message=True)
 
         login(request, user)
-        return redirect(reverse('home'))
-
-
-def do_logout(request):
-    """Basic logout to get Studio login/logout working
-    """
-    logout(request)
-
-    if settings.LOGOUT_REDIRECT_URL:
-        return redirect(settings.LOGOUT_REDIRECT_URL)
-    else:
         return redirect(reverse('home'))

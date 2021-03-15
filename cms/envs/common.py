@@ -581,11 +581,14 @@ LMS_INTERNAL_ROOT_URL = LMS_ROOT_URL
 
 LOGIN_REDIRECT_URL = EDX_ROOT_URL + '/home/'
 # TODO: Determine if LOGIN_URL could be set to the FRONTEND_LOGIN_URL value instead.
+# Original 'LOGIN_URL' renamed to 'LMS_REDIRECT_LOGIN_URL'
+# This is a candidate for conditional setings to switch between Studio local
+# login and LMS redirection login
 LMS_REDIRECT_LOGIN_URL = reverse_lazy('login_redirect_to_lms')
-LOGIN_URL = reverse_lazy('login-page')
+LOGIN_URL = reverse_lazy('login')
 FRONTEND_LOGIN_URL = lambda settings: settings.CMS_ROOT_URL + '/login'
 derived('FRONTEND_LOGIN_URL')
-FRONTEND_LOGOUT_URL = lambda settings: settings.CMS_ROOT_URL + '/logout2'
+FRONTEND_LOGOUT_URL = lambda settings: settings.CMS_ROOT_URL + '/logout/'
 derived('FRONTEND_LOGOUT_URL')
 FRONTEND_REGISTER_URL = lambda settings: settings.LMS_ROOT_URL + '/register'
 derived('FRONTEND_REGISTER_URL')

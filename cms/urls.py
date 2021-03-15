@@ -41,7 +41,7 @@ COURSELIKE_KEY_PATTERN = r'(?P<course_key_string>({}|{}))'.format(
 LIBRARY_KEY_PATTERN = r'(?P<library_key_string>library-v1:[^/+]+\+[^/+]+)'
 
 urlpatterns = [
-    # Can we remove this one?
+    # Can we remove this one or maybe use settings to conditionally include
     url(r'', include('openedx.core.djangoapps.user_authn.urls_common')),
     url(r'', include('student.urls')),
     url(r'', include('cms.djangoapps.appsembler.urls')),
@@ -86,12 +86,11 @@ urlpatterns = [
     # restful api
     url(r'^$', contentstore.views.howitworks, name='homepage'),
     url(r'^howitworks$', contentstore.views.howitworks, name='howitworks'),
-
-    # Original Juniper code still here. We may want to keep it
-    # We may want to conditionally include it for standalone, maybe
+    # Keeping the original Juniper LMD redirect login code
+    # TBD if we want to conditionally include via settings so that it is
+    # disabled on prod
     url(r'^signin_redirect_to_lms$', contentstore.views.login_redirect_to_lms, name='login_redirect_to_lms'),
     url(r'^request_course_creator$', contentstore.views.request_course_creator, name='request_course_creator'),
-
     url(r'^course_team/{}(?:/(?P<email>.+))?$'.format(COURSELIKE_KEY_PATTERN),
         contentstore.views.course_team_handler, name='course_team_handler'),
     url(r'^course_info/{}$'.format(settings.COURSE_KEY_PATTERN), contentstore.views.course_info_handler,
