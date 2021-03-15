@@ -1,0 +1,51 @@
+<%namespace name='static' file='/static_content.html'/>
+<%page expression_filter="h"/>
+<%inherit file="base.html" />
+<%def name="online_help_token()"><% return "login" %></%def>
+<%!
+from django.utils.translation import ugettext as _
+%>
+<%block name="title">${_("Sign In")}</%block>
+<%block name="bodyclass">not-signedin view-signin</%block>
+
+<%block name="content">
+
+<div class="wrapper-content wrapper">
+  <section class="content">
+    <header>
+      <h1 class="title title-1">${_("Sign In to {studio_name}").format(studio_name=settings.STUDIO_NAME)}</h1>
+    </header>
+    <article class="content-primary">
+      %if show_login_failed_message:
+        <!-- tried_login_and_failed: -->
+        <div class=""><!-- Set the proper class for this div -->
+          <!-- TODO I18n this -->
+          <h3 class="title title-2">Your login attempt failed</h3>
+          <p>Set a proper login failed message here.</p>
+        </div>
+      %endif
+      <div class=""><!-- Set the proper class for this div -->
+        <form method="post" action="login">
+          <fieldset>
+            <!-- testing 1234 -->
+            <input type="hidden" id="csrf_token" name="csrfmiddlewaretoken" value="${csrf_token}">
+            <ol class="list-input">
+              <li class="field text required" id="field-email">
+                <label for="email">${_("E-mail")}</label>
+                <input id="email" type="email" name="email" placeholder="${_('example: username@domain.com')}"/>
+              </li>
+
+              <li class="field text required" id="field-password">
+                <label for="password">${_("Password")}</label>
+                <input id="password" type="password" name="password" />
+                <a href="${forgot_password_link}" class="action action-forgotpassword">${_("Forgot password?")}</a>
+              </li>
+            </ol>
+          </fieldset>
+          <button type="submit" name="submit" class="action action-primary">Sign in here</button>
+        </form>
+      </div>
+    </article>
+  </section>
+</div>
+</%block>
