@@ -22,12 +22,12 @@ from django.utils.translation import ugettext as _
           <!-- TODO I18n this -->
           <h3 class="title title-2">Your login attempt failed</h3>
           <p>Set a proper login failed message here.</p>
+          <br/>
         </div>
       %endif
       <div class=""><!-- Set the proper class for this div -->
         <form method="post" action="login">
           <fieldset>
-            <!-- testing 1234 -->
             <input type="hidden" id="csrf_token" name="csrfmiddlewaretoken" value="${csrf_token}">
             <ol class="list-input">
               <li class="field text required" id="field-email">
