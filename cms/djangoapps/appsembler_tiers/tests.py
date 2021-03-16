@@ -34,7 +34,7 @@ class SiteUnavailableStudioViewTest(TestCase):
         """
         response = self.client.get(self.url)
         assert response.status_code == status.HTTP_302_FOUND, response.content
-        assert response['Location'] == '/signin_redirect_to_lms?next=/site-unavailable/', response.content
+        assert response['Location'] == '/login/?next=/site-unavailable/', response.content
 
     def test_site_unavailable_page(self):
         """
