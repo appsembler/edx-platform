@@ -107,22 +107,11 @@ export class StudentAccountDeletion extends React.Component {
     return (
       <div className="account-deletion-details">
         <p className="account-settings-header-subtitle">{ gettext('We’re sorry to see you go!') }</p>
-        <p className="account-settings-header-subtitle">{noteDeletion}</p>
-        <p className="account-settings-header-subtitle">
-              <span>{bodyDeletion} </span>
-              <span>{bodyDeletion2}</span>
-        </p>
+        <p className="account-settings-header-subtitle">{ gettext('Please note: Deletion of your account and personal data is permanent and cannot be undone. We will not be able to recover your account or the data that is deleted.') }</p>
+        <p className="account-settings-header-subtitle">{ gettext('Once your account is deleted, you cannot use it to take courses on the app. This includes access to the app from your employer’s or university’s system and access to private sites offered.') }</p>
         <p
           className="account-settings-header-subtitle"
           dangerouslySetInnerHTML={{ __html: loseAccessText }}
-        />
-        <p
-          className="account-settings-header-subtitle-warning"
-          dangerouslySetInnerHTML={{ __html: acctDeletionWarningText }}
-        />
-        <p
-          className="account-settings-header-subtitle"
-          dangerouslySetInnerHTML={{ __html: changeAcctInfoText }}
         />
         <Button
           id="delete-account-btn"
