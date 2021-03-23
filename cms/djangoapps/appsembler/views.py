@@ -13,7 +13,7 @@ from django.http import HttpResponseServerError
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.decorators import method_decorator
-from django.utils.translation import ugettext as _
+from django.utils.translation import ugettext_noop as _
 from django.views import View
 from django.views.decorators.clickjacking import xframe_options_deny
 from django.views.decorators.csrf import csrf_protect
