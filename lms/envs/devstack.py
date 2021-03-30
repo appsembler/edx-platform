@@ -400,7 +400,7 @@ from .common import _make_mako_template_dirs
 ENABLE_COMPREHENSIVE_THEMING = True
 DEFAULT_SITE_THEME = 'edx-theme-codebase'
 COMPREHENSIVE_THEME_DIRS = [
-    "/edx/var/edxapp/themes",
+    "/edx/app/edx-themes"
 ]
 TEMPLATES[1]["DIRS"] = _make_mako_template_dirs
 derive_settings(__name__)
