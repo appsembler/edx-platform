@@ -72,7 +72,6 @@ class RegistrationApiViewTests(TestCase):
             res = self.client.post(self.url, params)
         self.assertContains(res, 'user_id', status_code=status.HTTP_200_OK)
 
-
     @ddt.data(True, False, 'True', 'False', 'true', 'false')
     def test_send_activation_email_with_password(self, send_activation_email):
         """
@@ -99,7 +98,6 @@ class RegistrationApiViewTests(TestCase):
             new_user = User.objects.get(username=params['username'])
             assert new_user.is_active != send_activation_email
 
-
     @ddt.data(True, False, 'True', 'False', 'true', 'false')
     def test_send_activation_email_without_password(self, send_activation_email):
         """
@@ -124,7 +122,6 @@ class RegistrationApiViewTests(TestCase):
                 self.assertContains(res, 'user_id', status_code=200)
                 new_user = User.objects.get(username=params['username'])
                 assert new_user.is_active == False
-
 
     @ddt.data('username', 'name')
     def test_missing_field(self, field):
