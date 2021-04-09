@@ -193,8 +193,13 @@ class RegistrationViewSet(TahoeAuthMixin, viewsets.ViewSet):
             # meaning we don't have to send a password reset email
             #user.is_active = password_provided
             if not password_provided:
+                # if the password is not provided, keep the user inactive until
+                # the password is set.
                 user.is_active = False
             else:
+                # if send_activation_email is True, we want to keep the user
+                # inactive until the email is properly validated. If the param
+                # is False, we activate it.
                 user.is_active = not data['send_activation_email']
             user.save()
             user_id = user.id
