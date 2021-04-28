@@ -8,6 +8,7 @@ from django.urls import NoReverseMatch, reverse
 
 from edxmako.shortcuts import marketing_link
 from openedx.core.djangoapps.theming.helpers import get_config_value_from_site_or_settings
+from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 
 
 def get_base_template_context(site):
@@ -26,10 +27,9 @@ def get_base_template_context(site):
         'homepage_url': marketing_link('ROOT'),
         'dashboard_url': dashboard_url,
         'template_revision': getattr(settings, 'EDX_PLATFORM_REVISION', None),
-        'platform_name': get_config_value_from_site_or_settings(
+        'platform_name': configuration_helpers.get_value(
             'PLATFORM_NAME',
-            site=site,
-            site_config_name='platform_name',
+            settings.PLATFORM_NAME
         ),
         'contact_email': get_config_value_from_site_or_settings(
             'CONTACT_EMAIL', site=site, site_config_name='contact_email'),
