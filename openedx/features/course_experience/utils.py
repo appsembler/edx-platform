@@ -199,13 +199,22 @@ def get_course_outline_block_tree(request, course_id, user=None, allow_start_dat
         'lti',
         'lti_consumer',
         # Appsembler completable blocks installed to Tahoe
+        # All installed XBlocks need to be listed here whether they require
+        # learner interaction or not.  Otherwise, course outline will
+        # show subsection, section, and course as incomplete.
         # TODO: this really should be dynamic
         'done',
         'freetextresponse',
         'openassessment',
         'problem-builder',
         'edx_sga',
-        'ubcpi'
+        'ubcpi',
+        'scorm',
+        'google-document',
+        'google-calendar',
+        'feedback',
+        'launchcontainer',
+        'pdf'
     ]
     all_blocks = get_blocks(
         request,
