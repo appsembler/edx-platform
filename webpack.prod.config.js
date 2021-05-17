@@ -12,7 +12,7 @@ var commonConfig = require('./webpack.common.config.js');
 var optimizedConfig = Merge.smart(commonConfig, {
   web: {
     output: {
-        filename: '[name].[chunkhash].js'
+        filename: '[name].js'  // Tahoe: We've remove the hash name in attmept to fix RED-1961
     },
     devtool: false,
     plugins: [
@@ -27,7 +27,7 @@ var optimizedConfig = Merge.smart(commonConfig, {
             // If the value below changes, update the render_bundle call in
             // common/djangoapps/pipeline_mako/templates/static_content.html
             name: 'commons',
-            filename: 'commons.[chunkhash].js',
+            filename: 'commons.js',  // Tahoe: We've remove the hash name in attmept to fix RED-1961
             minChunks: 3
         })
     ]
