@@ -1,113 +1,82 @@
 import json
 
 import ddt
-import six
-from six.moves import range
 from django.urls import reverse
 
-from student.tests.factories import UserFactory
 from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
 from xmodule.modulestore.tests.factories import ToyCourseFactory
 
+from common.djangoapps.student.roles import CourseStaffRole
 from openedx.core.djangoapps.course_groups import cohorts
-from openedx.core.djangoapps.course_groups.tests.helpers import CohortFactory
 
-from .test_utils import lms_multi_tenant_test, with_organization_context
-
-
-USERNAME = 'honor'
-USER_MAIL = 'honor@example.com'
-SETTINGS_PAYLOAD = '{"is_cohorted": true}'
-HANDLER_POST_PAYLOAD = '{"name":"Default","user_count":0,"assignment_type":"random","user_partition_id":null\
-,"group_id":null}'
-HANDLER_PATCH_PAYLOAD = '{"name":"Default Group","group_id":null,"user_partition_id":null,"assignment_type":"random"}'
-ADD_USER_PAYLOAD = json.dumps({'users': [USER_MAIL, ]})
-CSV_DATA = '''email,cohort\n{},DEFAULT'''.format(USER_MAIL)
+from .test_utils import lms_multi_tenant_test, with_organization_context, create_org_user
 
 
 @lms_multi_tenant_test
 @ddt.ddt
 class TestCohortMultiTenantApi(SharedModuleStoreTestCase):
     """
-    Tests for cohort API endpoints
+    Tests for cohort API endpoints multi-tenancy.
     """
-
-    password = 'password'
+    USERNAME = 'honor'
+    USER_MAIL = 'honor@example.com'
+    PASSWORD = 'password'
 
     @classmethod
     def setUpClass(cls):
         super(TestCohortMultiTenantApi, cls).setUpClass()
-        cls.user = UserFactory(username=USERNAME, email=USER_MAIL, password=cls.password)
-        cls.staff_user = UserFactory(is_staff=True, password=cls.password)
-        cls.course_key = ToyCourseFactory.create().id
-        cls.course_str = six.text_type(cls.course_key)
+        with with_organization_context('blue') as blue_org:
+            cls.user = create_org_user(blue_org, username=cls.USERNAME, email=cls.USER_MAIL, password=cls.PASSWORD)
+            # TODO: Remove `is_staff=True`
+            cls.instructor = create_org_user(blue_org, is_amc_admin=True, password=cls.PASSWORD)
+            cls.course_key = ToyCourseFactory.create().id
+            CourseStaffRole(cls.course_key).add_users(cls.instructor)
 
-    @ddt.data(
-        {'is_staff': False, 'status': 403},
-        {'is_staff': True, 'status': 200},
-    )
-    @ddt.unpack
-    def test_list_users_in_cohort(self, is_staff, status):
+    def test_add_users_to_cohort_single_tenant(self):
         """
-        Test GET method for listing users in a cohort.
-        """
-        users = [UserFactory() for _ in range(5)]
-        cohort = CohortFactory(course_id=self.course_key, users=users)
-        path = reverse(
-            'api_cohorts:cohort_users',
-            kwargs={'course_key_string': self.course_str, 'cohort_id': cohort.id}
-        )
-        self.user = self.staff_user if is_staff else self.user
-        assert self.client.login(username=self.user.username, password=self.password)
-        response = self.client.get(
-            path=path
-        )
-        assert response.status_code == status
+        Sanity check for the POST method for adding users to a cohort.
 
-        if status == 200:
-            results = json.loads(response.content.decode('utf-8'))['results']
-            expected_results = [{
-                'username': user.username,
-                'email': user.email,
-                'name': u'{} {}'.format(user.first_name, user.last_name)
-            } for user in users]
-            assert results == expected_results
-
-    @ddt.data({'is_staff': False, 'payload': ADD_USER_PAYLOAD, 'status': 403},
-              {'is_staff': True, 'payload': ADD_USER_PAYLOAD, 'status': 200}, )
-    @ddt.unpack
-    def test_add_users_to_cohort(self, is_staff, payload, status):
+        This method duplicates `TestCohortApi.test_add_users_to_cohort`. If this method fails, then the platform
+        have changed and we need to revisit our multi-tenancy accordingly.
         """
-        Test POST method for adding users to a cohort
-        """
-        cohorts.add_cohort(self.course_key, "DEFAULT", "random")
+        cohorts.add_cohort(self.course_key, 'DEFAULT', 'random')
         cohort_id = 1
         path = reverse('api_cohorts:cohort_users',
-                       kwargs={'course_key_string': self.course_str, 'cohort_id': cohort_id})
-        user = self.staff_user if is_staff else self.user
-        assert self.client.login(username=user.username, password=self.password)
+                       kwargs={'course_key_string': str(self.course_key), 'cohort_id': cohort_id})
+        assert self.client.login(username=self.instructor.username, password=self.PASSWORD)
         response = self.client.post(
             path=path,
-            data=payload,
+            data=json.dumps({'users': [self.USER_MAIL, ]}),
             content_type='application/json')
-        assert response.status_code == status
+        assert response.status_code == 200, response.content.decode('utf-8')
 
-    @ddt.data({'is_staff': False, 'username': USERNAME, 'status': 403},
-              {'is_staff': True, 'username': USERNAME, 'status': 204},
-              {'is_staff': True, 'username': 'doesnotexist', 'status': 404},
-              {'is_staff': False, 'username': None, 'status': 403},
-              {'is_staff': True, 'username': None, 'status': 404}, )
+    # def test_add_learner_in_multiple_sites(self):
+    #     assert False, 'TODO: Implement'
+    #
+    # def test_remove_learner_in_muliple_sites(self):
+    #     assert False, 'TODO: Implement'
+    #
+    # def test_staff_cannot_access_other_site_courses(self):
+    #     assert False, 'TODO: Implement'
+
+    @ddt.data(
+        {'username': USERNAME, 'status': 204},
+        {'username': 'doesnotexist', 'status': 404},
+        {'username': None, 'status': 404},
+    )
     @ddt.unpack
-    def test_remove_user_from_cohort(self, is_staff, username, status):
+    def test_remove_user_from_cohort_single_tenant(self, username, status):
         """
-        Test DELETE method for removing an user from a cohort.
+        Sanity check for the DELETE method for removing an user from a cohort.
+
+        This method duplicates `TestCohortApi.test_remove_user_from_cohort`. If this method fails, then the platform
+        have changed and we need to revisit our multi-tenancy accordingly.
         """
-        cohort = cohorts.add_cohort(self.course_key, "DEFAULT", "random")
-        cohorts.add_user_to_cohort(cohort, USERNAME)
+        cohort = cohorts.add_cohort(self.course_key, 'DEFAULT', 'random')
+        cohorts.add_user_to_cohort(cohort, self.USERNAME)
         cohort_id = 1
         path = reverse('api_cohorts:cohort_users',
-                       kwargs={'course_key_string': self.course_str, 'cohort_id': cohort_id, 'username': username})
-        user = self.staff_user if is_staff else self.user
-        assert self.client.login(username=user.username, password=self.password)
+                       kwargs={'course_key_string': str(self.course_key), 'cohort_id': cohort_id, 'username': username})
+        assert self.client.login(username=self.instructor.username, password=self.PASSWORD)
         response = self.client.delete(path=path)
-        assert response.status_code == status
+        assert response.status_code == status, response.content.decode('utf-8')
