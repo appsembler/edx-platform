@@ -26,6 +26,7 @@ from django.views.decorators.http import require_http_methods
 from edx_django_utils.monitoring import set_custom_metric
 from ratelimitbackend.exceptions import RateLimitException
 from rest_framework.views import APIView
+from django.middleware.csrf import get_token
 
 from edxmako.shortcuts import render_to_response
 from openedx.core.djangoapps.password_policy import compliance as password_policy_compliance
@@ -480,6 +481,13 @@ def login_user(request):
         return response
     except AuthFailedError as error:
         log.exception(error.get_response())
+        user = _get_user_by_email(request)
+        csrf_token = get_token(request)
+        msg = (u'Login attempt for email %s with CSRF cookie provided = %s', 
+                    user,
+                    csrf_token is not None
+                    )
+        log.info(msg)
         response = JsonResponse(error.get_response(), status=400)
         set_custom_metric('login_user_auth_failed_error', True)
         set_custom_metric('login_user_response_status', response.status_code)
