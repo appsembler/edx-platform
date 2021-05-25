@@ -483,10 +483,8 @@ def login_user(request):
         log.exception(error.get_response())
         user = _get_user_by_email(request)
         csrf_token = get_token(request)
-        msg = (u'Login attempt for email %s with CSRF cookie provided = %s', 
-                    user,
-                    csrf_token is not None
-                    )
+        msg = (u'Login attempt for email %s with CSRF cookie provided = %s',
+               user, csrf_token is not None)
         log.info(msg)
         response = JsonResponse(error.get_response(), status=400)
         set_custom_metric('login_user_auth_failed_error', True)
