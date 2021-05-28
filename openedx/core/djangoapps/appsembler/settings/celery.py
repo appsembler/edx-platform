@@ -49,3 +49,16 @@ class TahoeRouter(AlternateEnvironmentRouter): # consider using AlternateEnviron
             #'figures.tasks.run_figures_monthly_metrics': settings.FIGURES_MONTHLY_METRICS_ROUTING_KEY,
             'figures.tasks.run_figures_monthly_metrics': 'edx.lms.core.high_mem',
         }
+    
+    @property
+    def explicit_queues(self):
+        """
+        Defines specific queues for tasks to run in (typically outside of the cms environment),
+        as a dict of form { task_name: queue_name }.
+        """
+        return {
+            'figures.tasks.run_figures_monthly_metrics': 'edx.lms.core.high_mem',
+            'figures.tasks.populate_daily_metrics': 'edx.lms.core.high_mem',
+            'figures.tasks.populate_all_mau': 'edx.lms.core.high_mem',
+            'figures.tasks.update_enrollment_data': 'edx.lms.core.high_mem',
+        }
