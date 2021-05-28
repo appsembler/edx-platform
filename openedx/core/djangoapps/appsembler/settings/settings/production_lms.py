@@ -97,3 +97,5 @@ def plugin_settings(settings):
 
     settings.STATICFILES_DIRS = get_tahoe_theme_static_dirs(settings)
     settings.AUTHENTICATION_BACKENDS = get_tahoe_multitenant_auth_backends(settings)
+
+    settings.CELERY_ROUTES = (settings.CELERY_ROUTES, 'openedx.core.djangoapps.appsembler.settings.celery.TahoeRouter')

@@ -66,5 +66,3 @@ def plugin_settings(settings):
 
     # Appsembler allows generating honor certs
     settings.FEATURES['TAHOE_AUTO_GENERATE_HONOR_CERTS'] = True
-
-    settings.CELERY_ROUTES = (settings.CELERY_ROUTES, 'openedx.core.djangoapps.appsembler.settings.celery.TahoeRouter')
