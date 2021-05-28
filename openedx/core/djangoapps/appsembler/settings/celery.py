@@ -61,4 +61,5 @@ class TahoeRouter(AlternateEnvironmentRouter): # consider using AlternateEnviron
             'figures.tasks.populate_daily_metrics': 'edx.lms.core.high_mem',
             'figures.tasks.populate_all_mau': 'edx.lms.core.high_mem',
             'figures.tasks.update_enrollment_data': 'edx.lms.core.high_mem',
+            'figures.tasks.populate_monthly_metrics_for_site': 'edx.lms.core.high_mem',
         }
