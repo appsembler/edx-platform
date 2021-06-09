@@ -408,7 +408,7 @@ class DeactivateLogoutView(APIView):
     # Dictionary key name to store unsuffixed email within user.profile.meta
     APPSEMBLER_RETIREMENT_EMAIL_META_KEY = 'APPSEMBLER_RETIREMENT_EMAIL'
 
-    authentication_classes = (JwtAuthentication, SessionAuthentication, )
+    authentication_classes = (SessionAuthentication, JwtAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
 
     def post(self, request):
