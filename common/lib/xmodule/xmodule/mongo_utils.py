@@ -73,7 +73,7 @@ def connect_to_mongodb(
             port=port,
             tz_aware=tz_aware,
             document_class=dict,
-            tlsAllowInvalidCertificates=True,
+            ssl_cert_reqs=ssl.CERT_NONE,
             **kwargs
         ),
         db
