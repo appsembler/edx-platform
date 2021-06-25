@@ -136,7 +136,13 @@ if 'figures' in INSTALLED_APPS:
         update_webpack_loader,
         update_celerybeat_schedule
     )
-    update_webpack_loader(WEBPACK_LOADER,
-                          ENV_TOKENS.get('FIGURES', {}))
-    update_celerybeat_schedule(CELERYBEAT_SCHEDULE,
-                               ENV_TOKENS.get('FIGURES', {}))
+    figures_tasks_default_queue = ENV_TOKENS['FIGURES'].get(
+        'FIGURES_PIPELINE_TASKS_ROUTING_KEY',
+        CELERY_DEFAULT_ROUTING_KEY
+        )
+    update_webpack_loader(WEBPACK_LOADER, ENV_TOKENS['FIGURES'])
+    update_celerybeat_schedule(
+        CELERYBEAT_SCHEDULE,
+        ENV_TOKENS['FIGURES'],
+        figures_tasks_default_queue
+        )
