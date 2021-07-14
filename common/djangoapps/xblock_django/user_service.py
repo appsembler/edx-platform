@@ -9,7 +9,7 @@ from xblock.reference.user_service import UserService, XBlockUser
 
 from openedx.core.djangoapps.external_user_ids.models import ExternalId
 from openedx.core.djangoapps.user_api.preferences.api import get_user_preferences
-from student.models import anonymous_id_for_user, get_user_by_username_or_email
+from student.models import anonymous_id_for_user, get_user_by_username_or_email_inside_organization
 
 ATTR_KEY_IS_AUTHENTICATED = 'edx-platform.is_authenticated'
 ATTR_KEY_USER_ID = 'edx-platform.user_id'
@@ -61,7 +61,7 @@ class DjangoXBlockUserService(UserService):
             return None
 
         try:
-            user = get_user_by_username_or_email(username_or_email=username)
+            user = get_user_by_username_or_email_inside_organization(username_or_email=username)
         except User.DoesNotExist:
             return None
 
