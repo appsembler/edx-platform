@@ -71,7 +71,9 @@ if settings.DEBUG or settings.FEATURES.get('ENABLE_DJANGO_ADMIN_SITE'):
 # These are used by Django to render these error codes. Do not remove.
 # pylint: disable=invalid-name
 handler404 = static_template_view_views.render_404
-handler500 = static_template_view_views.render_500
+
+if settings.TAHOE_ENABLE_CUSTOM_ERROR_VIEW:
+    handler500 = static_template_view_views.render_500
 
 notification_prefs_urls = [
     url(r'^notification_prefs/enable/', notification_prefs_views.ajax_enable),
@@ -1013,14 +1015,12 @@ urlpatterns += (
     url(r'^appsembler/api/', include('openedx.core.djangoapps.appsembler.tpa_admin.urls')),
 )
 
-# Tahoe API
-if not settings.TAHOE_TEMP_MONKEYPATCHING_JUNIPER_TESTS:
-    # TODO: This URL import is broken in Juniper and needs upgrade
-    urlpatterns += (
-        url(r'^tahoe/api/',
-            include('openedx.core.djangoapps.appsembler.api.urls',
-                    namespace='tahoe-api')),
-    )
+# Tahoe API for registrations, enrollments, and users
+urlpatterns += (
+    url(r'^tahoe/api/',
+        include(('openedx.core.djangoapps.appsembler.api.urls', 'tahoe-api'),
+                namespace='tahoe-api')),
+)
 
 urlpatterns.extend(plugin_urls.get_patterns(plugin_constants.ProjectType.LMS))
 

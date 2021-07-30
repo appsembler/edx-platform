@@ -13,7 +13,6 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import AnonymousUser, User
-from django.contrib.sites.models import Site
 from django.core.validators import ValidationError, validate_email
 from django.db import transaction
 from django.db.models.signals import post_save
@@ -44,22 +43,15 @@ from edxmako.shortcuts import marketing_link, render_to_response, render_to_stri
 from entitlements.models import CourseEntitlement
 from openedx.core.djangoapps.ace_common.template_context import get_base_template_context
 from openedx.core.djangoapps.catalog.utils import get_programs_with_type
-from openedx.core.djangoapps.appsembler.sites.utils import (
-    get_current_organization,
-    is_request_for_amc_admin,
-    is_request_for_new_amc_site,
-    add_course_creator_role,
-)
-from openedx.core.djangoapps.theming.helpers import get_current_request
+from openedx.core.djangoapps.appsembler.sites.utils import get_current_organization
 from openedx.core.djangoapps.embargo import api as embargo_api
 from openedx.core.djangoapps.lang_pref import LANGUAGE_KEY
 from openedx.core.djangoapps.programs.models import ProgramsApiConfig
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.theming import helpers as theming_helpers
+from openedx.core.djangoapps.theming.helpers import get_current_site
 from openedx.core.djangoapps.user_api.preferences import api as preferences_api
 from openedx.core.djangolib.markup import HTML, Text
-from organizations.models import Organization, UserOrganizationMapping
-from organizations.models import Organization, UserOrganizationMapping
 from student.helpers import DISABLE_UNENROLL_CERT_STATES, cert_info, generate_activation_email_context
 from student.message_types import AccountActivation, EmailChange, EmailChangeConfirmation, RecoveryEmailCreate
 from student.models import (
@@ -220,7 +212,11 @@ def compose_and_send_activation_email(user, profile, user_registration=None):
     root_url = configuration_helpers.get_value('LMS_ROOT_URL', settings.LMS_ROOT_URL)
     msg = compose_activation_email(root_url, user, user_registration, route_enabled, profile.name)
 
-    send_activation_email.delay(str(msg))
+    from_address = configuration_helpers.get_value('ACTIVATION_EMAIL_FROM_ADDRESS') or (
+        configuration_helpers.get_value('email_from_address', settings.DEFAULT_FROM_EMAIL)
+    )
+    site = get_current_site()
+    send_activation_email.delay(str(msg), site_id=site.pk, from_address=from_address)
 
 
 @login_required
@@ -653,7 +649,7 @@ def do_email_change_request(user, new_email, activation_key=None, secondary_emai
 
     use_https = theming_helpers.get_current_request().is_secure()
 
-    site = Site.objects.get_current()
+    site = get_current_site()
     message_context = get_base_template_context(site)
     message_context.update({
         'old_email': user.email,
@@ -769,7 +765,7 @@ def confirm_email_change(request, key):
                 link=reverse('contact'),
             )
 
-        site = Site.objects.get_current()
+        site = get_current_site()
         message_context = get_base_template_context(site)
         message_context.update({
             'old_email': user.email,

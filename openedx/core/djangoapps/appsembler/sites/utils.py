@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import beeline
 import json
 
@@ -6,21 +8,23 @@ from urllib.parse import urlparse
 import cssutils
 import os
 import sass
+
+from django.db.models import Q, F
+from django.utils import timezone
 from django.core.files.storage import get_storage_class
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
-from django.db.models.query import Q
+from django.core.exceptions import ImproperlyConfigured
 
-if not settings.TAHOE_TEMP_MONKEYPATCHING_JUNIPER_TESTS:
-    # TODO: Fix broken imports
-    from provider.oauth2.models import AccessToken, RefreshToken, Client
+from oauth2_provider.models import AccessToken, RefreshToken, Application
+from oauth2_provider.generators import generate_client_id
 
 from django.utils.text import slugify
 
 from organizations import api as org_api
 from organizations import models as org_models
-from organizations.models import UserOrganizationMapping, Organization, UserSiteMapping
+from organizations.models import UserOrganizationMapping, Organization
 
 from openedx.core.lib.api.api_key_permissions import is_request_has_valid_api_key
 from openedx.core.lib.log_utils import audit_log
@@ -37,12 +41,12 @@ def get_lms_link_from_course_key(base_lms_url, course_key):
     """
     beeline.add_context_field("base_lms_url", base_lms_url)
     beeline.add_context_field("course_key", course_key)
-    try:
-        site_domain = Site.objects.get(name=course_key.org).domain
-    except Site.DoesNotExist:
-        site_domain = "{}.{}".format(course_key.org, base_lms_url)
-
-    return site_domain
+    # avoid circular import
+    from openedx.core.djangoapps.appsembler.api.sites import get_site_for_course
+    course_site = get_site_for_course(course_key)
+    if course_site:
+        return course_site.domain
+    return base_lms_url
 
 
 @beeline.traced(name="get_site_by_organization")
@@ -54,21 +58,77 @@ def get_site_by_organization(org):
     return org.sites.all()[0]
 
 
-@beeline.traced(name="get_amc_oauth_client")
-def get_amc_oauth_client():
+def _get_active_tiers_uuids():
+    """
+    Get active Tier organiation UUIDs from the Tiers (AMC Postgres) database.
+
+    Note: This mostly a hack that's needed for improving the performance of
+          batch operations by excluding dead sites.
+
+    TODO: This helper should live in a future Tahoe Sites package.
+    """
+    from tiers.models import Tier
+    # This queries the AMC Postgres database
+    active_tiers_uuids = Tier.objects.filter(
+        Q(tier_enforcement_exempt=True) |
+        Q(tier_expires_at__gte=timezone.now())
+    ).annotate(
+        organization_edx_uuid=F('organization__edx_uuid')
+    ).values_list('organization_edx_uuid', flat=True)
+    return active_tiers_uuids
+
+
+def get_active_organizations():
+    """
+    Get active organizations based on Tiers information.
+
+    Note: This mostly a hack that's needed for improving the performance of
+          batch operations by excluding dead sites.
+
+    TODO: This helper should live in a future Tahoe Sites package.
+    """
+    active_tiers_uuids = _get_active_tiers_uuids()
+
+    # Now back to the LMS MySQL database
+    return Organization.objects.filter(
+        edx_uuid__in=[str(edx_uuid) for edx_uuid in active_tiers_uuids],
+    )
+
+
+def get_active_sites(order_by='domain'):
+    """
+    Get active sites based on Tiers information.
+
+    Note: This mostly a hack that's needed for improving the performance of
+          batch operations by excluding dead sites.
+
+    TODO: This helper should live in a future Tahoe Sites package.
+    """
+    return Site.objects.filter(
+        organizations__in=get_active_organizations()
+    ).order_by(order_by)
+
+
+@beeline.traced(name="get_amc_oauth_app")
+def get_amc_oauth_app():
     """
     Return the AMC OAuth2 Client model instance.
     """
-    return Client.objects.get(url=settings.AMC_APP_URL)
+    return Application.objects.get(client_id=settings.AMC_APP_OAUTH2_CLIENT_ID)
 
 
 @beeline.traced(name="get_amc_tokens")
 def get_amc_tokens(user):
     """
     Return the the access and refresh token with expiry date in a dict.
-    """
 
-    client = get_amc_oauth_client()
+    TODO: we need to fix this. Can't be returning empty string tokens
+    But then we need to rework the callers to handle errors. One is the
+    admin iterface, so we have to rewrite some of the form handling there
+    And there's a Django management command, so need to add error handling
+    there. There may be other places
+    """
+    app = get_amc_oauth_app()
     tokens = {
         'access_token': '',
         'access_expires': '',
@@ -76,7 +136,7 @@ def get_amc_tokens(user):
     }
 
     try:
-        access = AccessToken.objects.get(user=user, client=client)
+        access = AccessToken.objects.get(user=user, application=app)
         tokens.update({
             'access_token': access.token,
             'access_expires': access.expires,
@@ -85,7 +145,7 @@ def get_amc_tokens(user):
         return tokens
 
     try:
-        refresh = RefreshToken.objects.get(user=user, access_token=access, client=client)
+        refresh = RefreshToken.objects.get(user=user, access_token=access, application=app)
         tokens['refresh_token'] = refresh.token
     except RefreshToken.DoesNotExist:
         pass
@@ -97,29 +157,38 @@ def get_amc_tokens(user):
 def reset_amc_tokens(user, access_token=None, refresh_token=None):
     """
     Create and return new tokens, or extend existing ones to one year in the future.
-    """
-    client = get_amc_oauth_client()
-    try:
-        access = AccessToken.objects.get(user=user, client=client)
-    except AccessToken.DoesNotExist:
-        access = AccessToken.objects.create(
-            user=user,
-            client=client,
-        )
 
-    access.expires = access.client.get_default_token_expiry()
+    The `generate_client_id` function generates a 40 char hash
+    This is longer than the implementaion in Hawthorn which generated 32 char hashes
+    This function is used because it's there in the toolkit code rather than
+    write a custom hash creation function to generates 32 chars
+    """
+    app = get_amc_oauth_app()
+    valid_days = getattr(settings, 'OAUTH_EXPIRE_CONFIDENTIAL_CLIENT_DAYS', 365)
+    one_year_ahead = timezone.now() + timedelta(days=valid_days)
+
+    access, _created = AccessToken.objects.get_or_create(
+        user=user,
+        application=app,
+        defaults={
+            'expires': one_year_ahead,
+            'token': generate_client_id(),
+        }
+    )
+
+    access.expires = one_year_ahead
     if access_token:
         access.token = access_token
     access.save()
 
-    try:
-        refresh = RefreshToken.objects.get(user=user, access_token=access, client=client)
-    except RefreshToken.DoesNotExist:
-        refresh = RefreshToken.objects.create(
-            user=user,
-            client=client,
-            access_token=access,
-        )
+    refresh, _created = RefreshToken.objects.get_or_create(
+        user=user,
+        access_token=access,
+        application=app,
+        defaults={
+            'token': generate_client_id(),
+        }
+    )
 
     if refresh_token:
         refresh.token = refresh_token
@@ -150,17 +219,11 @@ def make_amc_admin(user, org_name):
       - Return the recent tokens.
     """
     org = Organization.objects.get(Q(name=org_name) | Q(short_name=org_name))
-    site = get_site_by_organization(org)
 
     uom, _ = UserOrganizationMapping.objects.get_or_create(user=user, organization=org)
     uom.is_active = True
     uom.is_amc_admin = True
     uom.save()
-
-    usm, _ = UserSiteMapping.objects.get_or_create(user=user, site=site)
-    usm.is_active = True
-    usm.is_amc_admin = True
-    usm.save()
 
     return {
         'user_email': user.email,
@@ -246,10 +309,22 @@ def _get_current_organization(failure_return_none=False):
                     )
             else:
                 try:
-                    # TODO: Using `get` is expected to fail when multiple-orgs found for a site.
-                    #       Maybe catch MultipleObjectsReturned?
-                    current_org = current_site.organizations.get()
-                except Organization.DoesNotExist:
+                    if settings.FEATURES.get('TAHOE_ENABLE_MULTI_ORGS_PER_SITE', False):
+                        if settings.FEATURES.get('APPSEMBLER_MULTI_TENANT_EMAILS', False):
+                            raise ImproperlyConfigured(
+                                'TAHOE_ENABLE_MULTI_ORGS_PER_SITE and '
+                                'APPSEMBLER_MULTI_TENANT_EMAILS are incompatible as '
+                                'we are not able to determine the exact Org when more than one '
+                                'is associated with a Site.')
+                        current_org = current_site.organizations.first()
+                        if not current_org:
+                            raise Organization.DoesNotExist(
+                                'TAHOE_ENABLE_MULTI_ORGS_PER_SITE: Could not find current '
+                                'organization for site `{}`'.format(repr(current_site))
+                            )
+                    else:
+                        current_org = current_site.organizations.get()
+                except (Organization.DoesNotExist, ImproperlyConfigured):
                     if not failure_return_none:
                         raise  # Re-raise the exception
         else:
@@ -307,7 +382,14 @@ def get_branding_values_from_file():
     if not settings.ENABLE_COMPREHENSIVE_THEMING:
         return {}
 
-    site_theme = SiteTheme(site=Site.objects.get(id=settings.SITE_ID), theme_dir_name=settings.DEFAULT_SITE_THEME)
+    try:
+        default_site = Site.objects.get(id=settings.SITE_ID)
+    except Site.DoesNotExist:
+        # Empty values dictionary if the database isn't initialized yet.
+        # This unblocks migrations and other cases before having a default site.
+        return {}
+
+    site_theme = SiteTheme(site=default_site, theme_dir_name=settings.DEFAULT_SITE_THEME)
     theme = Theme(
         name=site_theme.theme_dir_name,
         theme_dir_name=site_theme.theme_dir_name,
@@ -346,7 +428,14 @@ def get_branding_labels_from_file(custom_branding=None):
 @beeline.traced(name="compile_sass")
 def compile_sass(sass_file, custom_branding=None):
     from openedx.core.djangoapps.theming.helpers import get_theme_base_dir, Theme
-    site_theme = SiteTheme(site=Site.objects.get(id=settings.SITE_ID), theme_dir_name=settings.DEFAULT_SITE_THEME)
+    try:
+        default_site = Site.objects.get(id=settings.SITE_ID)
+    except Site.DoesNotExist:
+        # Empty CSS output if the database isn't initialized yet.
+        # This unblocks migrations and other cases before having a default site.
+        return ''
+
+    site_theme = SiteTheme(site=default_site, theme_dir_name=settings.DEFAULT_SITE_THEME)
     theme = Theme(
         name=site_theme.theme_dir_name,
         theme_dir_name=site_theme.theme_dir_name,
@@ -396,10 +485,13 @@ def json_to_sass(json_input):
 def bootstrap_site(site, org_data=None, username=None):
     from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
     organization_slug = org_data.get('name')
+    beeline.add_context_field("org_data", org_data)
+    beeline.add_context_field("username", username)
     # don't use create because we need to call save() to set some values automatically
     site_config = SiteConfiguration(site=site, enabled=True)
     site_config.save()
     site.configuration_id = site_config.id
+    beeline.add_context_field("site_config_id", site_config.id)
     # temp workarounds while old staging is still up and running
     if organization_slug:
         organization_data = org_api.add_organization({
@@ -1093,7 +1185,7 @@ def _get_initial_page_elements():
                                     "margin-top": "marg-t-0",
                                     "margin-left": "marg-l-0",
                                     "text-content": {
-                                        "en": "We're here to support you"
+                                        "en": "We've got you covered."
                                     },
                                     "font-family": "font--primary--bold",
                                     "text-alignment": "text-align--left"
@@ -1121,7 +1213,7 @@ def _get_initial_page_elements():
                                 "element-path": "page-builder/elements/_content-block.html",
                                 "options": {
                                     "content": {
-                                        "en": "<p>We recommend you take a look at our <a title=\"https://appsembler.com/blog/how-to-author-first-open-edx-course-webinar-recording/\" href=\"https://appsembler.com/blog/how-to-author-first-open-edx-course-webinar-recording/\">How to Author Your First Open edX Course in 30 Minutes</a> blog post and the <a title=\"https://appsembler.wistia.com/medias/l5wyg0ua6l\" href=\"https://appsembler.wistia.com/medias/l5wyg0ua6l\">30 minute tutorial video from our Webinar</a>!</p>\n<p>For more, visit our <a title=\"http://help.appsembler.com/\" href=\"http://help.appsembler.com/\">Appsembler knowledge base</a>.</p>\n<p>If you run into any issues or have any questions about using our product, please feel free to contact our support team via <a title=\"mailto:support@appsembler.com\" href=\"mailto:support@appsembler.com\"><strong>support@appsembler.com</strong></a>!</p>"
+                                        "en": "<ul><li>The <a href='https://academy.appsembler.com/' target='_blank'>Appsembler Academy</a> is the home of Appsembler's own courses, including <a href='https://academy.appsembler.com/courses/course-v1:appsembleracademy+OX11+Perpetual/about' target='_blank'>Creating Your First Course</a></li><li>Our <a href='https://www.youtube.com/channel/UCINXF1QU7s1D4Tvp0AnWPKA' target='_blank'>YouTube channel</a> has plenty of videos and webinars for you to explore</li><li>Our <a href='https://help.appsembler.com/' target='_blank'>knowledge base</a> is where we keep all of our articles on how to accomplish specific tasks with your Tahoe site</li></ul><p>If you get stuck or have any questions, just contact us using the chat widget down in the bottom right. We're online from 5am to 5pm Eastern US Time, Monday to Friday, and we're happy to help!</p>"
                                     },
                                     "margin-top": "marg-t-5",
                                     "margin-left": "marg-l-0",

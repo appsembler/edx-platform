@@ -123,14 +123,14 @@ class ActivationEmailTests(EmailTemplateTagMixin, CacheIsolationTestCase):
     ]
 
     @ddt.data('plain_text', 'html')
-    @unittest.skip('Appsembler: Broken tests because of multi-tenant hostname fixes. Could not fix it myself -- Omar')
+    @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, ' Broken due to multi-tenant hostname fixes. Could not fix it.')
     def test_activation_email(self, test_body_type):
         self._create_account()
         self._assert_activation_email(self.ACTIVATION_SUBJECT, self.OPENEDX_FRAGMENTS, test_body_type)
 
     @with_comprehensive_theme("edx.org")
     @ddt.data('plain_text', 'html')
-    @unittest.skip('Appsembler: Broken tests because of multi-tenant hostname fixes. Could not fix it myself -- Omar')
+    @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, ' Broken due to multi-tenant hostname fixes. Could not fix it.')
     def test_activation_email_edx_domain(self, test_body_type):
         self._create_account()
         self._assert_activation_email(self.ACTIVATION_SUBJECT, self.OPENEDX_FRAGMENTS, test_body_type)
@@ -196,10 +196,12 @@ class ActivationEmailTests(EmailTemplateTagMixin, CacheIsolationTestCase):
                 with patch('third_party_auth.pipeline.get', return_value=pipeline_partial):
                     with patch('third_party_auth.pipeline.running', return_value=True):
                         with patch('third_party_auth.is_enabled', return_value=True):
-                            reg.skip_email_verification = True
-                            inactive_user_view(request)
-                            self.assertEqual(user.is_active, True)
-                            self.assertEqual(email.called, False, msg='method should not have been called')
+                            with patch('third_party_auth.views.USER_ACCOUNT_ACTIVATED') as mock_signal:
+                                reg.skip_email_verification = True
+                                inactive_user_view(request)
+                                self.assertEqual(user.is_active, True)
+                                self.assertEqual(email.called, False, msg='method should not have been called')
+                                mock_signal.send_robust.assert_called_once_with(None, user=user), 'Verify signal'
 
     @patch('student.views.management.compose_activation_email')
     def test_send_email_to_inactive_user(self, email):
@@ -210,11 +212,13 @@ class ActivationEmailTests(EmailTemplateTagMixin, CacheIsolationTestCase):
         inactive_user = UserFactory(is_active=False)
         Registration().register(inactive_user)
         request = RequestFactory().get(settings.SOCIAL_AUTH_INACTIVE_USER_URL)
-        request.site = Mock()
+        request.site = Mock(pk=settings.SITE_ID)
         request.user = inactive_user
         with patch('edxmako.request_context.get_current_request', return_value=request):
             with patch('third_party_auth.pipeline.running', return_value=False):
-                inactive_user_view(request)
+                with patch('student.views.management.get_current_site', return_value=request.site):
+                    # Tahoe: Added support for multi-tenant email branding
+                    inactive_user_view(request)
                 self.assertEqual(email.called, True, msg='method should have been called')
 
 

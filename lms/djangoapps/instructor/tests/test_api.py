@@ -3948,7 +3948,6 @@ class TestEntranceExamInstructorAPIRegradeTask(SharedModuleStoreTestCase, LoginE
 
 
 @patch('bulk_email.models.html_to_text', Mock(return_value='Mocking CourseEmail.text_message', autospec=True))
-@override_settings(DEFAULT_SITE_THEME='edx-theme-codebase')
 class TestInstructorSendEmail(SiteMixin, SharedModuleStoreTestCase, LoginEnrollmentTestCase):
     """
     Checks that only instructors have access to email endpoints, and that
@@ -4561,7 +4560,7 @@ class TestDueDateExtensions(SharedModuleStoreTestCase, LoginEnrollmentTestCase):
             get_extended_due(self.course, self.week3, self.user1)
         )
 
-    @unittest.skipIf(settings.TAHOE_TEMP_MONKEYPATCHING_JUNIPER_TESTS, 'TODO: fix date failures')
+    @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'Skip flaky tests due to date issues')
     @RELATIVE_DATES_FLAG.override(True)
     def test_reset_date(self):
         self.test_change_due_date()
@@ -4688,7 +4687,7 @@ class TestDueDateExtensionsDeletedDate(ModuleStoreTestCase, LoginEnrollmentTestC
         extract_dates(None, self.course.id)
 
     @RELATIVE_DATES_FLAG.override(True)
-    @unittest.skipIf(settings.TAHOE_TEMP_MONKEYPATCHING_JUNIPER_TESTS, 'TODO: fix date failures')
+    @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'Skip flaky tests due to date issues')
     def test_reset_extension_to_deleted_date(self):
         """
         Test that we can delete a due date extension after deleting the normal

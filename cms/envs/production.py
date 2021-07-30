@@ -209,8 +209,9 @@ if 'loc_cache' not in CACHES:
         'LOCATION': 'edx_location_mem_cache',
     }
 
-if 'staticfiles' in CACHES:
-    CACHES['staticfiles']['KEY_PREFIX'] = EDX_PLATFORM_REVISION
+# Tahoe: RED-1961 ensure that the CMS has a different staticfiles cache prefix than the lms
+if 'staticfiles' in CACHES and 'KEY_PREFIX' in CACHES['staticfiles']:
+    CACHES['staticfiles']['KEY_PREFIX'] = CACHES['staticfiles']['KEY_PREFIX'] + "_cms"
 
 # In order to transition from local disk asset storage to S3 backed asset storage,
 # we need to run asset collection twice, once for local disk and once for S3.
@@ -530,6 +531,16 @@ RETIREMENT_SERVICE_WORKER_USERNAME = ENV_TOKENS.get(
 
 ############### Settings for edx-rbac  ###############
 SYSTEM_WIDE_ROLE_CLASSES = ENV_TOKENS.get('SYSTEM_WIDE_ROLE_CLASSES') or SYSTEM_WIDE_ROLE_CLASSES
+
+
+### Appsembler customization - Studio local login ###
+if FEATURES.get('TAHOE_STUDIO_LOCAL_LOGIN'):
+    LOGIN_URL = reverse_lazy('login')
+    FRONTEND_LOGIN_URL = lambda settings: '/login/'
+    derived('FRONTEND_LOGIN_URL')
+    FRONTEND_LOGOUT_URL = lambda settings: '/logout/'
+    derived('FRONTEND_LOGOUT_URL')
+    LOGOUT_REDIRECT_URL = reverse_lazy('home')
 
 ####################### Plugin Settings ##########################
 

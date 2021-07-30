@@ -4,7 +4,7 @@ Tests for the edx_proctoring integration into Studio
 
 
 from datetime import datetime, timedelta
-
+import unittest
 import ddt
 import six
 from django.conf import settings
@@ -100,6 +100,7 @@ class TestProctoredExams(ModuleStoreTestCase):
 
         self._verify_exam_data(sequence, True)
 
+    @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'Skipping until Lilac OSPR edx#27002 of BOM-2453')
     @ddt.data(
         (True, False, True, False, False),
         (False, False, True, False, False),
@@ -241,6 +242,7 @@ class TestProctoredExams(ModuleStoreTestCase):
         (False, False, 0),
     )
     @ddt.unpack
+    @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'Skipping until Lilac OSPR edx#27002 of BOM-2453')
     def test_advanced_settings(self, enable_timed_exams, enable_proctored_exams, expected_count):
         """
         Make sure the feature flag is honored

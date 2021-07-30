@@ -6,11 +6,10 @@ Django models for site configurations.
 import collections
 from logging import getLogger
 import os
+from urllib.parse import urlsplit
 
 from django.conf import settings
-from django.core.files.storage import get_storage_class
 from django.contrib.sites.models import Site
-from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.core.files.storage import get_storage_class
 from django.db import models
 from django.db.models.signals import post_save
@@ -79,8 +78,10 @@ class SiteConfiguration(models.Model):
     def save(self, **kwargs):
         # When creating a new object, save default microsite values. Not implemented as a default method on the field
         # because it depends on other fields that should be already filled.
-        if not self.id:
-            self.site_values = self.get_initial_microsite_values()
+        self.site_values = self.site_values or {}
+        if not self.site_values.get('PLATFORM_NAME'):
+            # Initialize the values for new SiteConfiguration objects
+            self.site_values.update(self.get_initial_microsite_values())
 
         # fix for a bug with some pages requiring uppercase platform_name variable
         self.site_values['PLATFORM_NAME'] = self.site_values.get('platform_name', '')
@@ -88,6 +89,15 @@ class SiteConfiguration(models.Model):
         # Set the default language code for new sites if missing
         # TODO: Move it to somewhere else like in AMC
         self.site_values['LANGUAGE_CODE'] = self.site_values.get('LANGUAGE_CODE', 'en')
+
+        # We cannot simply use a protocol-relative URL for LMS_ROOT_URL
+        # This is because the URL here will be used by such activities as
+        # sending activation links to new users. The activation link needs the
+        # scheme address verfication emails. The callers using this variable
+        # expect the scheme in the URL
+        self.site_values['LMS_ROOT_URL'] = '{scheme}://{domain}'.format(
+            scheme=urlsplit(settings.LMS_ROOT_URL).scheme,
+            domain=self.site.domain)
 
         super(SiteConfiguration, self).save(**kwargs)
 
@@ -211,28 +221,13 @@ class SiteConfiguration(models.Model):
                     )
                 )
 
-        if settings.USE_S3_FOR_CUSTOMER_THEMES:
-            storage_class = get_storage_class(settings.DEFAULT_FILE_STORAGE)
-            storage = storage_class(
-                location="customer_themes",
-            )
-            with storage.open(file_name, 'w') as f:
-                f.write(css_output)
-        else:
-            theme_folder = os.path.join(settings.COMPREHENSIVE_THEME_DIRS[0], 'customer_themes')
-            theme_file = os.path.join(theme_folder, file_name)
-            with open(theme_file, 'w') as f:
-                f.write(css_output)
+        storage = self.get_customer_themes_storage()
+        with storage.open(file_name, 'w') as f:
+            f.write(css_output)
 
     def get_css_url(self):
-        if settings.USE_S3_FOR_CUSTOMER_THEMES:
-            kwargs = {
-                'location': "customer_themes",
-            }
-            storage = get_storage_class()(**kwargs)
-            return storage.url(self.get_value('css_overrides_file'))
-        else:
-            return static("customer_themes/{}".format(self.get_value('css_overrides_file')))
+        storage = self.get_customer_themes_storage()
+        return storage.url(self.get_value('css_overrides_file'))
 
     def set_sass_variables(self, entries):
         """
@@ -244,19 +239,17 @@ class SiteConfiguration(models.Model):
                 new_value = (var_name, [entries[var_name], entries[var_name]])
                 self.sass_variables[index] = new_value
 
+    def get_customer_themes_storage(self):
+        storage_class = get_storage_class(settings.DEFAULT_FILE_STORAGE)
+        return storage_class(**settings.CUSTOMER_THEMES_BACKEND_OPTIONS)
+
     def delete_css_override(self):
-        css_file = self.values.get('css_overrides_file')
+        css_file = self.get_value('css_overrides_file')
         if css_file:
             try:
-                if settings.USE_S3_FOR_CUSTOMER_THEMES:
-                    kwargs = {
-                        'location': "customer_themes",
-                    }
-                    storage = get_storage_class()(**kwargs)
-                    storage.delete(self.get_value('css_overrides_file'))
-                else:
-                    os.remove(os.path.join(settings.COMPREHENSIVE_THEME_DIRS[0], css_file))
-            except OSError:
+                storage = self.get_customer_themes_storage()
+                storage.delete(self.get_value('css_overrides_file'))
+            except Exception:  # pylint: disable=broad-except  # noqa
                 logger.warning("Can't delete CSS file {}".format(css_file))
 
     def _formatted_sass_variables(self):
@@ -266,7 +259,7 @@ class SiteConfiguration(models.Model):
         if 'branding-basics' in path:
             return [(path, self._formatted_sass_variables())]
         if 'customer-sass-input' in path:
-            return [(path, self.values.get('customer_sass_input', ''))]
+            return [(path, self.get_value('customer_sass_input', ''))]
         return None
 
     def get_initial_microsite_values(self):

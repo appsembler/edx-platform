@@ -12,20 +12,28 @@ def plugin_settings(settings):
     """
     settings.APPSEMBLER_FEATURES = {}
 
-    settings.INSTALLED_APPS += (
+    settings.INSTALLED_APPS += [
+        'compat',
         'hijack',
         'hijack_admin',
 
+        'openedx.core.djangoapps.appsembler.i18n',
         'openedx.core.djangoapps.appsembler.sites',
         'openedx.core.djangoapps.appsembler.html_certificates',
         'openedx.core.djangoapps.appsembler.api',
-    )
+        'openedx.core.djangoapps.appsembler.auth.apps.AppsemblerAuthConfig',
+    ]
 
     # insert at beginning because it needs to be earlier in the list than various
     # redirect middleware which will cause later `process_request()` methods to be skipped
     settings.MIDDLEWARE.insert(
         0, 'beeline.middleware.django.HoneyMiddleware'
     )
+
+    # Disable PDF certificates on Tahoe by default because we only support HTML certificate
+    # This is a custom Tahoe feature flag.
+    # TODO: Add tests for the feature
+    settings.FEATURES['ENABLE_TAHOE_PDF_CERTS'] = False
 
     settings.DEFAULT_TEMPLATE_ENGINE['OPTIONS']['context_processors'] += (
         'openedx.core.djangoapps.appsembler.intercom_integration.context_processors.intercom',
@@ -46,19 +54,17 @@ def plugin_settings(settings):
     # This flag should be removed when we fully migrate all of Tahoe fork to Juniper
     # until then, instead of commenting out code, this flag should be used so we can easily find
     # and fix test issues
-    settings.TAHOE_TEMP_MONKEYPATCHING_JUNIPER_TESTS = True
+    settings.TAHOE_TEMP_MONKEYPATCHING_JUNIPER_TESTS = False
 
-    if not settings.TAHOE_TEMP_MONKEYPATCHING_JUNIPER_TESTS:
-        # TODO: Fix middlewares
-        _middleware_list = list(settings.MIDDLEWARE)
-        _after_site_mdlwr = _middleware_list.index('django.contrib.sites.middleware.CurrentSiteMiddleware') + 1
-        settings.MIDDLEWARE = tuple(_middleware_list[:_after_site_mdlwr]) + (
-            # Allows us to define redirects via Django admin
-            'openedx.core.djangoapps.appsembler.sites.middleware.CustomDomainsRedirectMiddleware',
-            'openedx.core.djangoapps.appsembler.sites.middleware.RedirectMiddleware',
-        ) + tuple(_middleware_list[_after_site_mdlwr:])
+    settings.TAHOE_ENABLE_CUSTOM_ERROR_VIEW = True  # Use the Django default error page during testing
+    settings.CUSTOMER_THEMES_BACKEND_OPTIONS = {
+        'location': 'customer_themes',
+    }
 
     settings.CUSTOM_DOMAINS_REDIRECT_CACHE_TIMEOUT = None  # The length of time we cache Redirect model data
     settings.CUSTOM_DOMAINS_REDIRECT_CACHE_KEY_PREFIX = 'custom_domains_redirects'
 
     settings.COPY_SEGMENT_EVENT_PROPERTIES_TO_TOP_LEVEL = False
+
+    # Appsembler allows generating honor certs
+    settings.FEATURES['TAHOE_AUTO_GENERATE_HONOR_CERTS'] = True

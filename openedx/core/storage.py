@@ -2,10 +2,10 @@
 Django storage backends for Open edX.
 """
 
-
 from django.conf import settings
 from django.contrib.staticfiles.storage import StaticFilesStorage
 from django.core.files.storage import get_storage_class, FileSystemStorage
+from django.core.cache import caches
 from django.utils.deconstruct import deconstructible
 from django.utils.lru_cache import lru_cache
 from pipeline.storage import NonPackagingMixin
@@ -62,7 +62,22 @@ class ProductionStorage(ProductionMixin, StaticFilesStorage):
 
 
 class ProductionS3Storage(ProductionMixin, S3Boto3Storage):  # pylint: disable=abstract-method
-    pass
+
+    def url(self, name, force=False):
+        """
+        Return the non-hashed URL in DEBUG mode with cache support.
+
+        Tahoe: RED-1961 This method is created for Tahoe to address mysteriously missing cache.
+        """
+
+        static_files_cache = caches['staticfiles']
+        cache_entry_name = 'ProductionS3Storage.staticfiles_cache.{}'.format(name)
+
+        url = static_files_cache.get(cache_entry_name)
+        if not url:
+            url = super().url(name, force)
+            static_files_cache.set(cache_entry_name, url)
+        return url
 
 
 class DevelopmentStorage(

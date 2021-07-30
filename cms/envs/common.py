@@ -406,6 +406,7 @@ FEATURES = {
     # .. toggle_tickets: https://openedx.atlassian.net/browse/DEPR-58
     # .. toggle_status: supported
     'DEPRECATE_OLD_COURSE_KEYS_IN_STUDIO': True,
+    'TAHOE_STUDIO_LOCAL_LOGIN': False,
 }
 
 ENABLE_JASMINE = False
@@ -477,7 +478,7 @@ MAKO_TEMPLATE_DIRS_BASE = [
     CMS_ROOT / 'djangoapps' / 'pipeline_js' / 'templates',
 ]
 
-CONTEXT_PROCESSORS = (
+CONTEXT_PROCESSORS = [
     'django.template.context_processors.request',
     'django.template.context_processors.static',
     'django.contrib.messages.context_processors.messages',
@@ -486,7 +487,7 @@ CONTEXT_PROCESSORS = (
     'django.template.context_processors.csrf',
     'help_tokens.context_processor',
     'openedx.core.djangoapps.site_configuration.context_processors.configuration_context',
-)
+]
 
 # Django templating
 TEMPLATES = [

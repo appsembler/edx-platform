@@ -28,8 +28,8 @@ from rest_framework.views import APIView
 
 from edxmako.shortcuts import render_to_string
 from openedx.core.djangoapps.ace_common.template_context import get_base_template_context
+from openedx.core.djangoapps.appsembler.sites.utils import get_current_organization
 from openedx.core.djangoapps.lang_pref import LANGUAGE_KEY
-from openedx.core.djangoapps.oauth_dispatch.api import destroy_oauth_tokens
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.theming.helpers import get_current_request, get_current_site
 from openedx.core.djangoapps.user_api import accounts, errors, helpers
@@ -44,6 +44,8 @@ from student.models import AccountRecovery
 from util.json_request import JsonResponse
 from util.password_policy_validators import normalize_password, validate_password
 from util.request_rate_limiter import PasswordResetEmailRateLimiter
+
+from openedx.core.djangoapps.appsembler.auth.oauth import destroy_oauth_tokens
 
 from organizations.models import UserOrganizationMapping
 
@@ -524,7 +526,14 @@ def _get_user_from_email(email):
 
     Returns:
         User: Django user object.
+
+    Tahoe: This helper supports the Tahoe Multi-Tenant emails feature.
+           As a result of enabling
     """
+    if settings.FEATURES.get('APPSEMBLER_MULTI_TENANT_EMAILS', False):
+        current_org = get_current_organization()
+        return current_org.userorganizationmapping_set.get(user__email=email).user
+
     try:
         return User.objects.get(email=email)
     except ObjectDoesNotExist:

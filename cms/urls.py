@@ -31,7 +31,6 @@ if password_policy_compliance.should_enforce_compliance_on_login():
 # These are used by Django to render these error codes. Do not remove.
 # pylint: disable=invalid-name
 handler404 = contentstore.views.render_404
-handler500 = contentstore.views.render_500
 
 # Pattern to match a course key or a library key
 COURSELIKE_KEY_PATTERN = r'(?P<course_key_string>({}|{}))'.format(
@@ -279,8 +278,13 @@ urlpatterns.append(url(r'^template/(?P<template>.+)$', openedx.core.djangoapps.d
 # display error page templates, for testing purposes
 urlpatterns += [
     url(r'^404$', handler404),
-    url(r'^500$', handler500),
 ]
+
+if settings.TAHOE_ENABLE_CUSTOM_ERROR_VIEW:
+    handler500 = contentstore.views.render_500
+    urlpatterns += [
+        url(r'^500$', handler500),
+    ]
 
 # API docs.
 urlpatterns += make_docs_urls(api_info)
@@ -296,3 +300,8 @@ urlpatterns.extend(plugin_urls.get_patterns(plugin_constants.ProjectType.CMS))
 urlpatterns += (
     url(r'^hijack/', include('hijack.urls')),
 )
+
+if settings.FEATURES.get('TAHOE_STUDIO_LOCAL_LOGIN'):
+    urlpatterns += [
+        url(r'', include('cms.djangoapps.appsembler.urls'))
+    ]

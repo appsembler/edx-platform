@@ -117,7 +117,7 @@ edx-i18n-tools==0.5.3     # via -r requirements/edx/base.txt, -r requirements/ed
 edx-lint==1.4.1           # via -r requirements/edx/testing.in
 edx-milestones==0.3.0     # via -r requirements/edx/base.txt
 edx-opaque-keys[django]==2.1.0  # via -r requirements/edx/base.txt, edx-bulk-grades, edx-ccx-keys, edx-completion, edx-drf-extensions, edx-enterprise, edx-milestones, edx-organizations, edx-proctoring, edx-user-state-client, edx-when, xmodule
-https://github.com/appsembler/edx-organizations/archive/5.2.0-appsembler11.tar.gz  # edx-organizations==5.2.0
+https://github.com/appsembler/edx-organizations/archive/5.2.0-appsembler14.tar.gz  # edx-organizations==5.2.0
 edx-proctoring-proctortrack==1.0.5  # via -r requirements/edx/base.txt
 edx-proctoring==2.4.0     # via -r requirements/edx/base.txt, edx-proctoring-proctortrack
 edx-rbac==1.2.1           # via -r requirements/edx/base.txt, edx-enterprise
@@ -209,7 +209,7 @@ pkgconfig==1.5.1          # via -r requirements/edx/base.txt, xmlsec
 pluggy==0.13.1            # via -r requirements/edx/coverage.txt, diff-cover, pytest, tox
 polib==1.1.0              # via -r requirements/edx/base.txt, -r requirements/edx/testing.in, edx-i18n-tools
 psutil==1.2.1             # via -r requirements/edx/base.txt, edx-django-utils
-py2neo==3.1.2             # via -r requirements/edx/base.txt
+-e git+https://github.com/technige/py2neo.git@py2neo-3.1.2#egg=py2neo==3.1.2 # via -r requirements/edx/github.in             # via -r requirements/edx/base.txt
 py==1.8.1                 # via pytest, tox
 pycodestyle==2.6.0        # via -r requirements/edx/testing.in, flake8
 pycontracts==1.8.12       # via -r requirements/edx/base.txt, edx-user-state-client
