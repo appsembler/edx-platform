@@ -240,8 +240,8 @@ class RecalculateSubsectionGradeTest(HasCourseWithProblemsMixin, ModuleStoreTest
             self.assertEqual(len(PersistentSubsectionGrade.bulk_read_grades(self.user.id, self.course.id)), 0)
 
     @ddt.data(
-        (ModuleStoreEnum.Type.mongo, 1, 38),
-        (ModuleStoreEnum.Type.split, 3, 38),
+        (ModuleStoreEnum.Type.mongo, 1, 39),
+        (ModuleStoreEnum.Type.split, 3, 39),
     )
     @ddt.unpack
     def test_persistent_grades_enabled_on_course(self, default_store, num_mongo_queries, num_sql_queries):
