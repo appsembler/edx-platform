@@ -99,6 +99,15 @@ class SiteConfiguration(models.Model):
             scheme=urlsplit(settings.LMS_ROOT_URL).scheme,
             domain=self.site.domain)
 
+        # This ensures if the site has a custom domain set, we set the custom
+        # domain instead the Tahoe URL.
+        self.site_values['SITE_NAME'] = self.site.domain
+
+        # RED-2385: Use Multi-tenant `/help` URL for activation emails.
+        self.site_values['ACTIVATION_EMAIL_SUPPORT_LINK'] = '{root_url}/help'.format(
+            root_url=self.site_values['LMS_ROOT_URL'],
+        )
+
         super(SiteConfiguration, self).save(**kwargs)
 
         # recompile SASS on every save
