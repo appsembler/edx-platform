@@ -76,8 +76,13 @@ class CourseGradeBase(object):
             for subsection_grade in chapter['sections']:
                 if subsection_grade.graded:
                     graded_total = subsection_grade.graded_total
-                    if graded_total.possible > 0 and subsection_grade.show_grades(staff_access):
-                        subsections_by_format[subsection_grade.format][subsection_grade.location] = subsection_grade
+                    show_correctness = subsection_grade.show_correctness
+                    if show_correctness == 'past_due':
+                        if graded_total.possible > 0 and subsection_grade.show_grades(staff_access):
+                            subsections_by_format[subsection_grade.format][subsection_grade.location] = subsection_grade
+                    else:
+                        if graded_total.possible > 0:
+                            subsections_by_format[subsection_grade.format][subsection_grade.location] = subsection_grade
         return subsections_by_format
 
     @lazy

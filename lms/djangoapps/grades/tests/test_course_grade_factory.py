@@ -61,6 +61,21 @@ class TestCourseGradeFactory(GradeTestBase):
                 data=problem_xml
             )
 
+            cls.sequence4 = ItemFactory.create(
+                parent=cls.chapter,
+                category='sequential',
+                display_name="Test Sequential C",
+                graded=True,
+                format="Quiz",
+                metadata={'show_correctness': 'never'})
+
+            cls.problem4 = ItemFactory.create(
+                parent=cls.sequence4,
+                category="problem",
+                display_name="Quiz",
+                data=problem_xml
+            )
+
     def _assert_zero_grade(self, course_grade, expected_grade_class):
         """
         Asserts whether the given course_grade is as expected with
@@ -125,34 +140,34 @@ class TestCourseGradeFactory(GradeTestBase):
             sections = course_grade.chapter_grades[self.chapter.location]['sections']
             self.assertEqual(
                 [section.display_name for section in sections],
-                [self.sequence.display_name, self.sequence2.display_name, self.sequence3.display_name]
+                [self.sequence.display_name, self.sequence2.display_name, self.sequence3.display_name, self.sequence4.display_name]
             )
 
         with self.assertNumQueries(3), mock_get_score(1, 2):
             _assert_read(expected_pass=False, expected_percent=0)  # start off with grade of 0
 
-        num_queries = 52
+        num_queries = 64
         with self.assertNumQueries(num_queries), mock_get_score(2, 2):
             grade_factory.update(self.request.user, self.course, force_update_subsections=True)
 
         with self.assertNumQueries(3):
-            _assert_read(expected_pass=True, expected_percent=0.5)  # updated to grade of .5
+            _assert_read(expected_pass=True, expected_percent=0.75)  # updated to grade of .5
 
         num_queries = 6
         with self.assertNumQueries(num_queries), mock_get_score(1, 4):
             grade_factory.update(self.request.user, self.course, force_update_subsections=False)
 
         with self.assertNumQueries(3):
-            _assert_read(expected_pass=True, expected_percent=0.5)  # NOT updated to grade of .25
+            _assert_read(expected_pass=True, expected_percent=0.75)  # NOT updated to grade of .25
 
-        num_queries = 28
+        num_queries = 33
         with self.assertNumQueries(num_queries), mock_get_score(2, 2):
             grade_factory.update(self.request.user, self.course, force_update_subsections=True)
 
         with self.assertNumQueries(3):
-            _assert_read(expected_pass=True, expected_percent=0.5)  # updated to grade of 1.0
+            _assert_read(expected_pass=True, expected_percent=0.75)  # updated to grade of 1.0
 
-        num_queries = 34
+        num_queries = 43
         with self.assertNumQueries(num_queries), mock_get_score(0, 0):  # the subsection now is worth zero
             grade_factory.update(self.request.user, self.course, force_update_subsections=True)
 
@@ -182,7 +197,7 @@ class TestCourseGradeFactory(GradeTestBase):
         with patch('lms.djangoapps.grades.course_data.get_course_blocks') as mocked_course_blocks:
             with patch('lms.djangoapps.grades.subsection_grade.get_score') as mocked_get_score:
                 course_grade = grade_factory.read(self.request.user, self.course)
-                self.assertEqual(course_grade.percent, 0.25)  # make sure it's not a zero-valued course grade
+                self.assertEqual(course_grade.percent, 0.38)  # make sure it's not a zero-valued course grade
                 self.assertFalse(mocked_get_score.called)  # no calls to CSM/submissions tables
                 self.assertFalse(mocked_course_blocks.called)  # no user-specific transformer calculation
 
@@ -196,7 +211,7 @@ class TestCourseGradeFactory(GradeTestBase):
 
     def test_subsection_type_graders(self):
         graders = CourseGrade.get_subsection_type_graders(self.course)
-        self.assertEqual(len(graders), 3)
+        self.assertEqual(len(graders), 4)
         self.assertEqual(graders["Homework"].type, "Homework")
         self.assertEqual(graders["NoCredit"].min_count, 0)
 
@@ -223,6 +238,8 @@ class TestCourseGradeFactory(GradeTestBase):
             self.subsection_grade_factory.update(self.course_structure[self.sequence.location])
         with mock_get_score(1, 1):
             self.subsection_grade_factory.update(self.course_structure[self.sequence3.location])
+        with mock_get_score(1, 1):
+            self.subsection_grade_factory.update(self.course_structure[self.sequence4.location])
         course_grade = CourseGradeFactory().update(self.request.user, self.course)
 
         actual_summary = course_grade.summary
@@ -230,7 +247,7 @@ class TestCourseGradeFactory(GradeTestBase):
         # We should have had a zero subsection grade for sequential 2, since we never
         # gave it a mock score above.
         expected_summary = {
-            'grade': None,
+            'grade': 'Pass',
             'grade_breakdown': {
                 'Homework': {
                     'category': 'Homework',
@@ -240,7 +257,12 @@ class TestCourseGradeFactory(GradeTestBase):
                 'FinalExam': {
                     'category': 'FinalExam',
                     'percent': 0.0,
-                    'detail': 'FinalExam = 0.00% of a possible 50.00%',
+                    'detail': 'FinalExam = 0.00% of a possible 25.00%',
+                },
+                'Quiz': {
+                    'category': 'Quiz',
+                    'percent': 0.25,
+                    'detail': 'Quiz = 25.00% of a possible 25.00%',
                 },
                 'NoCredit': {
                     'category': 'NoCredit',
@@ -248,7 +270,7 @@ class TestCourseGradeFactory(GradeTestBase):
                     'detail': 'NoCredit = 0.00% of a possible 0.00%',
                 }
             },
-            'percent': 0.25,
+            'percent': 0.5,
             'section_breakdown': [
                 {
                     'category': 'Homework',
@@ -282,12 +304,20 @@ class TestCourseGradeFactory(GradeTestBase):
                     'detail': 'FinalExam = 0%'
                 },
                 {
+                    'category': 'Quiz',
+                    'percent': 1.0,
+                    'prominent': True,
+                    'label': 'QZ',
+                    'detail': 'Quiz = 100%'
+                },
+                {
                     'category': 'NoCredit',
                     'detail': u'NoCredit Average = 0%',
                     'label': u'NC Avg',
                     'percent': 0,
                     'prominent': True
                 },
+
             ]
         }
         self.assertEqual(expected_summary, actual_summary)

@@ -105,7 +105,14 @@ class GradeTestBase(SharedModuleStoreTestCase):
                     "min_count": 1,
                     "drop_count": 0,
                     "short_label": "FE",
-                    "weight": 0.5,
+                    "weight": 0.25,
+                },
+                {
+                    "type": "Quiz",
+                    "min_count": 1,
+                    "drop_count": 0,
+                    "short_label": "QZ",
+                    "weight": 0.25,
                 },
                 {
                     "type": "NoCredit",
