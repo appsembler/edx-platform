@@ -194,6 +194,19 @@ class SiteConfigurationTests(TestCase):
         )
         self.assertEqual(site_configuration.get_value("SITE_NAME", "Default Site Name"), "Default Site Name")
 
+    def test_get_value_none_logging(self):
+        """
+        Test that get_value logs missing key
+        """
+        site_configuration = SiteConfigurationFactory.create(
+            site=self.site,
+            site_values=self.test_config1
+        )
+        with self.assertLogs() as captured:
+            site_configuration.get_value("non_existent_name")
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "Site Configuration key <non_existent_name> missing for site <{}>.".format(site_configuration.site))
+
     @unittest.skip("Custom save method incompatible with saving a list")
     def test_invalid_data_error_on_get_value(self):
         """

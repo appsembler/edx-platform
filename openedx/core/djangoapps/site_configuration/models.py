@@ -134,7 +134,11 @@ class SiteConfiguration(models.Model):
         """
         if self.enabled:
             try:
-                return self.site_values.get(name, default)
+                site_value = self.site_values.get(name, default)
+                if site_value is not None:
+                    return site_value
+                else:
+                    logger.info(u"Site Configuration key <%s> missing for site <%s>.", name, self.site)
             except AttributeError as error:
                 logger.exception(u'Invalid JSON data. \n [%s]', error)
         else:
