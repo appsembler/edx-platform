@@ -1,8 +1,7 @@
 """
 Registration related views.
 """
-
-
+import beeline
 import datetime
 import json
 import logging
@@ -124,6 +123,7 @@ REGISTRATION_FAILURE_LOGGING_FLAG = WaffleFlag(
 
 
 @transaction.non_atomic_requests
+@beeline.traced('user_authn.create_account_with_params')
 def create_account_with_params(request, params):
     """
     Given a request and a dict of parameters (which may or may not have come
@@ -227,6 +227,7 @@ def create_account_with_params(request, params):
         user, running_pipeline, third_party_provider,
     )
 
+    beeline.add_context_field('user_account_created__skip_email', skip_email)
     if skip_email:
         registration.activate()
     else:
@@ -258,6 +259,8 @@ def create_account_with_params(request, params):
         # Tech Debt: This is a weird logic in my opinion that we should simplify into a single API call -- Omar
         current_org = get_current_organization(failure_return_none=True)
         if current_org:
+            beeline.add_context_field('user_account_created__username', user.username)
+            beeline.add_context_field('user_account_created__is_active', user.is_active)
             UserOrganizationMapping.objects.get_or_create(
                 user=user,
                 organization=current_org,
@@ -273,6 +276,7 @@ def create_account_with_params(request, params):
     # TODO: there is no error checking here to see that the user actually logged in successfully,
     # and is not yet an active user.
     if new_user is not None:
+        beeline.add_context_field('user_account_created__login_success', True)
         AUDIT_LOG.info(u"Login success on new account creation - {0}".format(new_user.username))
 
     return new_user
