@@ -1444,6 +1444,24 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
         response = self.client.post(self.url, data)
         self.assertHttpBadRequest(response)
 
+    @mock.patch('openedx.core.djangoapps.user_authn.views.register.USER_ACCOUNT_ACTIVATED')
+    @mock.patch.dict(settings.FEATURES, {"AUTOMATIC_AUTH_FOR_TESTING": True})
+    def test_account_activation_signal(self, signal):
+        """
+        Ensure the `USER_ACCOUNT_ACTIVATED` is sent when the user is activated immediately.
+        """
+        data = {
+            "email": self.EMAIL,
+            "name": self.NAME,
+            "username": self.USERNAME,
+            "password": self.PASSWORD,
+            "terms_of_service": True,
+            "honor_code": True,
+        }
+        response = self.client.post(self.url, data)
+        assert response.status_code == 200, response.content.decode('utf-8')
+        assert signal.send_robust.call_count == 1, 'USER_ACCOUNT_ACTIVATED is sent when email validation is skipped.'
+
     @override_settings(REGISTRATION_EXTRA_FIELDS={"country": "required"})
     @ddt.data("email", "name", "username", "password", "country")
     def test_register_missing_required_field(self, missing_field):

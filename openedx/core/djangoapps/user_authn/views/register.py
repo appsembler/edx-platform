@@ -36,6 +36,7 @@ import third_party_auth
 # TODO Have the discussions code subscribe to the REGISTER_USER signal instead.
 from lms.djangoapps.discussion.notification_prefs.views import enable_notifications
 from openedx.core.djangoapps.lang_pref import LANGUAGE_KEY
+from openedx.core.djangoapps.signals.signals import USER_ACCOUNT_ACTIVATED
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.user_api import accounts as accounts_settings
 from openedx.core.djangoapps.user_api.accounts.api import (
@@ -247,6 +248,9 @@ def create_account_with_params(request, params):
 
     # Announce registration
     REGISTER_USER.send(sender=None, user=user, registration=registration)
+    if user.is_active:
+        # Announce email activation when `_skip_activation_email` is used.
+        USER_ACCOUNT_ACTIVATED.send_robust(sender=None, user=user)
 
     create_comments_service_user(user)
 
