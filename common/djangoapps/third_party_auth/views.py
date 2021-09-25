@@ -55,7 +55,7 @@ def inactive_user_view(request):
             user.is_active = True
             user.save()
             activated = True
-            USER_ACCOUNT_ACTIVATED.send_robust(None, user=user)
+            USER_ACCOUNT_ACTIVATED.send(None, user=user)
             beeline.add_context_field('activation_signal_sent', True)
     if not activated:
         compose_and_send_activation_email(user, profile)

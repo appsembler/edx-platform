@@ -250,7 +250,7 @@ def create_account_with_params(request, params):
     REGISTER_USER.send(sender=None, user=user, registration=registration)
     if user.is_active:
         # Announce email activation when `_skip_activation_email` is used.
-        USER_ACCOUNT_ACTIVATED.send_robust(sender=None, user=user)
+        USER_ACCOUNT_ACTIVATED.send(sender=None, user=user)
 
     create_comments_service_user(user)
 

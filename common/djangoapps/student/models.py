@@ -906,7 +906,7 @@ class Registration(models.Model):
     def activate(self):
         self.user.is_active = True
         self.user.save(update_fields=['is_active'])
-        USER_ACCOUNT_ACTIVATED.send_robust(self.__class__, user=self.user)
+        USER_ACCOUNT_ACTIVATED.send(self.__class__, user=self.user)
         log.info(u'User %s (%s) account is successfully activated.', self.user.username, self.user.email)
 
 
