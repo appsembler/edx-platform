@@ -1062,7 +1062,7 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
         )
 
         # Terms of service field should also be present
-        link_label = "Terms of Service"
+        link_label = "Terms of Service and Privacy Policy"
         link_template = u"<a href='https://www.test.com/tos' rel='noopener' target='_blank'>{link_label}</a>"
         self._assert_reg_field(
             {"honor_code": "required", "terms_of_service": "required"},
@@ -1109,7 +1109,7 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
             }
         )
 
-        link_label = 'Terms of Service'
+        link_label = 'Terms of Service and Privacy Policy'
         # Terms of service field should also be present
         link_template = u"<a href='/tos' rel='noopener' target='_blank'>{link_label}</a>"
         self._assert_reg_field(
@@ -1124,7 +1124,7 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
                 "type": "checkbox",
                 "required": True,
                 "errorMessages": {
-                    "required": u"You must agree to the {platform_name} Terms of Service".format(
+                    "required": u"You must agree to the {platform_name} Terms of Service and Privacy Policy".format(
                         platform_name=settings.PLATFORM_NAME
                     )
                 }
@@ -1456,11 +1456,11 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
             "username": self.USERNAME,
             "password": self.PASSWORD,
             "terms_of_service": True,
-            "honor_code": True,
+            "honor_code": True
         }
         response = self.client.post(self.url, data)
         assert response.status_code == 200, response.content.decode('utf-8')
-        assert signal.send_robust.call_count == 1, 'USER_ACCOUNT_ACTIVATED is sent when email validation is skipped.'
+        assert signal.send.call_count == 1, 'USER_ACCOUNT_ACTIVATED is sent when email validation is skipped.'
 
     @override_settings(REGISTRATION_EXTRA_FIELDS={"country": "required"})
     @ddt.data("email", "name", "username", "password", "country")
