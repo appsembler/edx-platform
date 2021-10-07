@@ -92,7 +92,7 @@ class RegistrationApiViewTests(TestCase):
         def fake_send(user, profile, user_registration=None):
             assert send_activation_email in [True, 'True', 'true'], 'activation email should not be called'
 
-        with patch('student.views.management.compose_and_send_activation_email', fake_send):
+        with patch('openedx.core.djangoapps.user_authn.views.register.compose_and_send_activation_email', fake_send):
             res = self.client.post(self.url, params)
             self.assertContains(res, 'user_id', status_code=200)
             new_user = User.objects.get(username=params['username'])
@@ -120,7 +120,7 @@ class RegistrationApiViewTests(TestCase):
 
         with patch('openedx.core.djangoapps.user_authn.views.password_reset.get_current_site',
                    return_value=self.site):
-            with patch('student.views.management.compose_and_send_activation_email', fake_send):
+            with patch('openedx.core.djangoapps.user_authn.views.register.compose_and_send_activation_email', fake_send):
                 res = self.client.post(self.url, params)
                 self.assertContains(res, 'user_id', status_code=200)
                 new_user = User.objects.get(username=params['username'])
