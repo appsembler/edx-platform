@@ -43,7 +43,7 @@ def plugin_settings(settings):
     # Mandrill Subaccount Support
     settings.MANDRILL_SUBACCOUNT = settings.AUTH_TOKENS.get("MANDRILL_SUBACCOUNT")
     if settings.MANDRILL_SUBACCOUNT:
-        settings.ANYMAIL = {
+        subaccount_settings = {
             "MANDRILL_SEND_DEFAULTS": {
                 "esp_extra": {
                     "message": {
@@ -52,6 +52,10 @@ def plugin_settings(settings):
                 }
             }
         }
+        if settings.ANYMAIL:
+            settings.ANYMAIL.update(subaccount_settings)
+        else:
+            settings.ANYMAIL = subaccount_settings
     # Sentry
     settings.SENTRY_DSN = settings.AUTH_TOKENS.get('SENTRY_DSN', False)
     if settings.SENTRY_DSN:
