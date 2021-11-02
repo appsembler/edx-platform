@@ -40,7 +40,18 @@ def plugin_settings(settings):
             "MANDRILL_API_KEY": settings.MANDRILL_API_KEY,
         }
         settings.INSTALLED_APPS += ("anymail",)
-
+    # Mandrill Subaccount Support
+    settings.MANDRILL_SUBACCOUNT = settings.AUTH_TOKENS.get("MANDRILL_SUBACCOUNT")
+    if settings.MANDRILL_SUBACCOUNT:
+        settings.ANYMAIL = {
+            "MANDRILL_SEND_DEFAULTS": {
+                "esp_extra": {
+                    "message": {
+                        "subaccount": settings.MANDRILL_SUBACCOUNT
+                    }
+                }
+            }
+        }
     # Sentry
     settings.SENTRY_DSN = settings.AUTH_TOKENS.get('SENTRY_DSN', False)
     if settings.SENTRY_DSN:
