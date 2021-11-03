@@ -41,7 +41,7 @@ def plugin_settings(settings):
         }
         settings.INSTALLED_APPS += ("anymail",)
     # Mandrill Subaccount Support
-    settings.MANDRILL_SUBACCOUNT = settings.AUTH_TOKENS.get("MANDRILL_SUBACCOUNT")
+    settings.MANDRILL_SUBACCOUNT = settings.ENV_TOKENS.get("MANDRILL_SUBACCOUNT")
     if settings.MANDRILL_SUBACCOUNT:
         subaccount_settings = {
             "MANDRILL_SEND_DEFAULTS": {
