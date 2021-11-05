@@ -39,7 +39,7 @@ def get_lms_link_from_course_key(base_lms_url, course_key):
     beeline.add_context_field("course_key", course_key)
     # avoid circular import
     from openedx.core.djangoapps.appsembler.api.sites import get_site_for_course
-    if base_lms_url == settings.FEATURES.get("PREVIEW_LMS_BASE", ""):
+    if settings.FEATURES.get("PREVIEW_LMS_BASE", "") in base_lms_url:
         return base_lms_url
     course_site = get_site_for_course(course_key)
     if course_site:
