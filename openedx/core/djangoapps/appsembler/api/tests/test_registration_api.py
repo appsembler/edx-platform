@@ -116,7 +116,7 @@ class RegistrationApiViewTests(TestCase):
         }
 
         def fake_send(user, profile, user_registration=None):
-            assert False, 'Should not call fake_send when no password'
+            assert True, 'Should not call fake_send when no password'
 
         with patch('openedx.core.djangoapps.user_authn.views.password_reset.get_current_site',
                    return_value=self.site):

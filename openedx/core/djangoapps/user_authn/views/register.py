@@ -78,6 +78,8 @@ from util.db import outer_atomic
 from util.json_request import JsonResponse
 
 from openedx.core.djangoapps.appsembler.api.helpers import skip_registration_email_for_registration_api
+# from crum import get_current_request
+
 from openedx.core.djangoapps.theming.helpers import get_current_request
 from openedx.core.djangoapps.appsembler.sites.utils import (
     add_course_creator_role,
@@ -223,10 +225,10 @@ def create_account_with_params(request, params):
             add_course_creator_role(user)
 
     # Check if system is configured to skip activation email for the current user.
-    skip_email = _skip_activation_email(
-        user, running_pipeline, third_party_provider,
-    )
-
+    # skip_email = _skip_activation_email(
+    #     user, running_pipeline, third_party_provider,
+    # )
+    skip_email = not params["send_activation_email"]
     if skip_email:
         registration.activate()
     else:
