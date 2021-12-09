@@ -1020,6 +1020,9 @@ urlpatterns += (
     url(r'^tahoe/api/',
         include(('openedx.core.djangoapps.appsembler.api.urls', 'tahoe-api'),
                 namespace='tahoe-api')),
+    url(r'^tahoe/grades-api/',
+        include(('openedx.core.djangoapps.appsembler.grades_api.urls', 'tahoe-grades-api'),
+                namespace='tahoe-grades-api')),
 )
 
 urlpatterns.extend(plugin_urls.get_patterns(plugin_constants.ProjectType.LMS))
