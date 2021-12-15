@@ -253,7 +253,7 @@ def check_transcripts(request):
         youtube_transcript_name = youtube_video_transcript_name(youtube_text_api)
         if youtube_transcript_name:
             youtube_text_api['params']['name'] = youtube_transcript_name
-        youtube_response = requests.get('http://' + youtube_text_api['url'], params=youtube_text_api['params'])
+        youtube_response = requests.get('http://' + youtube_text_api['url'] + youtube_id, params=youtube_text_api['params'])
 
         if youtube_response.status_code == 200 and youtube_response.text:
             transcripts_presence['youtube_server'] = True

@@ -810,6 +810,29 @@ XBLOCK_SETTINGS = ENV_TOKENS.get('XBLOCK_SETTINGS', {})
 XBLOCK_SETTINGS.setdefault("VideoDescriptor", {})["licensing_enabled"] = FEATURES.get("LICENSING", False)
 XBLOCK_SETTINGS.setdefault("VideoModule", {})['YOUTUBE_API_KEY'] = AUTH_TOKENS.get('YOUTUBE_API_KEY', YOUTUBE_API_KEY)
 YOUTUBE_API_KEY = AUTH_TOKENS.get('YOUTUBE_API_KEY', YOUTUBE_API_KEY)
+YOUTUBE = {
+    # YouTube JavaScript API
+    'API': 'https://www.youtube.com/iframe_api',
+
+    'TEST_TIMEOUT': 1500,
+
+    # URL to get YouTube metadata
+    'METADATA_URL': 'https://www.googleapis.com/youtube/v3/videos/',
+
+    # Current youtube api for requesting transcripts.
+    # For example: https://youtube.googleapis.com/youtube/v3/captions/j_jEn79vS3g?tfmt=srt&tlang=en&key=[YOUTUBE-API-KEY]
+    'TEXT_API': {
+        'url': 'youtube.googleapis.com/youtube/v3/captions/',
+        'params': {
+            'lang': 'en',
+            'v': 'set_youtube_id_of_11_symbols_here',
+            'tfmt': 'srt',
+            'key': YOUTUBE_API_KEY,
+        },
+    },
+
+    'IMAGE_API': 'http://img.youtube.com/vi/{youtube_id}/0.jpg',  # /maxresdefault.jpg for 1920*1080
+}
 
 ######################### rate limit for yt_video_metadata api ############
 
