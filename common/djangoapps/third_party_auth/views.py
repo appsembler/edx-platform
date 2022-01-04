@@ -46,6 +46,9 @@ def inactive_user_view(request):
     beeline.add_context_field('user_is_active', activated)
     beeline.add_context_field('username', user.username)
     # If the user is registering via 3rd party auth, track which provider they use
+
+    import pdb; pdb.set_trace()
+
     if third_party_auth.is_enabled() and pipeline.running(request):
         running_pipeline = pipeline.get(request)
         third_party_provider = provider.Registry.get_from_pipeline(running_pipeline)

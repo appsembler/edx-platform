@@ -16,6 +16,8 @@ def create_user_with_logs(*args, **kwargs):
     result = create_user(*args, **kwargs)
     user = result.get('user')
 
+    import pdb; pdb.set_trace()
+
     beeline.add_context_field('create_user_result', result)
     beeline.add_context_field('is_new_user', result.get('is_new'))
     beeline.add_context_field('create_user__username', getattr(user, 'username', None))
