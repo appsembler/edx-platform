@@ -377,6 +377,7 @@ class EnrollmentApiPostTest(BaseEnrollmentApiTestCase):
         # TODO: Improvement - make sure these emails don't exist
         learner_emails = [obj.email for obj in reg_users]
         course_ids = [str(co.id) for co in self.my_course_overviews]
+        # import pdb; pdb.set_trace()
         response = self.call_enrollment_api('post', self.my_site, self.caller, {
             'data': {
                 'action': action,
