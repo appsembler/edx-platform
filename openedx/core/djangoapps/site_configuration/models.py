@@ -7,12 +7,10 @@ import beeline
 
 import collections
 from logging import getLogger
-import os
 from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.contrib.sites.models import Site
-from django.core.files.storage import get_storage_class
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -20,7 +18,6 @@ from django.utils.encoding import python_2_unicode_compatible
 from jsonfield.fields import JSONField
 from model_utils.models import TimeStampedModel
 
-from .exceptions import TahoeConfigurationException
 
 logger = getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -121,7 +118,7 @@ class SiteConfiguration(models.Model):
         super(SiteConfiguration, self).save(**kwargs)
 
         # recompile SASS on every save
-        self.compile_microsite_sass()
+        self.theme_sass_manager.compile_microsite_sass()
         return self
 
     @beeline.traced('site_config.init_api_client_adapter')
@@ -135,6 +132,24 @@ class SiteConfiguration(models.Model):
         )
         if site_helpers.is_enabled_for_site(site):
             self.api_adapter = site_helpers.get_configuration_adapter(site)
+
+    @beeline.traced('site_config.get_sass_variables')
+    def get_sass_variables(self):
+        if self.api_adapter:
+            # Tahoe: Use `SiteConfigAdapter` if available.
+            return self.api_adapter.get_amc_v1_theme_css_variables()
+        else:
+            return self.sass_variables
+
+    def set_sass_variables(self, entries):
+        """
+        Accepts a dict with the shape { var_name: value } and sets the SASS variables
+        """
+        for index, entry in enumerate(self.sass_variables):
+            var_name = entry[0]
+            if var_name in entries:
+                new_value = (var_name, [entries[var_name], entries[var_name]])
+                self.sass_variables[index] = new_value
 
     @beeline.traced('site_config.get_value')
     def get_value(self, name, default=None):
@@ -260,81 +275,8 @@ class SiteConfiguration(models.Model):
         return org in cls.get_all_orgs()
 
     def delete(self, using=None):
-        self.delete_css_override()
+        self.theme_sass_manager.delete_css_override()
         super(SiteConfiguration, self).delete(using=using)
-
-    def compile_microsite_sass(self):
-        # Importing `compile_sass` to avoid test-time Django errors.
-        # TODO: Fix Site Configuration and Organizations hacks. https://github.com/appsembler/edx-platform/issues/329
-        from openedx.core.djangoapps.appsembler.sites.utils import compile_sass
-        css_output = compile_sass('main.scss', custom_branding=self._sass_var_override)
-        file_name = self.get_value('css_overrides_file')
-
-        if not file_name:
-            if settings.TAHOE_SILENT_MISSING_CSS_CONFIG:
-                return  # Silent the exception below on during testing
-            else:
-                raise TahoeConfigurationException(
-                    'Missing `css_overrides_file` from SiteConfiguration for `{site}` config_id=`{id}`'.format(
-                        site=self.site.domain,
-                        id=self.id,
-                    )
-                )
-
-        storage = self.get_customer_themes_storage()
-        with storage.open(file_name, 'w') as f:
-            f.write(css_output)
-
-    def get_css_url(self):
-        storage = self.get_customer_themes_storage()
-        return storage.url(self.get_value('css_overrides_file'))
-
-    def set_sass_variables(self, entries):
-        """
-        Accepts a dict with the shape { var_name: value } and sets the SASS variables
-        """
-        for index, entry in enumerate(self.sass_variables):
-            var_name = entry[0]
-            if var_name in entries:
-                new_value = (var_name, [entries[var_name], entries[var_name]])
-                self.sass_variables[index] = new_value
-
-    def get_customer_themes_storage(self):
-        storage_class = get_storage_class(settings.DEFAULT_FILE_STORAGE)
-        return storage_class(**settings.CUSTOMER_THEMES_BACKEND_OPTIONS)
-
-    def delete_css_override(self):
-        css_file = self.get_value('css_overrides_file')
-        if css_file:
-            try:
-                storage = self.get_customer_themes_storage()
-                storage.delete(self.get_value('css_overrides_file'))
-            except Exception:  # pylint: disable=broad-except  # noqa
-                logger.warning("Can't delete CSS file {}".format(css_file))
-
-    @beeline.traced('site_config._formatted_sass_variables')
-    def _formatted_sass_variables(self):
-        if self.api_adapter:
-            # Tahoe: Use `SiteConfigAdapter` if available.
-            beeline.add_context_field('value_source', 'site_config_service')
-            sass_variables = self.api_adapter.get_amc_v1_theme_css_variables()
-            # Note: css variables from adapter is in dict format
-            formatted_sass_variables = ""
-            for key, val in sass_variables.items():
-                formatted_sass_variables += "{}: {};".format(key, val)
-            return formatted_sass_variables
-        else:
-            beeline.add_context_field('value_source', 'django_model')
-            # Note: sass variables in list format
-            sass_variables = self.sass_variables
-            return " ".join(["{}: {};".format(var, val[0]) for var, val in sass_variables])
-
-    def _sass_var_override(self, path):
-        if 'branding-basics' in path:
-            return [(path, self._formatted_sass_variables())]
-        if 'customer-sass-input' in path:
-            return [(path, self.get_value('customer_sass_input', ''))]
-        return None
 
     def get_initial_microsite_values(self):
         domain_without_port_number = self.site.domain.split(':')[0]
