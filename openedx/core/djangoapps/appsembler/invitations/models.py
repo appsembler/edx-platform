@@ -24,3 +24,7 @@ class Invitation(TimeStampedModel):
 
     class Meta(object):
         unique_together = ['email', 'site']
+
+    def __str__(self):
+        return 'Invitation <{email}, {domain}>'.format(
+            email=self.email, domain=self.site.domain)
