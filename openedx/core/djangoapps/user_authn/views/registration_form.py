@@ -42,11 +42,11 @@ from openedx.core.djangoapps.appsembler.sites.utils import is_request_for_new_am
 from openedx.core.djangoapps.theming.helpers import get_current_request
 
 
-def get_invitation_email(activation_code):
+def get_invitation_email(invitation_code):
     """
     Invitation UUIDs are globally unique
     """
-    qs = Invitation.objects.filter(uuid=activation_code)
+    qs = Invitation.objects.filter(uuid=invitation_code)
     if qs:
         return qs[0].email
     else:
@@ -61,7 +61,7 @@ def add_default_email(form_desc, invitation_email):
     for rec in form_desc.fields:
         if rec.get('name') == 'email':
             rec['defaultValue'] = invitation_email
-        return form_desc
+            return form_desc
 
 
 class TrueCheckbox(widgets.CheckboxInput):
@@ -459,6 +459,7 @@ class RegistrationFormFactory(object):
                     )
 
         activation_code = request.GET.get('activation-code')
+
         if activation_code:
             invitation_email = get_invitation_email(activation_code)
             add_default_email(form_desc, invitation_email)
