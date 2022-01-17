@@ -50,7 +50,7 @@ def get_invitation_email(invitation_code):
     if qs:
         return qs[0].email
     else:
-        return None  ## Syntatic sugar
+        return None  # Syntatic sugar
 
 
 def add_default_email(form_desc, invitation_email):
@@ -405,7 +405,6 @@ class RegistrationFormFactory(object):
 
         # Custom form fields can be added via the form set in settings.REGISTRATION_EXTENSION_FORM
         custom_form = get_registration_extension_form()
-
 
         if custom_form:
             # Default fields are always required

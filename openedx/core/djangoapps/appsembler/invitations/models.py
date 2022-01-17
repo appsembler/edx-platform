@@ -13,14 +13,16 @@ from django.contrib.sites.models import Site
 from django.db import models
 from model_utils.models import TimeStampedModel
 
-# May not need to 
-# 
-
 
 class Invitation(TimeStampedModel):
+    """
+    if the invitation was used ("applied"), then we can clean up
+    """
     email = models.EmailField(db_index=True)
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
     uuid = models.UUIDField(default=uuid.uuid4, unique=True)
+
+    # used_on = models.DateTimeField()
 
     class Meta(object):
         unique_together = ['email', 'site']
