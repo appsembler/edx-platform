@@ -37,9 +37,31 @@ from util.password_policy_validators import (
     validate_password,
 )
 
-
+from openedx.core.djangoapps.appsembler.invitations.models import Invitation
 from openedx.core.djangoapps.appsembler.sites.utils import is_request_for_new_amc_site
 from openedx.core.djangoapps.theming.helpers import get_current_request
+
+
+def get_invitation_email(activation_code):
+    """
+    Invitation UUIDs are globally unique
+    """
+    qs = Invitation.objects.filter(uuid=activation_code)
+    if qs:
+        return qs[0].email
+    else:
+        return None  ## Syntatic sugar
+
+
+def add_default_email(form_desc, invitation_email):
+    """
+    We scan through the form_desc fields, look for the email field and fill the
+    default email.
+    """
+    for rec in form_desc.fields:
+        if rec.get('name') == 'email':
+            rec['defaultValue'] = invitation_email
+        return form_desc
 
 
 class TrueCheckbox(widgets.CheckboxInput):
@@ -384,6 +406,7 @@ class RegistrationFormFactory(object):
         # Custom form fields can be added via the form set in settings.REGISTRATION_EXTENSION_FORM
         custom_form = get_registration_extension_form()
 
+
         if custom_form:
             # Default fields are always required
             for field_name in self.DEFAULT_FIELDS:
@@ -434,6 +457,11 @@ class RegistrationFormFactory(object):
                         form_desc,
                         required=self._is_field_required(field_name)
                     )
+
+        activation_code = request.GET.get('activation-code')
+        if activation_code:
+            invitation_email = get_invitation_email(activation_code)
+            add_default_email(form_desc, invitation_email)
 
         return form_desc
 
