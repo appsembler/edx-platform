@@ -14,7 +14,7 @@ from student.models import (email_exists_or_retired,
 from lms.djangoapps.instructor.views.tools import get_student_from_identifier
 
 from openedx.core.djangoapps.appsembler.api.v1.waffle import FIX_ENROLLMENT_RESULTS_BUG
-
+from openedx.core.djangoapps.appsembler.invitations.models import Invitation
 from student.models import (
     ALLOWEDTOENROLL_TO_ENROLLED,
     ENROLLED_TO_ENROLLED,
@@ -83,7 +83,7 @@ def enrollment_learners_context(identifiers):
 
 
 @beeline.traced(name="apis.v1.views.enroll_learners_in_course")
-def enroll_learners_in_course(course_id, identifiers, enroll_func, **kwargs):
+def enroll_learners_in_course(site, course_id, identifiers, enroll_func, **kwargs):
     """
     This method assumes that the site has been verified to own this course
 
@@ -98,6 +98,21 @@ def enroll_learners_in_course(course_id, identifiers, enroll_func, **kwargs):
     this API.
 
 
+    ## Invitation behavior
+    * Only get/create the invitation and include the invitation code if:
+        * The user does not already exist
+        * The API client wants an invitation created
+    * return the invitation record UUID with the return data
+
+    # Alternately we could do this:
+    ```
+    # If we are not emailing the learners, then automatically create an invitation
+    if not enroll_func.keywords.get('email_students', False):
+        create_invitation = True
+    else:
+        create_invitation = False
+    ```
+
     ## Future Design and considerations
     - We want to decouple concerns
         - email notification is a seperate method or class
@@ -106,9 +121,9 @@ def enroll_learners_in_course(course_id, identifiers, enroll_func, **kwargs):
     reason = kwargs.get('reason', '')
     request_user = kwargs.get('request_user')
     role = kwargs.get('role')
+    create_invitation = kwargs.get('create_invitation', False)
 
     results = []
-
     enrollment_obj = None
     state_transition = DEFAULT_TRANSITION_STATE
 
@@ -139,6 +154,11 @@ def enroll_learners_in_course(course_id, identifiers, enroll_func, **kwargs):
             else:
                 if after_allowed:
                     state_transition = UNENROLLED_TO_ALLOWEDTOENROLL
+            # Only create if new user
+            if create_invitation and not user:
+                invitation, _ = Invitation.objects.get_or_create(email=email, site=site)
+            else:
+                invitation = None
 
         except ValidationError:
             # Flag this email as an error if invalid, but continue checking
@@ -168,6 +188,9 @@ def enroll_learners_in_course(course_id, identifiers, enroll_func, **kwargs):
                 'before': before.to_dict(),
                 'after': after.to_dict(),
             }
+            if invitation:
+                result['invitation_code'] = str(invitation.uuid)
+
             if FIX_ENROLLMENT_RESULTS_BUG.is_enabled():  # TODO: RED-1387 Clean up after release
                 result['course'] = str(course_id)
             results.append(result)

@@ -36,6 +36,7 @@ class BulkEnrollmentSerializer(serializers.Serializer):
     )
     auto_enroll = serializers.BooleanField(default=False)
     email_learners = serializers.BooleanField(default=False)
+    create_invitation = serializers.BooleanField(default=False)
 
     def validate_courses(self, value):
         """

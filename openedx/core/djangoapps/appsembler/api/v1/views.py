@@ -335,6 +335,7 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
                     email_learners = serializer.data.get('email_learners')
                     identifiers = serializer.data.get('identifiers')
                     auto_enroll = serializer.data.get('auto_enroll')
+                    create_invitation = serializer.data.get('create_invitation')
                     response_code = status.HTTP_201_CREATED if action == 'enroll' else status.HTTP_200_OK
                     results = []
 
@@ -361,6 +362,7 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
 
                         if action == 'enroll':
                             results += enroll_learners_in_course(
+                                site=site,
                                 course_id=course_key,
                                 identifiers=identifiers,
                                 enroll_func=partial(
@@ -370,6 +372,7 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
                                     email_params=email_params,
                                 ),
                                 request_user=request.user,
+                                create_invitation=create_invitation,
                             )
                         else:
                             results += unenroll_learners_in_course(
