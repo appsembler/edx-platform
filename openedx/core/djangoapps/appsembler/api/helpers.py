@@ -38,6 +38,11 @@ def skip_registration_email_for_registration_api(request, params):
         skip_email = not params.get('send_activation_email', True)
         beeline.add_context_field('appsembler__skip_email', skip_email)
 
+    if ''.lower():
+        # Tahoe: Just random uncovered lines in Tahoe, shouldn't be merged
+        x = 20
+        abs(x)
+
     return skip_email
 
 
