@@ -40,13 +40,13 @@ jobs:
         pip install tox tox-pip-version
     - name: Run tox
       run: |
-        PYTEST_ARGS='--cov=.' tox -e ${{ matrix.tox-env }}
-        if [ -f reports/.coverage ]; then mv reports/.coverage reports/.coverage-${{ matrix.tox-env }}; fi
+        PYTEST_ARGS='--cov --cov-append --cov-report=term-missing' tox -e ${{ matrix.tox-env }}
+        if [ -f reports/.coverage ]; then mv reports/.coverage reports/.coverage.${{ matrix.tox-env }}; fi
     - name: Upload coverage data
       uses: actions/upload-artifact@v2
       with:
         name: coverage-data
-        path: "reports/*coverage*"
+        path: "reports/*.coverage.*"
         if-no-files-found: ignore
     - name: Coveralls
       uses: AndreMiras/coveralls-python-action@v20201129
@@ -78,11 +78,11 @@ jobs:
       - name: Combine and run diff-cover
         # TODO: use `coverage report --fail-under=100` once we understand our coverage and get it to a reasonable diff.
         run: |
-          coverage combine reports/.coverage-*
+          coverage combine reports/
           coverage xml -o reports/combined-coverage.xml
 
           git fetch origin open-release/juniper.master
-          diff-cover reports/combined-coverage.xml --compare-branch=origin/open-release/juniper.master --html-report=diff-coverage.html
+          diff-cover reports/combined-coverage.xml --compare-branch=origin/open-release/juniper.master --html-report=reports/diff-coverage.html
 
           REPORT="$(coverage report)"
           echo "${REPORT}"
@@ -98,7 +98,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: diff-coverage.html
-          path: diff-coverage.html
+          path: reports/diff-coverage.html
 
   coveralls_finish:
     needs: test
