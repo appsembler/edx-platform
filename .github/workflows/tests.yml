@@ -67,7 +67,7 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: 3.5
-      - run: python -m pip install --upgrade coverage==5.1 diff-cover==2.6.1
+      - run: python -m pip install --upgrade coverage==5.5 diff-cover==4.2.3
 
       - name: Download coverage data
         uses: actions/download-artifact@v2
@@ -81,16 +81,16 @@ jobs:
           coverage combine reports/
           coverage xml -o reports/combined-coverage.xml
 
-          git fetch origin open-release/juniper.master
-          diff-cover reports/combined-coverage.xml --compare-branch=origin/open-release/juniper.master --html-report=reports/diff-coverage.html
+          git fetch -v origin open-release/juniper.master:open-release/juniper.master
+          diff-cover reports/combined-coverage.xml --compare-branch=open-release/juniper.master --html-report=reports/diff-coverage.html
 
-          REPORT="$(coverage report)"
-          echo "${REPORT}"
-
-          REPORT="${REPORT//'%'/'%25'}"
-          REPORT="${REPORT//$'\n'/'%0A'}"
-          REPORT="${REPORT//$'\r'/'%0D'}"
-          echo "::set-output name=conflict_report::${REPORT}"
+#          REPORT="$(coverage report)"
+#          echo "${REPORT}"
+#
+#          REPORT="${REPORT//'%'/'%25'}"
+#          REPORT="${REPORT//$'\n'/'%0A'}"
+#          REPORT="${REPORT//$'\r'/'%0D'}"
+#          echo "::set-output name=conflict_report::${REPORT}"
 
       # TODO: Parse and comment $REPORT while linking to `diff-coverage.html` and hide previous coverage comments.
 
