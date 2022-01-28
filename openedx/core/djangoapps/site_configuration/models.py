@@ -167,6 +167,27 @@ class SiteConfiguration(models.Model):
 
         return default
 
+    @beeline.traced('site_config.get_page_content')
+    def get_page_content(self, name, default=None):
+        """
+        Tahoe: Get page content from Site Configuration service settings.
+
+        If SiteConfiguration adapter isn't in use, fallback to the deprecated `SiteConfiguration.page_elements` field.
+
+        Args:
+            name (str): Name of the page to fetch.
+            default: default value to return if page is not found in the configuration.
+
+        Returns:
+            Page content `dict`.
+        """
+        if self.api_adapter:
+            beeline.add_context_field('page_source', 'site_config_service')
+            return self.api_adapter.get_amc_v1_page(name, default)
+        else:
+            beeline.add_context_field('page_source', 'django_model')
+            return self.page_elements.get(name, default)
+
     @classmethod
     def get_configuration_for_org(cls, org, select_related=None):
         """
@@ -297,16 +318,10 @@ class SiteConfiguration(models.Model):
             # Tahoe: Use `SiteConfigAdapter` if available.
             beeline.add_context_field('value_source', 'site_config_service')
             sass_variables = self.api_adapter.get_amc_v1_theme_css_variables()
-            # Note: css variables from adapter is in dict format
-            formatted_sass_variables = ""
-            for key, val in sass_variables.items():
-                formatted_sass_variables += "{}: {};".format(key, val)
-            return formatted_sass_variables
         else:
             beeline.add_context_field('value_source', 'django_model')
-            # Note: sass variables in list format
             sass_variables = self.sass_variables
-            return " ".join(["{}: {};".format(var, val[0]) for var, val in sass_variables])
+        return " ".join(["{}: {};".format(var, val[0]) for var, val in sass_variables])
 
     def _sass_var_override(self, path):
         if 'branding-basics' in path:
