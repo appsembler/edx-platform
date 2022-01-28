@@ -99,6 +99,12 @@ from xmodule.modulestore.exceptions import DuplicateCourseError, ItemNotFoundErr
 from xmodule.partitions.partitions import UserPartition
 from xmodule.tabs import CourseTab, CourseTabList, InvalidTabsException
 
+# Start: Tahoe imports
+from appsembler.waffle import GLOBAL_STAFF_HIDE_INACTIVE_SITES_COURSES
+from organizations.models import OrganizationCourse
+from openedx.core.djangoapps.appsembler.sites.utils import get_active_organizations
+# End: Tahoe imports
+
 from .component import ADVANCED_COMPONENT_TYPES
 from .item import create_xblock_info
 from .library import LIBRARIES_ENABLED, get_library_creator_status
@@ -551,6 +557,7 @@ def course_listing(request):
 
     split_archived = settings.FEATURES.get(u'ENABLE_SEPARATE_ARCHIVED_COURSES', False)
     active_courses, archived_courses = _process_courses_list(courses_iter, in_process_course_actions, split_archived)
+    import pytest; pytest.set_trace()
     in_process_course_actions = [format_in_process_course_view(uca) for uca in in_process_course_actions]
 
     return render_to_response(u'index.html', {
@@ -698,6 +705,16 @@ def get_courses_accessible_to_user(request, org=None):
     if GlobalStaff().has_user(request.user):
         # user has global access so no need to get courses from django groups
         courses, in_process_course_actions = _accessible_courses_summary_iter(request, org)
+
+        import pytest; pytest.set_trace()
+        if GLOBAL_STAFF_HIDE_INACTIVE_SITES_COURSES.is_enabled():
+            # Tahoe: Hide inactive site courses for global staff
+            active_orgs = get_active_organizations()
+            import pytest; pytest.set_trace()
+            courses_ids = OrganizationCourse.objects.filter(
+                organization__in=active_orgs,
+            ).values_list('course_id')
+            courses = CourseOverview.objects.filter(id__in=courses_ids)
     else:
         try:
             courses, in_process_course_actions = _accessible_courses_list_from_groups(request)
