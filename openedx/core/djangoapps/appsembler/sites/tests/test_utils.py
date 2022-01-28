@@ -32,6 +32,50 @@ class JSONMigrationUtilsTestCase(TestCase):
         })
 
 
+class ActiveOrganizationsTestCase(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.organizationA = OrganizationFactory()
+        self.organizationB = OrganizationFactory()
+
+    @patch.dict('django.conf.settings.FEATURES', {'ENABLE_TIERS_APP': True})
+    def test_get_active_orgs(self):
+        """
+        If ENABLE_TIERS_APP is True, only active organizations should be returned.
+
+        In this case we have two active orgs.
+        """
+        with patch('openedx.core.djangoapps.appsembler.sites.utils._get_active_tiers_uuids') as mocked:
+            mocked.return_value = [self.organizationA.edx_uuid, self.organizationB.edx_uuid]
+            active_sites = get_active_sites()
+            assert len(active_sites) == 2
+            assert active_sites[0].domain == 'bar.dev'
+            assert active_sites[1].domain == 'foo.dev'
+
+    @patch.dict('django.conf.settings.FEATURES', {'ENABLE_TIERS_APP': True})
+    def test_get_active_orgs_one_active_org(self):
+        """
+        If ENABLE_TIERS_APP is True, only active organizations should be returned.
+        """
+        with patch('openedx.core.djangoapps.appsembler.sites.utils._get_active_tiers_uuids') as mocked:
+            mocked.return_value = [self.organizationA.edx_uuid]
+            active_sites = get_active_sites()
+            assert len(active_sites) == 1
+            assert active_sites[0].domain == 'bar.dev'
+
+    @patch.dict('django.conf.settings.FEATURES', {'ENABLE_TIERS_APP': False})
+    def test_get_active_orgs_with_tiers_disabled(self):
+        """
+        If ENABLE_TIERS_APP is False, all organizations should be returned.
+        """
+        with patch('openedx.core.djangoapps.appsembler.sites.utils._get_active_tiers_uuids') as mocked:
+            mocked.return_value = [self.organizationA, self.organizationB]
+            active_sites = get_active_sites()
+            assert len(active_sites) == 2
+            assert active_sites[0].domain == 'bar.dev'
+            assert active_sites[1].domain == 'foo.dev'
+
+
 class ActiveSitesTestCase(TestCase):
     def setUp(self):
         super(ActiveSitesTestCase, self).setUp()

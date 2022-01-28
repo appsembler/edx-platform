@@ -87,12 +87,14 @@ def get_active_organizations():
 
     TODO: This helper should live in a future Tahoe Sites package.
     """
-    active_tiers_uuids = _get_active_tiers_uuids()
-
-    # Now back to the LMS MySQL database
-    return Organization.objects.filter(
-        edx_uuid__in=[str(edx_uuid) for edx_uuid in active_tiers_uuids],
-    )
+    if settings.FEATURES.get('ENABLE_TIERS_APP', False):
+        active_tiers_uuids = _get_active_tiers_uuids()
+        # Now back to the LMS MySQL database
+        return Organization.objects.filter(
+            edx_uuid__in=[str(edx_uuid) for edx_uuid in active_tiers_uuids],
+        )
+    else:
+        return Organization.objects.all()
 
 
 def get_active_sites(order_by='domain'):
