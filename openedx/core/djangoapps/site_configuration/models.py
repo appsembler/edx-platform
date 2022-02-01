@@ -282,8 +282,11 @@ class SiteConfiguration(models.Model):
                 )
 
         storage = self.get_customer_themes_storage()
-        with storage.open(file_name, 'w') as f:
-            f.write(css_output)
+        if self.api_adapter:
+            self.api_adapter.upload_css(self.site.domain, css_output)
+        else:
+            with storage.open(file_name, 'w') as f:
+                f.write(css_output)
 
     def get_css_url(self):
         storage = self.get_customer_themes_storage()
