@@ -1,7 +1,7 @@
 """
 Support tool for changing course enrollments.
 """
-
+import markupsafe
 
 import six
 from django.contrib.auth.models import User
@@ -93,7 +93,7 @@ class EnrollmentSupportListView(GenericAPIView):
             if enrollment.mode != old_mode:
                 return HttpResponseBadRequest(u'User {username} is not enrolled with mode {old_mode}.'.format(
                     username=user.username,
-                    old_mode=old_mode
+                    old_mode=markupsafe.escape(old_mode)
                 ))
         except KeyError as err:
             return HttpResponseBadRequest(u'The field {} is required.'.format(text_type(err)))
