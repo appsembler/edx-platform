@@ -8,17 +8,9 @@ from openedx.core.djangoapps.user_authn.views.registration_form import validate_
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 
 from openedx.core.djangoapps.appsembler.sites.models import AlternativeDomain
-from openedx.core.djangoapps.appsembler.sites.utils import sass_to_dict, dict_to_sass, bootstrap_site
+from openedx.core.djangoapps.appsembler.sites.utils import bootstrap_site
 
 from .tasks import import_course_on_site_creation_after_transaction
-
-
-class SASSDictField(serializers.DictField):
-    def to_internal_value(self, data):
-        return dict_to_sass(data)
-
-    def to_representation(self, value):
-        return sass_to_dict(value)
 
 
 class SiteConfigurationSerializer(serializers.ModelSerializer):
