@@ -15,5 +15,9 @@ log = logging.Logger(__name__)
 
 
 class SiteCreateView(generics.CreateAPIView):
+    """
+    Site creation API to create a Platform 2.0 Tahoe site.
+    """
+
     serializer_class = SiteCreationSerializer
     permission_classes = [ApiKeyHeaderPermission]
