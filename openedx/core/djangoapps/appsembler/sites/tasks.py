@@ -36,7 +36,8 @@ def import_course_on_site_creation_after_transaction(organization):
     """
     Clone the course after Database transaction is committed, only if the import feature is enabled.
 
-    :param organization:
+    :param organization: Organization to create the course for.
+    :return bool: Whether the course is scheduled for creation or not.
     """
     if settings.FEATURES.get("APPSEMBLER_IMPORT_DEFAULT_COURSE_ON_SITE_CREATION", False):
         beeline.add_context_field("default_course_on_site_creation_flag", True)
@@ -48,6 +49,9 @@ def import_course_on_site_creation_after_transaction(organization):
             import_course_on_site_creation_apply_async(organization)
 
         transaction.on_commit(import_task_on_commit)
+        return True
+
+    return False
 
 
 def import_course_on_site_creation_apply_async(organization):
