@@ -30,6 +30,9 @@ class TestTahoeSiteCreateView(APITestCase):
         self.url = reverse('tahoe_site_creation_v2')
 
     def test_create_site_serializer_with_uuid(self):
+        """
+        Create a site with a UUID to link it with other systems.
+        """
         site_uuid = 'ee9894a6-898e-11ec-ab4d-9779d2628f5b'
         serializer = TahoeSiteCreationSerializer(data={
             'site_uuid': site_uuid,
@@ -46,6 +49,9 @@ class TestTahoeSiteCreateView(APITestCase):
         assert str(site_data['site_uuid']) == site_uuid, 'Should not generate different site UUID'
 
     def test_create_site_serializer_with_no_uuid(self):
+        """
+        Create a site with no UUID, so the UUID should be created automatically.
+        """
         serializer = TahoeSiteCreationSerializer(data={
             'domain': 'blue-site.localhost',
             'short_name': 'blue-site',
