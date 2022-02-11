@@ -10,6 +10,7 @@ import logging
 from pysrt import SubRipTime, SubRipItem, SubRipFile
 from lxml import etree
 from HTMLParser import HTMLParser
+from youtube_transcript_api import YouTubeTranscriptApi
 
 from xmodule.exceptions import NotFoundError
 from xmodule.contentstore.content import StaticContent
@@ -148,6 +149,7 @@ def get_transcripts_from_youtube(youtube_id, settings, i18n, youtube_transcript_
         raise GetTranscriptsFromYouTubeException(msg)
 
     sub_starts, sub_ends, sub_texts = [], [], []
+    data.content = YouTubeTranscriptApi.get_transcript(youtube_id)
     xmltree = etree.fromstring(data.content, parser=utf8_parser)
     for element in xmltree:
         if element.tag == "text":
@@ -184,10 +186,11 @@ def download_youtube_subs(youtube_id, video_descriptor, settings):
     i18n = video_descriptor.runtime.service(video_descriptor, "i18n")
     _ = i18n.ugettext
 
-    subs = get_transcripts_from_youtube(youtube_id, settings, i18n)
+    subs = YouTubeTranscriptApi.get_transcript(youtube_id)
     save_subs_to_store(subs, youtube_id, video_descriptor)
 
     log.info("Transcripts for youtube_id %s for 1.0 speed are downloaded and saved.", youtube_id)
+    return json.dumps(subs, indent=2)
 
 
 def remove_subs_from_store(subs_id, item, lang='en'):
