@@ -44,6 +44,7 @@ BUTTON_SELECTORS = {
     'download_to_edit': '.setting-download',
     'disabled_download_to_edit': '.setting-download.is-disabled',
     'upload_new_timed_transcripts': '.setting-upload',
+    'download_youtube_transcripts': '.setting-download-youtube-transcripts',
     'replace': '.setting-replace',
     'choose': '.setting-choose',
     'use_existing': '.setting-use-existing',
