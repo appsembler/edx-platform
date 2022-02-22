@@ -265,14 +265,12 @@ class TestStaffMasqueradeAsStudent(StaffMasqueradeTestCase):
         self.update_masquerade(role='staff')
         self.verify_show_answer_present(True)
 
-    @patch.dict("django.conf.settings.FEATURES",
-    {'ENABLE_PREREQUISITE_COURSES': True})
+    @patch.dict("django.conf.settings.FEATURES", {'ENABLE_PREREQUISITE_COURSES': True})
     def test_staff_masquerade_prereq_course(self):
         """
         Test that Staff user can masquerade as a student for a course with prereq.
         """
         self.update_masquerade(role='student')
-
 
 
 @ddt.ddt
@@ -357,8 +355,7 @@ class TestStaffMasqueradeAsSpecificStudent(StaffMasqueradeTestCase, ProblemSubmi
         u'fôô@bar',  # Unicode username with @, which is what the ENABLE_UNICODE_USERNAME feature allows
     )
     @patch.dict('django.conf.settings.FEATURES', {'DISABLE_START_DATES': False})
-    @patch.dict("django.conf.settings.FEATURES",
-    {'ENABLE_PREREQUISITE_COURSES': True})
+    @patch.dict("django.conf.settings.FEATURES", {'ENABLE_PREREQUISITE_COURSES': True})
     def test_masquerade_as_specific_student(self, username):
         """
         Test masquerading as a specific user.
