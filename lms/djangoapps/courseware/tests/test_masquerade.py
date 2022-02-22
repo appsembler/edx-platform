@@ -36,6 +36,11 @@ from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
 from xmodule.partitions.partitions import Group, UserPartition
 
+# Esther: Debugging imports
+from milestones import api
+from milestones.models import MilestoneRelationshipType, Milestone
+from opaque_keys.edx.keys import CourseKey
+
 
 class MasqueradeTestCase(SharedModuleStoreTestCase, LoginEnrollmentTestCase):
     """
@@ -260,6 +265,15 @@ class TestStaffMasqueradeAsStudent(StaffMasqueradeTestCase):
         self.update_masquerade(role='staff')
         self.verify_show_answer_present(True)
 
+    @patch.dict("django.conf.settings.FEATURES",
+    {'ENABLE_PREREQUISITE_COURSES': True})
+    def test_staff_masquerade_prereq_course(self):
+        """
+        Test that Staff user can masquerade as a student for a course with prereq.
+        """
+        self.update_masquerade(role='student')
+
+
 
 @ddt.ddt
 class TestStaffMasqueradeAsSpecificStudent(StaffMasqueradeTestCase, ProblemSubmissionTestMixin):
@@ -343,6 +357,8 @@ class TestStaffMasqueradeAsSpecificStudent(StaffMasqueradeTestCase, ProblemSubmi
         u'fôô@bar',  # Unicode username with @, which is what the ENABLE_UNICODE_USERNAME feature allows
     )
     @patch.dict('django.conf.settings.FEATURES', {'DISABLE_START_DATES': False})
+    @patch.dict("django.conf.settings.FEATURES",
+    {'ENABLE_PREREQUISITE_COURSES': True})
     def test_masquerade_as_specific_student(self, username):
         """
         Test masquerading as a specific user.
@@ -350,8 +366,20 @@ class TestStaffMasqueradeAsSpecificStudent(StaffMasqueradeTestCase, ProblemSubmi
         We answer the problem in our test course as the student and as staff user, and we use the
         progress as a proxy to determine who's state we currently see.
         """
+        course_key = CourseKey.from_string(self.course.id)
+        milestone_relation_ship = MilestoneRelationshipType.objects.create(name=course_key, active=True)
+        milestone1 = api.add_milestone({
+            'display_name': 'Test Milestone',
+            'name': 'test_milestone',
+            'namespace': course_key,
+            'description': 'Test Milestone Description',
+        })
         student = UserFactory.create(username=username)
-        CourseEnrollment.enroll(student, self.course.id)
+        serialized_student = student.__dict__
+
+        CourseEnrollment.enroll(student, self.course)
+        api.add_user_milestone(serialized_student, milestone1)
+
         self.logout()
         self.login(student.email, 'test')
         # Answer correctly as the student, and check progress.
