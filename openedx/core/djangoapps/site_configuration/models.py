@@ -2,25 +2,24 @@
 Django models for site configurations.
 """
 
-
 import beeline
 
 import collections
 from logging import getLogger
-import os
-from urllib.parse import urlsplit
+from sass import CompileError
 
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.files.storage import get_storage_class
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.encoding import python_2_unicode_compatible
 from jsonfield.fields import JSONField
 from model_utils.models import TimeStampedModel
 
 from .exceptions import TahoeConfigurationException
+from ..appsembler.sites.waffle import ENABLE_CONFIG_VALUES_MODIFIER
 
 logger = getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -59,6 +58,7 @@ class SiteConfiguration(models.Model):
     """
 
     api_adapter = None  # Tahoe: Placeholder for `site_config_client`'s `SiteConfigAdapter`
+    tahoe_config_modifier = None  # Tahoe: Placeholder for `TahoeConfigurationValueModifier` instance
 
     site = models.OneToOneField(Site, related_name='configuration', on_delete=models.CASCADE)
     enabled = models.BooleanField(default=False, verbose_name=u"Enabled")
@@ -79,50 +79,6 @@ class SiteConfiguration(models.Model):
 
     def __repr__(self):
         return self.__str__()
-
-    def save(self, **kwargs):
-        # When creating a new object, save default microsite values. Not implemented as a default method on the field
-        # because it depends on other fields that should be already filled.
-        self.site_values = self.site_values or {}
-        if not self.site_values.get('PLATFORM_NAME'):
-            # Initialize the values for new SiteConfiguration objects
-            self.site_values.update(self.get_initial_microsite_values())
-
-        # fix for a bug with some pages requiring uppercase platform_name variable
-        self.site_values['PLATFORM_NAME'] = self.site_values.get('platform_name', '')
-
-        # Set the default language code for new sites if missing
-        # TODO: Move it to somewhere else like in AMC
-        self.site_values['LANGUAGE_CODE'] = self.site_values.get('LANGUAGE_CODE', 'en')
-
-        # We cannot simply use a protocol-relative URL for LMS_ROOT_URL
-        # This is because the URL here will be used by such activities as
-        # sending activation links to new users. The activation link needs the
-        # scheme address verfication emails. The callers using this variable
-        # expect the scheme in the URL
-        self.site_values['LMS_ROOT_URL'] = '{scheme}://{domain}'.format(
-            scheme=urlsplit(settings.LMS_ROOT_URL).scheme,
-            domain=self.site.domain)
-
-        # This ensures if the site has a custom domain set, we set the custom
-        # domain instead the Tahoe URL.
-        self.site_values['SITE_NAME'] = self.site.domain
-
-        # RED-2385: Use Multi-tenant `/help` URL for activation emails.
-        self.site_values['ACTIVATION_EMAIL_SUPPORT_LINK'] = '{root_url}/help'.format(
-            root_url=self.site_values['LMS_ROOT_URL'],
-        )
-
-        # RED-2471: Use Multi-tenant `/help` URL for password reset emails.
-        self.site_values['PASSWORD_RESET_SUPPORT_LINK'] = '{root_url}/help'.format(
-            root_url=self.site_values['LMS_ROOT_URL'],
-        )
-
-        super(SiteConfiguration, self).save(**kwargs)
-
-        # recompile SASS on every save
-        self.compile_microsite_sass()
-        return self
 
     @beeline.traced('site_config.init_api_client_adapter')
     def init_api_client_adapter(self, site):
@@ -152,6 +108,12 @@ class SiteConfiguration(models.Model):
         """
         beeline.add_context_field('value_name', name)
         if self.enabled:
+            if self.tahoe_config_modifier:
+                name, default = self.tahoe_config_modifier.normalize_get_value_params(name, default)
+                should_override, overridden_value = self.tahoe_config_modifier.override_value(name)
+                if should_override:
+                    return overridden_value
+
             try:
                 if self.api_adapter:
                     # Tahoe: Use `SiteConfigAdapter` if available.
@@ -198,7 +160,12 @@ class SiteConfiguration(models.Model):
             org (str): Org to use to filter SiteConfigurations
             select_related (list or None): A list of values to pass as arguments to select_related
         """
-        query = cls.objects.filter(site_values__contains=org, enabled=True).defer('page_elements', 'sass_variables').all()
+        query = cls.objects.filter(site_values__contains=org, enabled=True)
+
+        if hasattr(SiteConfiguration, 'sass_variables'):
+            # TODO: Clean up Site Configuration hacks: https://github.com/appsembler/edx-platform/issues/329
+            query = query.defer('page_elements', 'sass_variables')
+
         if select_related is not None:
             query = query.select_related(*select_related)
         for configuration in query:
@@ -242,7 +209,12 @@ class SiteConfiguration(models.Model):
         """
         org_filter_set = set()
 
-        for configuration in cls.objects.filter(site_values__contains='course_org_filter', enabled=True).defer('page_elements', 'sass_variables').all():
+        query = cls.objects.filter(site_values__contains='course_org_filter', enabled=True)
+        if hasattr(SiteConfiguration, 'sass_variables'):
+            # TODO: Clean up Site Configuration hacks: https://github.com/appsembler/edx-platform/issues/329
+            query = query.defer('page_elements', 'sass_variables')
+
+        for configuration in query:
             course_org_filter = configuration.get_value('course_org_filter', [])
             if not isinstance(course_org_filter, list):
                 course_org_filter = [course_org_filter]
@@ -264,26 +236,59 @@ class SiteConfiguration(models.Model):
         super(SiteConfiguration, self).delete(using=using)
 
     def compile_microsite_sass(self):
-        # Importing `compile_sass` to avoid test-time Django errors.
-        # TODO: Fix Site Configuration and Organizations hacks. https://github.com/appsembler/edx-platform/issues/329
-        from openedx.core.djangoapps.appsembler.sites.utils import compile_sass
-        css_output = compile_sass('main.scss', custom_branding=self._sass_var_override)
-        file_name = self.get_value('css_overrides_file')
+        """
+        Compiles the microsite sass and save it into the storage bucket.
 
-        if not file_name:
-            if settings.TAHOE_SILENT_MISSING_CSS_CONFIG:
-                return  # Silent the exception below on during testing
-            else:
-                raise TahoeConfigurationException(
-                    'Missing `css_overrides_file` from SiteConfiguration for `{site}` config_id=`{id}`'.format(
-                        site=self.site.domain,
-                        id=self.id,
-                    )
-                )
+        :return dict {
+          "successful_sass_compile": boolean: whether the CSS was compiled successfully
+          "sass_compile_message": string: Status message that's safe to show for customers.
+        }
+        """
+        # Importing `sites.utils` locally to avoid test-time Django errors.
+        # TODO: Fix Site Configuration and Organizations hacks. https://github.com/appsembler/edx-platform/issues/329
+        from openedx.core.djangoapps.appsembler.sites import utils as sites_utils
 
         storage = self.get_customer_themes_storage()
-        with storage.open(file_name, 'w') as f:
-            f.write(css_output)
+        css_file_name = self.get_value('css_overrides_file')
+        if not css_file_name:
+            developer_message = 'Skipped compiling due to missing `css_overrides_file`'
+            exception_message = 'Tahoe: {developer_message} for `{site}` config_id=`{config_id}`'.format(
+                developer_message=developer_message,
+                site=self.site.domain,
+                config_id=self.id,
+            )
+            logger.exception(exception_message, exc_info=TahoeConfigurationException(exception_message))
+            return {
+                'successful_sass_compile': False,
+                'sass_compile_message': developer_message,
+            }
+
+        theme_version = self.get_value('THEME_VERSION', 'amc-v1')
+        if theme_version == 'tahoe-v2':
+            scss_file = '_main-v2.scss'
+        else:
+            # TODO: Deprecated. Remove once all sites are migrated to Tahoe 2.0 structure.
+            scss_file = 'main.scss'
+
+        try:
+            css_output = sites_utils.compile_sass(scss_file, custom_branding=self._sass_var_override)
+            with storage.open(css_file_name, 'w') as f:
+                f.write(css_output)
+            successful_sass_compile = True
+            sass_compile_message = 'Sass compile finished successfully for site {site}'.format(site=self.site.domain)
+        except CompileError as exc:
+            successful_sass_compile = False
+            sass_compile_message = 'Sass compile failed for site {site} with the error: {message}'.format(
+                site=self.site.domain,
+                message=str(exc),
+            )
+            logger.warning(sass_compile_message, exc_info=True)
+
+        return {
+            'successful_sass_compile': successful_sass_compile,
+            'sass_compile_message': sass_compile_message,
+            'scss_file_used': scss_file,
+        }
 
     def get_css_url(self):
         storage = self.get_customer_themes_storage()
@@ -330,13 +335,55 @@ class SiteConfiguration(models.Model):
             return [(path, self.get_value('customer_sass_input', ''))]
         return None
 
-    def get_initial_microsite_values(self):
-        domain_without_port_number = self.site.domain.split(':')[0]
-        return {
-            'platform_name': self.site.name,
-            'css_overrides_file': "{}.css".format(domain_without_port_number),
-            'ENABLE_COMBINED_LOGIN_REGISTRATION': True,
-        }
+
+@receiver(pre_save, sender=SiteConfiguration)
+def tahoe_update_site_values_on_save(sender, instance, **kwargs):
+    """
+    Temp. helper until ENABLE_CONFIG_VALUES_MODIFIER is enabled on production.
+
+    # TODO: RED-2828 Clean up after production QA
+    """
+    if not ENABLE_CONFIG_VALUES_MODIFIER.is_enabled():
+        logger.info('ENABLE_CONFIG_VALUES_MODIFIER: switch is disabled, saving override values inline.')
+        from openedx.core.djangoapps.appsembler.sites.config_values_modifier import TahoeConfigurationValueModifier
+        tahoe_config_modifier = TahoeConfigurationValueModifier(site_config_instance=instance)
+
+        if not instance.site_values:
+            instance.site_values = {}
+
+        if not instance.site_values.get('platform_name'):
+            instance.site_values['platform_name'] = instance.site.name
+
+        if not instance.site_values.get('PLATFORM_NAME'):  # First-time the config is saved with save()
+            instance.site_values['css_overrides_file'] = tahoe_config_modifier.get_css_overrides_file()
+            instance.site_values['ENABLE_COMBINED_LOGIN_REGISTRATION'] = True
+
+        # Everytime the config is saved with save()
+        instance.site_values.update({
+            'PLATFORM_NAME': instance.site_values.get('platform_name', ''),
+            'LANGUAGE_CODE': instance.site_values.get('LANGUAGE_CODE', 'en'),
+            'LMS_ROOT_URL': tahoe_config_modifier.get_lms_root_url(),
+            'SITE_NAME': tahoe_config_modifier.get_domain(),
+            'ACTIVATION_EMAIL_SUPPORT_LINK': tahoe_config_modifier.get_activation_email_support_link(),
+            'PASSWORD_RESET_SUPPORT_LINK': tahoe_config_modifier.get_password_reset_support_link(),
+        })
+
+
+@receiver(post_save, sender=SiteConfiguration)
+def compile_tahoe_microsite_sass_on_site_config_save(sender, instance, created, **kwargs):
+    """
+    Tahoe: Compile Tahoe microsite scss on saving the SiteConfiguration model.
+
+    This signal receiver maintains backward compatibility with existing sites and the Appsembler Management
+    Console (AMC).
+
+    # TODO: RED-2847 - Remove this signal receiver after all Tahoe sites switch to Dashboard.
+    """
+    sass_status = instance.compile_microsite_sass()
+    if sass_status['successful_sass_compile']:
+        logger.info('tahoe sass compiled successfully: %s', sass_status['sass_compile_message'])
+    else:
+        logger.warning('tahoe css compile error: %s', sass_status['sass_compile_message'])
 
 
 def save_siteconfig_without_historical_record(siteconfig, *args, **kwargs):

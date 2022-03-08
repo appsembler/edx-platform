@@ -4,10 +4,9 @@ Tests for the Apppsembler API views.
 from mock import patch
 
 from django.urls import reverse
-from openedx.core.djangoapps.appsembler.sites.utils import make_amc_admin
+from edx_rest_framework_extensions.auth.session.authentication import SessionAuthenticationAllowInactiveUser
 from rest_framework import status
 from rest_framework.test import APITestCase
-from edx_rest_framework_extensions.auth.session.authentication import SessionAuthenticationAllowInactiveUser
 
 from openedx.core.djangolib.testing.utils import skip_unless_lms
 from openedx.core.djangoapps.appsembler.multi_tenant_emails.tests.test_utils import (
