@@ -87,7 +87,7 @@ def upload_transcripts(request):
     except (InvalidKeyError, ItemNotFoundError):
         return error_response(response, "Can't find item by locator.")
 
-    if 'transcript-file' not in request.FILES:
+    if 'transcript-file' not in request.FILES and not request.POST.get('transcript-file'):
         return error_response(response, 'POST data without "file" form data.')
 
     video_list = request.POST.get('video_list')
@@ -99,9 +99,13 @@ def upload_transcripts(request):
     except ValueError:
         return error_response(response, 'Invalid video_list JSON.')
 
-    # Used utf-8-sig encoding type instead of utf-8 to remove BOM(Byte Order Mark), e.g. U+FEFF
-    source_subs_filedata = request.FILES['transcript-file'].read().decode('utf-8-sig')
-    source_subs_filename = request.FILES['transcript-file'].name
+    if 'transcript-file' in request.FILES:
+        # Used utf-8-sig encoding type instead of utf-8 to remove BOM(Byte Order Mark), e.g. U+FEFF
+        source_subs_filedata = request.FILES['transcript-file'].read().decode('utf-8-sig')
+        source_subs_filename = request.FILES['transcript-file'].name
+    elif request.POST.get('transcript-file') and request.POST.get('transcript-name'):
+        source_subs_filedata = request.POST.get('transcript-file').encode('utf-8')
+        source_subs_filename = request.POST.get('transcript-name')
 
     if '.' not in source_subs_filename:
         return error_response(response, "Undefined file extension.")

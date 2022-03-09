@@ -45,6 +45,7 @@ TRANSCRIPTS_BUTTONS = {
     'download_to_edit': ('.setting-download', 'Download Transcript for Editing'),
     'disabled_download_to_edit': ('.setting-download.is-disabled', 'Download Transcript for Editing'),
     'upload_new_timed_transcripts': ('.setting-upload', 'Upload New Transcript'),
+    'download_youtube_transcripts': ('.setting-download-youtube-transcript', 'Download YouTube Transcript'),
     'replace': ('.setting-replace', 'Yes, replace the edX transcript with the YouTube transcript'),
     'choose': ('.setting-choose', 'Timed Transcript from {}'),
     'use_existing': ('.setting-use-existing', 'Use Current Transcript'),
