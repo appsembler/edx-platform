@@ -20,7 +20,7 @@ from openedx.core.lib.api.authentication import (
     BearerAuthenticationAllowInactiveUser,
 )
 from openedx.core.djangoapps.appsembler.sites.models import AlternativeDomain
-from openedx.core.djangoapps.appsembler.sites.permissions import AMCAdminPermission
+from openedx.core.djangoapps.appsembler.sites.permissions import IsSiteAdminPermission
 from openedx.core.djangoapps.appsembler.sites.serializers import (
     SiteConfigurationSerializer,
     SiteConfigurationListSerializer,
@@ -41,7 +41,7 @@ class SiteViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Site.objects.all()
     serializer_class = SiteSerializer
     authentication_classes = (BearerAuthenticationAllowInactiveUser,)
-    permission_classes = (IsAuthenticated, AMCAdminPermission)
+    permission_classes = (IsAuthenticated, IsSiteAdminPermission)
 
     def get_queryset(self):
         queryset = Site.objects.exclude(id=settings.SITE_ID)
@@ -57,7 +57,7 @@ class SiteConfigurationViewSet(viewsets.ModelViewSet):
     list_serializer_class = SiteConfigurationListSerializer
     create_serializer_class = SiteSerializer
     authentication_classes = (BearerAuthenticationAllowInactiveUser,)
-    permission_classes = (IsAuthenticated, AMCAdminPermission)
+    permission_classes = (IsAuthenticated, IsSiteAdminPermission)
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -73,7 +73,7 @@ class SiteConfigurationViewSet(viewsets.ModelViewSet):
 class FileUploadView(views.APIView):
     parser_classes = (MultiPartParser,)
     # TODO: oauth token isn't present after step 3 in signup, fix later
-    #permission_classes = (AMCAdminPermission,)
+    #permission_classes = (IsSiteAdminPermission,)
 
     def post(self, request, format=None):
         file_obj = request.data['file']
