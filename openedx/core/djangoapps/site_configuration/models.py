@@ -12,7 +12,7 @@ from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.files.storage import get_storage_class
 from django.db import models
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save, pre_save, post_init
 from django.dispatch import receiver
 from django.utils.encoding import python_2_unicode_compatible
 from jsonfield.fields import JSONField
@@ -80,18 +80,6 @@ class SiteConfiguration(models.Model):
     def __repr__(self):
         return self.__str__()
 
-    @beeline.traced('site_config.init_api_client_adapter')
-    def init_api_client_adapter(self, site):
-        """
-        Initialize `api_adapter`, this method is managed externally by `get_current_site_configuration()`.
-        """
-        # Tahoe: Import is placed here to avoid model import at project startup
-        from openedx.core.djangoapps.appsembler.sites import (
-            site_config_client_helpers as site_helpers,
-        )
-        if site_helpers.is_enabled_for_site(site):
-            self.api_adapter = site_helpers.get_configuration_adapter(site)
-
     @beeline.traced('site_config.get_value')
     def get_value(self, name, default=None):
         """
@@ -128,72 +116,6 @@ class SiteConfiguration(models.Model):
             logger.info(u"Site Configuration is not enabled for site (%s).", self.site)
 
         return default
-
-    @beeline.traced('site_config.get_page_content')
-    def get_page_content(self, name, default=None):
-        """
-        Tahoe: Get page content from Site Configuration service settings.
-
-        If SiteConfiguration adapter isn't in use, fallback to the deprecated `SiteConfiguration.page_elements` field.
-
-        Args:
-            name (str): Name of the page to fetch.
-            default: default value to return if page is not found in the configuration.
-
-        Returns:
-            Page content `dict`.
-        """
-        if self.api_adapter:
-            # Tahoe: Use `SiteConfigAdapter` if available.
-            beeline.add_context_field('page_source', 'site_config_service')
-            return self.api_adapter.get_value_of_type(self.api_adapter.TYPE_PAGE, name, default)
-        else:
-            beeline.add_context_field('page_source', 'django_model')
-            return self.page_elements.get(name, default)
-
-    @beeline.traced('site_config.get_admin_setting')
-    def get_admin_setting(self, name, default=None):
-        """
-        Tahoe: Get `admin` setting from the site configuration service.
-
-        If SiteConfiguration adapter isn't in use, fallback to the deprecated `SiteConfiguration.site_values` field.
-
-        Args:
-            name (str): Name of the setting to fetch.
-            default: default value to return if setting is not found in the configuration.
-
-        Returns:
-            Value for the given key or returns `None` if not configured.
-        """
-        if self.api_adapter:
-            # Tahoe: Use `SiteConfigAdapter` if available.
-            beeline.add_context_field('setting_source', 'site_config_service')
-            return self.api_adapter.get_value_of_type(self.api_adapter.TYPE_ADMIN, name, default)
-        else:
-            beeline.add_context_field('setting_source', 'django_model')
-            return self.site_values.get(name, default)
-
-    @beeline.traced('site_config.get_secret_value')
-    def get_secret_value(self, name, default=None):
-        """
-        Tahoe: Get `secret` value from the site configuration service.
-
-        If SiteConfiguration adapter isn't in use, fallback to the deprecated `SiteConfiguration.site_values` field.
-
-        Args:
-            name (str): Name of the secret to fetch.
-            default: default value to return if secret is not found in the configuration.
-
-        Returns:
-            Value for the given key or returns `None` if not configured.
-        """
-        if self.api_adapter:
-            # Tahoe: Use `SiteConfigAdapter` if available.
-            beeline.add_context_field('setting_source', 'site_config_service')
-            return self.api_adapter.get_value_of_type(self.api_adapter.TYPE_SECRET, name, default)
-        else:
-            beeline.add_context_field('setting_source', 'django_model')
-            return self.site_values.get(name, default)
 
     @classmethod
     def get_configuration_for_org(cls, org, select_related=None):
@@ -379,6 +301,20 @@ class SiteConfiguration(models.Model):
         if 'customer-sass-input' in path:
             return [(path, self.get_value('customer_sass_input', ''))]
         return None
+
+
+@receiver(post_init, sender=SiteConfiguration)
+def tahoe_update_site_values_on_save(sender, instance, **kwargs):
+    """
+    Initialize `api_adapter` property for `SiteConfiguration`.
+    """
+    if instance and not instance.api_adapter:
+        # Tahoe: Import is placed here to avoid model import at project startup
+        from openedx.core.djangoapps.appsembler.sites import (
+            site_config_client_helpers as site_helpers,
+        )
+        if site_helpers.is_enabled_for_site(instance.site):
+            instance.api_adapter = site_helpers.get_configuration_adapter(instance.site)
 
 
 @receiver(pre_save, sender=SiteConfiguration)
