@@ -16,6 +16,8 @@ from openedx.core.djangoapps.user_api.accounts.serializers import AccountUserSer
 from openedx.core.djangoapps.user_api.accounts.utils import generate_password
 from util.json_request import JsonResponse
 
+from openedx.core.djangolib.oauth2_retirement_utils import retire_dot_oauth2_models
+
 
 class ManageUserSupportView(View):
     """
@@ -67,6 +69,7 @@ class ManageUserDetailView(GenericAPIView):
         )
         if user.has_usable_password():
             user.set_unusable_password()
+            retire_dot_oauth2_models(request.user)
         else:
             user.set_password(generate_password(length=25))
         user.save()

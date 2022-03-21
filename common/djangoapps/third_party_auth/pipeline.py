@@ -69,6 +69,7 @@ from smtplib import SMTPException
 import analytics
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.contrib.auth import logout
 from django.core.mail.message import EmailMessage
 from django.urls import reverse
 from django.http import HttpResponseBadRequest
@@ -659,10 +660,11 @@ def set_logged_in_cookies(backend=None, user=None, strategy=None, auth_entry=Non
 
     """
     if not is_api(auth_entry) and user is not None and user.is_authenticated:
+        request = strategy.request if strategy else None
         if not user.has_usable_password():
             msg = "Your account is disabled"
+            logout(request)
             return JsonResponse(msg, status=403)
-        request = strategy.request if strategy else None
         # n.b. for new users, user.is_active may be False at this point; set the cookie anyways.
         if request is not None:
             # Check that the cookie isn't already set.
