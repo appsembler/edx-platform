@@ -304,17 +304,15 @@ class SiteConfiguration(models.Model):
 
 
 @receiver(post_init, sender=SiteConfiguration)
-def tahoe_update_site_values_on_save(sender, instance, **kwargs):
+def tahoe_init_api_adapter(sender, instance, **kwargs):
     """
     Initialize `api_adapter` property for `SiteConfiguration`.
     """
     if instance and not instance.api_adapter:
         # Tahoe: Import is placed here to avoid model import at project startup
-        from openedx.core.djangoapps.appsembler.sites import (
-            site_config_client_helpers as site_helpers,
-        )
-        if site_helpers.is_enabled_for_site(instance.site):
-            instance.api_adapter = site_helpers.get_configuration_adapter(instance.site)
+        from openedx.core.djangoapps.appsembler.sites import site_config_client_helpers
+        if site_config_client_helpers.is_enabled_for_site(instance.site):
+            instance.api_adapter = site_config_client_helpers.get_configuration_adapter(instance.site)
 
 
 @receiver(pre_save, sender=SiteConfiguration)
