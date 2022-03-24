@@ -22,7 +22,8 @@ https://github.com/edx-solutions/xblock-google-drive/archive/589d9f51f9b.tar.gz 
 
 # Tahoe plugins and customizations
 django-tiers==0.2.4
-tahoe-sites==0.1.5
+# tahoe-sites==0.1.5 plus new APIs
+-e git+https://github.com/appsembler/tahoe-sites.git@2bffb54a96b469005d5f397a400b74a8af4d05db#egg=tahoe-sites==0.1.5-newapis
 tahoe-lti==0.3.0
 site-configuration-client==0.1.3
 
