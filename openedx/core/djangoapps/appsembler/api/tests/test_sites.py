@@ -18,6 +18,7 @@ from django.contrib.sites.models import Site
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 
 import organizations
+from tahoe_sites.tests.utils import create_organization_mapping
 
 from openedx.core.djangoapps.site_configuration.tests.factories import (
     SiteConfigurationFactory,
@@ -33,13 +34,15 @@ from openedx.core.djangoapps.appsembler.api.tests.factories import (
     CourseOverviewFactory,
     OrganizationFactory,
     OrganizationCourseFactory,
-    UserOrganizationMappingFactory,
 )
 
 
 def create_org_users(org, new_user_count):
-    return [UserOrganizationMappingFactory(
-        organization=org).user for i in range(new_user_count)]
+    result = []
+    for i in range(new_user_count):
+        result.append(UserFactory())
+        create_organization_mapping(user=result[i], organization=org)
+    return result
 
 
 class SitesModuleTests(TestCase):

@@ -13,6 +13,7 @@ from inspect import isclass
 import ddt
 import mock
 
+from tahoe_sites.tests.utils import create_organization_mapping
 from student.tests.factories import UserFactory
 from openedx.core.djangoapps.site_configuration.tests.factories import (
     SiteConfigurationFactory,
@@ -22,7 +23,7 @@ from openedx.core.djangoapps.appsembler.api.v1 import views as api_views
 from openedx.core.djangoapps.appsembler.api.permissions import IsSiteAdminUser
 
 
-from .factories import OrganizationFactory, UserOrganizationMappingFactory
+from .factories import OrganizationFactory
 
 
 SITE_CONFIGURATION_CLASS = ('openedx.core.djangoapps.site_configuration'
@@ -88,14 +89,9 @@ class SiteAdminPermissionsTest(TestCase):
             UserFactory(username='alpha_site_admin'),
             UserFactory(username='non_site_user'),
         ]
-        self.user_organization_mappings = [
-            UserOrganizationMappingFactory(
-                user=self.callers[0], organization=self.organization),
-            UserOrganizationMappingFactory(
-                user=self
-                .callers[1], organization=self.organization, is_amc_admin=True),
-            # Make sure we DO NOT add the 'non_site_user' here
-        ]
+        # Make sure we DO NOT add the 'non_site_user' here
+        create_organization_mapping(user=self.callers[0], organization=self.organization)
+        create_organization_mapping(user=self.callers[1], organization=self.organization, is_admin=True)
         self.factory = RequestFactory()
         self.addCleanup(patch.stop)
 
