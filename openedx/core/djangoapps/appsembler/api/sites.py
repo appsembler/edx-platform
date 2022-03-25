@@ -4,7 +4,6 @@ from django.contrib.sites.models import Site
 from organizations.models import (
     Organization,
     OrganizationCourse,
-    UserOrganizationMapping,
 )
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview

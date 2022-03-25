@@ -11,7 +11,8 @@ from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from organizations.models import Organization, UserOrganizationMapping
+from organizations.models import Organization
+from tahoe_sites.api import get_organization_user_by_email
 from branding.api import get_base_url
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 from rest_framework.views import APIView
@@ -233,9 +234,9 @@ class FindUsernameByEmailView(APIView):
         if user_email and organization_name:
             try:
                 organization = Organization.objects.get(name=organization_name)
-                mapping = UserOrganizationMapping.objects.get(user__email=user_email, organization=organization)
-                return Response({'username': mapping.user.username}, status=status.HTTP_200_OK)
-            except (Organization.DoesNotExist, UserOrganizationMapping.DoesNotExist):
+                user = get_organization_user_by_email(email=user_email, organization=organization)
+                return Response({'username': user.username}, status=status.HTTP_200_OK)
+            except User.DoesNotExist:
                 pass
 
         return Response({}, status=status.HTTP_404_NOT_FOUND)
