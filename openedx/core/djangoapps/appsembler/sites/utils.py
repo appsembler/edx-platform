@@ -29,8 +29,13 @@ from django.utils.text import slugify
 
 from organizations import api as org_api
 from organizations import models as org_models
-from organizations.models import UserOrganizationMapping, Organization
-from tahoe_sites.api import create_tahoe_site_by_link
+
+from organizations.models import Organization
+from tahoe_sites.api import (
+    add_user_to_organization,
+    create_tahoe_site_by_link,
+    get_organization_for_user,
+)
 
 from openedx.core.lib.api.api_key_permissions import is_request_has_valid_api_key
 from openedx.core.lib.log_utils import audit_log
@@ -201,10 +206,12 @@ def make_amc_admin(user, org_name):
     """
     org = Organization.objects.get(Q(name=org_name) | Q(short_name=org_name))
 
-    uom, _ = UserOrganizationMapping.objects.get_or_create(user=user, organization=org)
-    uom.is_active = True
-    uom.is_amc_admin = True
-    uom.save()
+    try:
+        get_organization_for_user(user=user)
+    except Organization.DoesNotExist:
+        add_user_to_organization(user=user, organization=org, is_admin=True)
+    else:
+        raise Exception('make_amc_admin, user already member of another organization')
 
     return {
         'user_email': user.email,
@@ -473,7 +480,7 @@ def bootstrap_site(site, org_data=None, username=None):
         organization = {}
     if username:
         user = User.objects.get(username=username)
-        org_models.UserOrganizationMapping.objects.create(user=user, organization=organization, is_amc_admin=True)
+        add_user_to_organization(user=user, organization=organization, is_admin=True)
     else:
         user = {}
     return organization, site, user
