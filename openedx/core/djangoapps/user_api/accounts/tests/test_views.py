@@ -29,6 +29,7 @@ from openedx.core.djangolib.testing.utils import CacheIsolationTestCase, skip_un
 from student.models import PendingEmailChange, UserProfile
 from student.tests.factories import TEST_PASSWORD, UserFactory
 
+from site_config_client.openedx.test_helpers import override_site_config
 from .. import ALL_USERS_VISIBILITY, CUSTOM_VISIBILITY, PRIVATE_VISIBILITY
 
 TEST_PROFILE_IMAGE_UPLOADED_AT = datetime.datetime(2002, 1, 9, 15, 43, 1, tzinfo=pytz.UTC)
