@@ -49,7 +49,7 @@ from student.models import (
 )
 from util.password_policy_validators import normalize_password
 
-from openedx.core.djangoapps.site_configuration import tahoe_auth0_helpers
+from openedx.core.djangoapps.site_configuration import tahoe_idp_helpers
 
 
 # Enumeration of per-course verification statuses
@@ -277,9 +277,9 @@ def get_next_url_for_login_page(request):
         settings.FEATURES.get("THIRD_PARTY_AUTH_HINT", '')
     )
 
-    if tahoe_auth0_helpers.is_tahoe_auth0_enabled() and not tpa_hint:
-        # Tahoe: Disable login/registration forms when Auth0 is enabled.
-        tpa_hint = tahoe_auth0_helpers.TAHOE_AUTH0_BACKEND_NAME
+    if tahoe_idp_helpers.is_tahoe_idp_enabled() and not tpa_hint:
+        # Tahoe: Disable login/registration forms when Tahoe IdP is enabled.
+        tpa_hint = tahoe_idp_helpers.TAHOE_IDP_BACKEND_NAME
 
     if tpa_hint:
         # Don't add tpa_hint if we're already in the TPA pipeline (prevent infinite loop),

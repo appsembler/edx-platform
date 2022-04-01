@@ -125,7 +125,7 @@ JWT Cookie Lifetime
    microfrontends.
 
 .. _`current open edX session cookies that may have no expiration`: https://github.com/edx/edx-platform/blob/92030ea15216a6641c83dd7bb38a9b65112bf31a/common/djangoapps/student/cookies.py#L25-L27
-.. _JWT blacklist: https://auth0.com/blog/blacklist-json-web-token-api-keys/
+.. _JWT blacklist: https://idp.com/blog/blacklist-json-web-token-api-keys/
 .. _`JWT ID (jti)`: http://self-issued.info/docs/draft-ietf-oauth-json-web-token.html#jtiDef
 
 

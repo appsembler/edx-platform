@@ -1,5 +1,5 @@
 """
-Tests for the hacks we have to enable the tahoe-auth0 package.
+Tests for the hacks we have to enable the tahoe-idp package.
 """
 
 import unittest
@@ -17,10 +17,10 @@ SITE_DOMAIN_B = 'somethingelse.example.com'
 
 @unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
 @ddt.ddt
-class TahoeAuth0IntegrationHackTests(testutil.TestCase):
+class TahoeIdpIntegrationHackTests(testutil.TestCase):
     """Tests registry discovery and operation."""
 
-    def test_is_auth0_disabled_for_no_tahoe_auth0(self):
+    def test_is_idp_disabled_for_no_tahoe_auth0(self):
         prov = self.configure_oauth_provider(enabled=True, backend_name="dummy")
 
         with with_site_configuration_context(configuration={"ENABLE_TAHOE_AUTH0": True}):
