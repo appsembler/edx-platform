@@ -15,7 +15,7 @@ from django.views.decorators.http import require_http_methods
 
 import third_party_auth
 from edxmako.shortcuts import render_to_response
-from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
+from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers, tahoe_idp_helpers
 from openedx.core.djangoapps.user_api import accounts
 from openedx.core.djangoapps.user_api.accounts.utils import (
     is_multiple_user_enterprises_feature_enabled,
@@ -144,6 +144,17 @@ def login_and_registration_form(request, initial_mode="login"):
     #  the other login-related cookies. See ARCH-282.
     if request.user.is_authenticated and are_logged_in_cookies_set(request):
         return redirect(redirect_to)
+
+    running_tpa_pipeline = None
+    if third_party_auth.is_enabled():
+        running_tpa_pipeline = third_party_auth.pipeline.get(request)
+
+    if tahoe_idp_helpers.is_tahoe_idp_enabled() and not running_tpa_pipeline:
+        if initial_mode == "register":
+            tahoe_idp_url = tahoe_idp_helpers.get_idp_register_url(next_url=redirect_to)
+        else:
+            tahoe_idp_url = tahoe_idp_helpers.get_idp_login_url(next_url=redirect_to)
+        return redirect(tahoe_idp_url)
 
     # Retrieve the form descriptions from the user API
     form_descriptions = _get_form_descriptions(request)
