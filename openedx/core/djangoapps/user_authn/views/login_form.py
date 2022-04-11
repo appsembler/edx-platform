@@ -145,16 +145,10 @@ def login_and_registration_form(request, initial_mode="login"):
     if request.user.is_authenticated and are_logged_in_cookies_set(request):
         return redirect(redirect_to)
 
-    running_tpa_pipeline = None
-    if third_party_auth.is_enabled():
-        running_tpa_pipeline = third_party_auth.pipeline.get(request)
-
-    if tahoe_idp_helpers.is_tahoe_idp_enabled() and not running_tpa_pipeline:
-        if initial_mode == "register":
-            tahoe_idp_url = tahoe_idp_helpers.get_idp_register_url(next_url=redirect_to)
-        else:
-            tahoe_idp_url = tahoe_idp_helpers.get_idp_login_url(next_url=redirect_to)
-        return redirect(tahoe_idp_url)
+    # Tahoe: Disable upstream login/register forms when the Tahoe Identity Provider is enabled.
+    tahoe_idp_redirect_url = tahoe_idp_helpers.get_idp_form_url(request, initial_mode, redirect_to)
+    if tahoe_idp_redirect_url:
+        return redirect(tahoe_idp_redirect_url)
 
     # Retrieve the form descriptions from the user API
     form_descriptions = _get_form_descriptions(request)
