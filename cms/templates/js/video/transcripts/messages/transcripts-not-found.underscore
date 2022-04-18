@@ -7,6 +7,9 @@
 <%- gettext("Error.") %>
 </p>
 <div class="wrapper-transcripts-buttons">
+    <button class="action setting-download-youtube-transcript" type="button" name="setting-download-youtube-transcript" value="<%= gettext("Download YouTube Transcript") %>" data-tooltip="<%= gettext("Download YouTube Transcript") %>">
+        <%= gettext("Download YouTube Transcript") %>
+    </button>
     <button class="action setting-upload" type="button" name="setting-upload" value="<%- gettext("Upload New Transcript") %>" data-tooltip="<%- gettext("Upload New Transcript") %>">
         <%- gettext("Upload New Transcript") %>
     </button>

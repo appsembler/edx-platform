@@ -191,15 +191,6 @@ def get_transcripts_from_youtube(youtube_id, settings, i18n, youtube_transcript_
     for element in xmltree:
         if element.tag == "text":
             start = float(element.get("start"))
-            duration = float(element.get("dur", 0))  # dur is not mandatory
-            text = element.text
-            end = start + duration
-
-            if text:
-                # Start and end should be ints representing the millisecond timestamp.
-                sub_starts.append(int(start * 1000))
-                sub_ends.append(int((end + 0.0001) * 1000))
-                sub_texts.append(text.replace('\n', ' '))
 
     return {'start': sub_starts, 'end': sub_ends, 'text': sub_texts}
 
