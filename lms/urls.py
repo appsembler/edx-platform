@@ -1029,3 +1029,9 @@ urlpatterns.extend(plugin_urls.get_patterns(plugin_constants.ProjectType.LMS))
 urlpatterns += [
     url(r'^api/course_home/', include('lms.djangoapps.course_home_api.urls')),
 ]
+
+if settings.FEATURES.get('STUDIO_SSO_ENABLED', False):
+    from tahoe_idp.views import StudioWelcomeRedirectAPIView
+    urlpatterns += [
+        url(r'^studio/', StudioWelcomeRedirectAPIView.as_view()),
+    ]

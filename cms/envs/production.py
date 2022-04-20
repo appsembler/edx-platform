@@ -542,6 +542,26 @@ if FEATURES.get('TAHOE_STUDIO_LOCAL_LOGIN'):
     derived('FRONTEND_LOGOUT_URL')
     LOGOUT_REDIRECT_URL = reverse_lazy('home')
 
+if FEATURES.get('STUDIO_SSO_ENABLED', False):
+    AUTHENTICATION_BACKENDS = list(ENV_TOKENS.get('THIRD_PARTY_AUTH_BACKENDS')) + list(AUTHENTICATION_BACKENDS)
+    SOCIAL_AUTH_OAUTH_SECRETS = AUTH_TOKENS.get('SOCIAL_AUTH_OAUTH_SECRETS', {})
+    SOCIAL_AUTH_STRATEGY = 'openedx.core.djangoapps.appsembler.auth.studio_strategy.StudioConfigurationModelStrategy'
+    SOCIAL_AUTH_PROTECTED_USER_FIELDS = ['email']
+    SOCIAL_AUTH_PIPELINE = [
+        'third_party_auth.pipeline.parse_query_params',
+        'social_core.pipeline.social_auth.social_details',
+        'social_core.pipeline.social_auth.social_uid',
+        'social_core.pipeline.social_auth.auth_allowed',
+        'social_core.pipeline.social_auth.social_user',
+        'third_party_auth.pipeline.associate_by_email_if_login_api',
+        'third_party_auth.pipeline.set_pipeline_timeout',
+        'social_core.pipeline.social_auth.associate_user',
+        'social_core.pipeline.social_auth.load_extra_data',
+        'social_core.pipeline.user.user_details',
+        'openedx.core.djangoapps.appsembler.tahoe_idp.tpa_pipeline_studio.studio_set_roles_from_tahoe_idp_roles',
+    ]
+    INSTALLED_APPS += ['tahoe_idp']
+
 ####################### Plugin Settings ##########################
 
 # This is at the bottom because it is going to load more settings after base settings are loaded

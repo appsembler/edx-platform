@@ -306,3 +306,11 @@ if settings.FEATURES.get('TAHOE_STUDIO_LOCAL_LOGIN'):
     urlpatterns += [
         url(r'', include('cms.djangoapps.appsembler.urls'))
     ]
+
+if settings.FEATURES.get('STUDIO_SSO_ENABLED', False):
+    from tahoe_idp.views import StudioLoginAPIView
+    urlpatterns += [
+        url(r'^welcome/(?P<org_short_name>.+)/$', StudioLoginAPIView.as_view()),
+        url(r'', include('third_party_auth.urls')),
+        url(r'', include(('tahoe_idp.urls', 'tahoe_idp'), namespace='tahoe_idp')),
+    ]

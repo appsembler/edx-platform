@@ -25,4 +25,4 @@ django-tiers==0.2.4
 tahoe-sites==0.1.5
 tahoe-lti==0.3.0
 site-configuration-client==0.1.5
-
+-e git+https://github.com/appsembler/tahoe-idp.git@d22e1eaf85aa6830f9fcd3f19e6759cbbd0d0a03#egg=v0.1.0-dev3-studio
