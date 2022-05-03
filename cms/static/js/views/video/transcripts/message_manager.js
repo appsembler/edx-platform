@@ -222,6 +222,7 @@ define([
             locator: component_locator,
             "transcript-file": srt,
             "transcript-name": transcript_name,
+            "youtube_video_id": videoId,
             video_list: JSON.stringify([videoObject[0]]),
           },
           success: function (data) {

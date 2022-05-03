@@ -20,6 +20,7 @@ from django.core.files.base import ContentFile
 from django.http import Http404, HttpResponse
 from django.utils.translation import ugettext as _
 from edxval.api import create_external_video, create_or_update_video_transcript
+from edxval.models import Video
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import UsageKey
 from six import text_type
@@ -167,24 +168,25 @@ def validate_transcript_upload_data(request):
     error, validated_data = None, {}
     data, files = request.POST, request.FILES
     video_locator = data.get('locator')
-    edx_video_id = data.get('edx_video_id')
     if not video_locator:
         error = _(u'Video locator is required.')
-    elif 'transcript-file' not in files:
+    elif 'transcript-file' not in files and 'transcript-file' not in data:
         error = _(u'A transcript file is required.')
-    elif os.path.splitext(files['transcript-file'].name)[1][1:] != Transcript.SRT:
-        error = _(u'This transcript file type is not supported.')
-    elif 'edx_video_id' not in data:
-        error = _(u'Video ID is required.')
-
     if not error:
         error, video = validate_video_module(request, video_locator)
+        if 'transcript-file' in files:
+            transcript_file = files['transcript-file']
+        elif 'transcript-file' in data:
+            transcript_file = data['transcript-file']
         if not error:
             validated_data.update({
                 'video': video,
-                'edx_video_id': clean_video_id(edx_video_id) or clean_video_id(video.edx_video_id),
-                'transcript_file': files['transcript-file']
+                'transcript_file': transcript_file
             })
+            if video.edx_video_id:
+                validated_data.update({
+                    'edx_video_id': clean_video_id(video.edx_video_id)
+                })
 
     return error, validated_data
 
@@ -203,8 +205,10 @@ def upload_transcripts(request):
     if error:
         response = JsonResponse({'status': error}, status=400)
     else:
+        edx_video_id = ''
         video = validated_data['video']
-        edx_video_id = validated_data['edx_video_id']
+        if validated_data.get('edx_video_id', ''):
+            edx_video_id = validated_data['edx_video_id']
         transcript_file = validated_data['transcript_file']
         # check if we need to create an external VAL video to associate the transcript
         # and save its ID on the video component.
@@ -219,10 +223,12 @@ def upload_transcripts(request):
             # Convert 'srt' transcript into the 'sjson' and upload it to
             # configured transcript storage. For example, S3.
             sjson_subs = Transcript.convert(
-                content=transcript_file.read().decode('utf-8'),
+                content=transcript_file.encode('utf-8'),
                 input_format=Transcript.SRT,
                 output_format=Transcript.SJSON
             ).encode()
+            log.debug("#"*32)
+            log.debug(sjson_subs)
             transcript_created = create_or_update_video_transcript(
                 video_id=edx_video_id,
                 language_code=u'en',
@@ -233,6 +239,8 @@ def upload_transcripts(request):
                 },
                 file_data=ContentFile(sjson_subs),
             )
+            log.debug("#"*32)
+            log.debug(transcript_created)
 
             if transcript_created is None:
                 response = JsonResponse({'status': 'Invalid Video ID'}, status=400)
