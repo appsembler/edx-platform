@@ -170,7 +170,7 @@ class TestUploadTranscripts(BaseTranscripts):
             "transcript_srt":
                 "1\n00:00:00,030 --> 00:00:00,030\nHello world"
         }
-        self.bad_transctipt_data = {
+        self.bad_transcript_data = {
             "srt":
                 "1\n00:00:00,030 --> 00:00:00,030\nHello world"
         }
