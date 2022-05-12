@@ -19,7 +19,12 @@ from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.http import Http404, HttpResponse
 from django.utils.translation import ugettext as _
-from edxval.api import create_external_video, create_or_update_video_transcript
+from edxval.api import (
+    create_external_video,
+    create_or_update_video_transcript,
+    _get_video,
+    ValVideoNotFoundError
+)
 from edxval.models import Video
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import UsageKey
@@ -174,6 +179,13 @@ def validate_transcript_upload_data(request):
         error = _("Video locator is required.")
     elif "transcript-file" not in files and "transcript-file" not in data:
         error = _("A transcript file is required.")
+    if "transcript-file" in data and "transcript_srt" not in data["transcript-file"]:
+        error = _("Transcript data misses transcript_srt field.")
+    if "edx_video_id" in data and data["edx_video_id"]:
+        try:
+            _get_video(data["edx_video_id"])
+        except ValVideoNotFoundError:
+            error = _("edx_video_id doesn't exist.")
     if not error:
         error, video = validate_video_module(request, video_locator)
         if "transcript-file" in files:

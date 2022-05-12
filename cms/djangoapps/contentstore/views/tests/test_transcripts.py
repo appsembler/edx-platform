@@ -34,15 +34,7 @@ from xmodule.video_module.transcripts_utils import (
 TEST_DATA_CONTENTSTORE = copy.deepcopy(settings.CONTENTSTORE)
 TEST_DATA_CONTENTSTORE['DOC_STORE_CONFIG']['db'] = 'test_xcontent_%s' % uuid4().hex
 
-SRT_TRANSCRIPT_CONTENT = u"""0
-00:00:10,500 --> 00:00:13,000
-Elephant's Dream
-
-1
-00:00:15,000 --> 00:00:18,000
-At the left we can see...
-
-"""
+SRT_TRANSCRIPT_CONTENT = "1\n00:00:00,030 --> 00:00:00,030\nHello world"
 
 SJSON_TRANSCRIPT_CONTENT = Transcript.convert(
     SRT_TRANSCRIPT_CONTENT,
@@ -281,7 +273,8 @@ class TestUploadTranscripts(BaseTranscripts):
         """
         Test that transcript upload validation fails if the video locator is missing
         """
-        response = self.upload_transcript(locator=None, transcript_data=self.good_transcript_data, edx_video_id='')
+        transcript_data = self.good_transcript_data
+        response = self.upload_transcript(locator=None, transcript_data=transcript_data, edx_video_id='')
         self.assert_response(
             response,
             expected_status_code=400,
@@ -311,7 +304,7 @@ class TestUploadTranscripts(BaseTranscripts):
         self.assert_response(
             response,
             expected_status_code=400,
-            expected_message=u'There is a problem with this transcript file. Try to upload a different file.'
+            expected_message=u'Transcript data misses transcript_srt field.'
         )
 
     def test_transcript_upload_bad_content(self):
@@ -327,7 +320,7 @@ class TestUploadTranscripts(BaseTranscripts):
         self.assert_response(
             response,
             expected_status_code=400,
-            expected_message=u'There is a problem with this transcript file. Try to upload a different file.'
+            expected_message=u'Transcript data misses transcript_srt field.'
         )
 
     def test_transcript_upload_unknown_category(self):
@@ -337,7 +330,8 @@ class TestUploadTranscripts(BaseTranscripts):
         # non_video module setup - i.e. an item whose category is not 'video'.
         usage_key = self.create_non_video_module()
         # Request to upload transcript for the item
-        response = self.upload_transcript(locator=usage_key, transcript_data=self.good_transcript_data, edx_video_id='')
+        transcript_data = self.good_transcript_data
+        response = self.upload_transcript(locator=usage_key, transcript_data=transcript_data, edx_video_id='')
         self.assert_response(
             response,
             expected_status_code=400,
@@ -349,9 +343,10 @@ class TestUploadTranscripts(BaseTranscripts):
         Test that transcript upload validation fails in case of invalid item's locator.
         """
         # Request to upload transcript for the item
+        transcript_data = self.good_transcript_data
         response = self.upload_transcript(
             locator='non_existent_locator',
-            transcript_data=self.good_transcript_data,
+            transcript_data=transcript_data,
             edx_video_id=''
         )
         self.assert_response(
@@ -364,7 +359,8 @@ class TestUploadTranscripts(BaseTranscripts):
         """
         Test that transcript upload validation fails if the `edx_video_id` is missing
         """
-        response = self.upload_transcript(locator=self.video_usage_key, transcript_data=self.good_transcript_data)
+        transcript_data = self.good_transcript_data
+        response = self.upload_transcript(locator=self.video_usage_key, transcript_data=transcript_data)
         self.assert_response(
             response,
             expected_status_code=400,
@@ -377,11 +373,11 @@ class TestUploadTranscripts(BaseTranscripts):
         video descriptor is different from `edx_video_id` received in POST request.
         """
         non_existant_edx_video_id = '1111-2222-3333-4444'
-
+        transcript_data = self.good_transcript_data
         # Upload with non-existant `edx_video_id`
         response = self.upload_transcript(
             locator=self.video_usage_key,
-            transcript_data=self.good_transcript_data,
+            transcript_data=transcript_data,
             edx_video_id=non_existant_edx_video_id
         )
         # Verify the response
