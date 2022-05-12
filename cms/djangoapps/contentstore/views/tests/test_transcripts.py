@@ -166,6 +166,14 @@ class TestUploadTranscripts(BaseTranscripts):
         self.bad_data_srt_file = self.create_transcript_file(content=self.contents['bad'], suffix='.srt')
         self.bad_name_srt_file = self.create_transcript_file(content=self.contents['good'], suffix='.bad')
         self.bom_srt_file = self.create_transcript_file(content=self.contents['good'], suffix='.srt', include_bom=True)
+        self.good_transcript_data = {
+            "transcript_srt":
+                "1\n00:00:00,030 --> 00:00:00,030\nHello world"
+        }
+        self.bad_transctipt_data = {
+            "srt":
+                "1\n00:00:00,030 --> 00:00:00,030\nHello world"
+        }
 
         # Setup a VEDA produced video and persist `edx_video_id` in VAL.
         create_video({
@@ -206,7 +214,7 @@ class TestUploadTranscripts(BaseTranscripts):
         self.bad_name_srt_file.close()
         self.bom_srt_file.close()
 
-    def upload_transcript(self, locator, transcript_file, edx_video_id=None):
+    def upload_transcript(self, locator, transcript_data, edx_video_id=None):
         """
         Uploads a transcript for a video
         """
@@ -217,8 +225,8 @@ class TestUploadTranscripts(BaseTranscripts):
         if edx_video_id is not None:
             payload.update({'edx_video_id': edx_video_id})
 
-        if transcript_file:
-            payload.update({'transcript-file': transcript_file})
+        if transcript_data:
+            payload.update({'transcript-file': transcript_data})
 
         upload_url = reverse('upload_transcripts')
         response = self.client.post(upload_url, payload)
@@ -246,8 +254,8 @@ class TestUploadTranscripts(BaseTranscripts):
         modulestore().update_item(self.item, self.user.id)
 
         # Upload a transcript
-        transcript_file = self.bom_srt_file if include_bom else self.good_srt_file
-        response = self.upload_transcript(self.video_usage_key, transcript_file, '')
+        transcript_data = self.good_transcript_data
+        response = self.upload_transcript(self.video_usage_key, transcript_data, '')
 
         # Verify the response
         self.assert_response(response, expected_status_code=200, expected_message='Success')
@@ -272,7 +280,7 @@ class TestUploadTranscripts(BaseTranscripts):
         """
         Test that transcript upload validation fails if the video locator is missing
         """
-        response = self.upload_transcript(locator=None, transcript_file=self.good_srt_file, edx_video_id='')
+        response = self.upload_transcript(locator=None, transcript_data=self.good_transcript_data, edx_video_id='')
         self.assert_response(
             response,
             expected_status_code=400,
@@ -283,7 +291,7 @@ class TestUploadTranscripts(BaseTranscripts):
         """
         Test that transcript upload validation fails if transcript file is missing
         """
-        response = self.upload_transcript(locator=self.video_usage_key, transcript_file=None, edx_video_id='')
+        response = self.upload_transcript(locator=self.video_usage_key, transcript_data=None, edx_video_id='')
         self.assert_response(
             response,
             expected_status_code=400,
@@ -296,7 +304,7 @@ class TestUploadTranscripts(BaseTranscripts):
         """
         response = self.upload_transcript(
             locator=self.video_usage_key,
-            transcript_file=self.bad_name_srt_file,
+            transcript_data=self.bad_transcript_data,
             edx_video_id=''
         )
         self.assert_response(
@@ -312,7 +320,7 @@ class TestUploadTranscripts(BaseTranscripts):
         # Request to upload transcript for the video
         response = self.upload_transcript(
             locator=self.video_usage_key,
-            transcript_file=self.bad_data_srt_file,
+            transcript_data=self.bad_transcript_data,
             edx_video_id=''
         )
         self.assert_response(
@@ -328,7 +336,7 @@ class TestUploadTranscripts(BaseTranscripts):
         # non_video module setup - i.e. an item whose category is not 'video'.
         usage_key = self.create_non_video_module()
         # Request to upload transcript for the item
-        response = self.upload_transcript(locator=usage_key, transcript_file=self.good_srt_file, edx_video_id='')
+        response = self.upload_transcript(locator=usage_key, transcript_data=self.good_transcript_data, edx_video_id='')
         self.assert_response(
             response,
             expected_status_code=400,
@@ -342,7 +350,7 @@ class TestUploadTranscripts(BaseTranscripts):
         # Request to upload transcript for the item
         response = self.upload_transcript(
             locator='non_existent_locator',
-            transcript_file=self.good_srt_file,
+            transcript_data=self.good_transcript_data,
             edx_video_id=''
         )
         self.assert_response(
@@ -355,7 +363,7 @@ class TestUploadTranscripts(BaseTranscripts):
         """
         Test that transcript upload validation fails if the `edx_video_id` is missing
         """
-        response = self.upload_transcript(locator=self.video_usage_key, transcript_file=self.good_srt_file)
+        response = self.upload_transcript(locator=self.video_usage_key, transcript_data=self.good_transcript_data)
         self.assert_response(
             response,
             expected_status_code=400,
@@ -372,7 +380,7 @@ class TestUploadTranscripts(BaseTranscripts):
         # Upload with non-existant `edx_video_id`
         response = self.upload_transcript(
             locator=self.video_usage_key,
-            transcript_file=self.good_srt_file,
+            transcript_data=self.good_transcript_data,
             edx_video_id=non_existant_edx_video_id
         )
         # Verify the response
