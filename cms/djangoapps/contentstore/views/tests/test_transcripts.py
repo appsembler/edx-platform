@@ -219,6 +219,7 @@ class TestUploadTranscripts(BaseTranscripts):
         Uploads a transcript for a video
         """
         payload = {}
+        transcript_srt = transcript_data.get('transcript_srt', '')
         if locator:
             payload.update({'locator': locator})
 
@@ -226,7 +227,7 @@ class TestUploadTranscripts(BaseTranscripts):
             payload.update({'edx_video_id': edx_video_id})
 
         if transcript_data:
-            payload.update({'transcript-file': transcript_data})
+            payload.update({'transcript-file': transcript_srt})
 
         upload_url = reverse('upload_transcripts')
         response = self.client.post(upload_url, payload)
@@ -310,7 +311,7 @@ class TestUploadTranscripts(BaseTranscripts):
         self.assert_response(
             response,
             expected_status_code=400,
-            expected_message=u'This transcript file type is not supported.'
+            expected_message=u'There is a problem with this transcript file. Try to upload a different file.'
         )
 
     def test_transcript_upload_bad_content(self):
@@ -367,7 +368,7 @@ class TestUploadTranscripts(BaseTranscripts):
         self.assert_response(
             response,
             expected_status_code=400,
-            expected_message=u'Video ID is required.'
+            expected_message=u'There is a problem with this transcript file. Try to upload a different file.'
         )
 
     def test_transcript_upload_with_non_existant_edx_video_id(self):
@@ -384,7 +385,10 @@ class TestUploadTranscripts(BaseTranscripts):
             edx_video_id=non_existant_edx_video_id
         )
         # Verify the response
-        self.assert_response(response, expected_status_code=400, expected_message='Invalid Video ID')
+        self.assert_response(
+            response, expected_status_code=400,
+            expected_message='There is a problem with this transcript file. Try to upload a different file.'
+        )
 
         # Verify transcript does not exist for non-existant `edx_video_id`
         self.assertIsNone(get_video_transcript_content(non_existant_edx_video_id, language_code=u'en'))
