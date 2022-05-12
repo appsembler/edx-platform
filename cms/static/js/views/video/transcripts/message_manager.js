@@ -1,49 +1,49 @@
 define([
-  "jquery",
-  "backbone",
-  "underscore",
-  "js/views/video/transcripts/utils",
-  "js/views/video/transcripts/file_uploader",
-  "gettext",
+  'jquery',
+  'backbone',
+  'underscore',
+  'js/views/video/transcripts/utils',
+  'js/views/video/transcripts/file_uploader',
+  'gettext',
 ], function ($, Backbone, _, Utils, FileUploader, gettext) {
   var MessageManager = Backbone.View.extend({
-    tagName: "div",
-    elClass: ".wrapper-transcripts-message",
-    invisibleClass: "is-invisible",
+    tagName: 'div',
+    elClass: '.wrapper-transcripts-message',
+    invisibleClass: 'is-invisible',
 
     events: {
-      "click .setting-import": "importHandler",
-      "click .setting-replace": "replaceHandler",
-      "click .setting-choose": "chooseHandler",
-      "click .setting-use-existing": "useExistingHandler",
-      "click .setting-download-youtube-transcript": "downloadYoutubeTranscriptHandler",
+      'click .setting-import': 'importHandler',
+      'click .setting-replace': 'replaceHandler',
+      'click .setting-choose': 'chooseHandler',
+      'click .setting-use-existing': 'useExistingHandler',
+      'click .setting-download-youtube-transcript': 'downloadYoutubeTranscriptHandler',
     },
 
     // Pre-defined dict with anchors to status templates.
     templates: {
-      not_found: "#transcripts-not-found",
-      found: "#transcripts-found",
-      import: "#transcripts-import",
-      replace: "#transcripts-replace",
-      uploaded: "#transcripts-uploaded",
-      use_existing: "#transcripts-use-existing",
-      choose: "#transcripts-choose",
+      not_found: '#transcripts-not-found',
+      found: '#transcripts-found',
+      import: '#transcripts-import',
+      replace: '#transcripts-replace',
+      uploaded: '#transcripts-uploaded',
+      use_existing: '#transcripts-use-existing',
+      choose: '#transcripts-choose',
     },
 
     initialize: function (options) {
       _.bindAll(
         this,
-        "importHandler",
-        "replaceHandler",
-        "chooseHandler",
-        "useExistingHandler",
-        "showError",
-        "hideError"
+        'importHandler',
+        'replaceHandler',
+        'chooseHandler',
+        'useExistingHandler',
+        'showError',
+        'hideError'
       );
 
       this.options = _.extend({}, options);
 
-      this.component_locator = this.$el.closest("[data-locator]").data("locator");
+      this.component_locator = this.$el.closest('[data-locator]').data('locator');
 
       this.fileUploader = new FileUploader({
         el: this.$el,
@@ -83,15 +83,15 @@ define([
       template = _.template(tplHtml);
 
       this.$el
-        .find(".transcripts-status")
-        .removeClass("is-invisible")
+        .find('.transcripts-status')
+        .removeClass('is-invisible')
         .find(this.elClass)
         .html(
           template({
             component_locator: encodeURIComponent(this.component_locator),
             html5_list: html5List,
             grouped_list: groupedList,
-            subs_id: params ? params.subs : "",
+            subs_id: params ? params.subs : '',
           })
         );
 
@@ -111,7 +111,7 @@ define([
      *
      */
     showError: function (err, hideButtons) {
-      var $error = this.$el.find(".transcripts-error-message");
+      var $error = this.$el.find('.transcripts-error-message');
 
       if (err) {
         // Hide any other error messages.
@@ -120,7 +120,7 @@ define([
         $error.html(gettext(err)).removeClass(this.invisibleClass);
 
         if (hideButtons) {
-          this.$el.find(".wrapper-transcripts-buttons").addClass(this.invisibleClass);
+          this.$el.find('.wrapper-transcripts-buttons').addClass(this.invisibleClass);
         }
       }
     },
@@ -132,9 +132,9 @@ define([
      *
      */
     hideError: function () {
-      this.$el.find(".transcripts-error-message").addClass(this.invisibleClass);
+      this.$el.find('.transcripts-error-message').addClass(this.invisibleClass);
 
-      this.$el.find(".wrapper-transcripts-buttons").removeClass(this.invisibleClass);
+      this.$el.find('.wrapper-transcripts-buttons').removeClass(this.invisibleClass);
     },
 
     /**
@@ -148,7 +148,7 @@ define([
     importHandler: function (event) {
       event.preventDefault();
 
-      this.processCommand("replace", gettext("Error: Import failed."));
+      this.processCommand('replace', gettext('Error: Import failed.'));
     },
 
     /**
@@ -162,7 +162,7 @@ define([
     replaceHandler: function (event) {
       event.preventDefault();
 
-      this.processCommand("replace", gettext("Error: Replacing failed."));
+      this.processCommand('replace', gettext('Error: Replacing failed.'));
     },
 
     /**
@@ -176,9 +176,9 @@ define([
     chooseHandler: function (event) {
       event.preventDefault();
 
-      var videoId = $(event.currentTarget).data("video-id");
+      var videoId = $(event.currentTarget).data('video-id');
 
-      this.processCommand("choose", gettext("Error: Choosing failed."), videoId);
+      this.processCommand('choose', gettext('Error: Choosing failed.'), videoId);
     },
 
     /**
@@ -192,7 +192,7 @@ define([
     useExistingHandler: function (event) {
       event.preventDefault();
 
-      this.processCommand("rename", gettext("Error: Choosing failed."));
+      this.processCommand('rename', gettext('Error: Choosing failed.'));
     },
 
     downloadYoutubeTranscriptHandler: function (event) {
@@ -201,38 +201,38 @@ define([
       var videoId = videoObject[0].video;
       var component_locator = this.component_locator;
       $.ajax({
-        type: "GET",
+        type: 'GET',
         notifyOnError: false,
         crossDomain: true,
-        url: "https://us-central1-appsembler-tahoe-0.cloudfunctions.net/youtube-transcript",
+        url: 'https://us-central1-appsembler-tahoe-0.cloudfunctions.net/youtube-transcript',
         data: {
           video_id: videoId,
         },
         success: function (transcriptResponse) {
-          console.log("Downloladed youtube transcript");
+          console.log('Downloladed youtube transcript');
         },
       }).done(function (transcriptResponse) {
         var srt = transcriptResponse.transcript_srt;
-        var transcript_name = "subs_" + videoId + Math.floor(1000 + Math.random() * 900) + ".srt";
+        var transcript_name = 'subs_' + videoId + Math.floor(1000 + Math.random() * 900) + '.srt';
         $.ajax({
-          url: "/transcripts/upload",
-          type: "POST",
-          dataType: "json",
+          url: '/transcripts/upload',
+          type: 'POST',
+          dataType: 'json',
           data: {
             locator: component_locator,
-            "transcript-file": srt,
-            "transcript-name": transcript_name,
-            "youtube_video_id": videoId,
+            'transcript-file': srt,
+            'transcript-name': transcript_name,
+            'youtube_video_id': videoId,
             video_list: JSON.stringify([videoObject[0]]),
           },
           success: function (data) {
-            console.log("Transcript uploaded successfully");
+            console.log('Transcript uploaded successfully');
           },
         })
           .done(function (resp) {
-            alert("Transcript uploaded successfully");
+            alert('Transcript uploaded successfully');
             var sub = resp.subs;
-            Utils.Storage.set("sub", sub);
+            Utils.Storage.set('sub', sub);
           })
           .fail(function (resp) {
             var message = resp.status || errorMessage;
@@ -271,8 +271,8 @@ define([
         .done(function (resp) {
           var sub = resp.subs;
 
-          self.render("found", resp);
-          Utils.Storage.set("sub", sub);
+          self.render('found', resp);
+          Utils.Storage.set('sub', sub);
         })
         .fail(function (resp) {
           var message = resp.status || errorMessage;
