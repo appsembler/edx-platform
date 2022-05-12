@@ -179,8 +179,6 @@ def validate_transcript_upload_data(request):
         error = _("Video locator is required.")
     elif "transcript-file" not in files and "transcript-file" not in data:
         error = _("A transcript file is required.")
-    if "transcript-file" in data and "transcript_srt" not in data["transcript-file"]:
-        error = _("Transcript data misses transcript_srt field.")
     if "edx_video_id" in data and data["edx_video_id"]:
         try:
             _get_video(data["edx_video_id"])
