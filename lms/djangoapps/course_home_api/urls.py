@@ -22,7 +22,7 @@ urlpatterns = []
 # URL for Course metadata content
 urlpatterns += [
     re_path(
-        fr'course_metadata/{settings.COURSE_KEY_PATTERN}',
+        r'course_metadata/{settings.COURSE_KEY_PATTERN}',
         CourseHomeMetadataView.as_view(),
         name='course-metadata'
     ),
@@ -31,7 +31,7 @@ urlpatterns += [
 # Dates Tab URLs
 urlpatterns += [
     re_path(
-        fr'dates/{settings.COURSE_KEY_PATTERN}',
+        r'dates/{settings.COURSE_KEY_PATTERN}',
         DatesTabView.as_view(),
         name='dates-tab'
     ),
@@ -40,7 +40,7 @@ urlpatterns += [
 # Outline Tab URLs
 urlpatterns += [
     re_path(
-        fr'outline/{settings.COURSE_KEY_PATTERN}',
+        r'outline/{settings.COURSE_KEY_PATTERN}',
         OutlineTabView.as_view(),
         name='outline-tab'
     ),
@@ -64,12 +64,12 @@ urlpatterns += [
 # Progress Tab URLs
 urlpatterns += [
     re_path(
-        fr'progress/{settings.COURSE_KEY_PATTERN}/(?P<student_id>[^/]+)',
+        r'progress/{settings.COURSE_KEY_PATTERN}/(?P<student_id>[^/]+)',
         ProgressTabView.as_view(),
         name='progress-tab-other-student'
     ),
     re_path(
-        fr'progress/{settings.COURSE_KEY_PATTERN}',
+        r'progress/{settings.COURSE_KEY_PATTERN}',
         ProgressTabView.as_view(),
         name='progress-tab'
     ),
