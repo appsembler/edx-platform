@@ -8,7 +8,7 @@ from rest_framework.response import Response
 
 from edx_rest_framework_extensions.auth.jwt.authentication import JwtAuthentication
 from edx_rest_framework_extensions.auth.session.authentication import SessionAuthenticationAllowInactiveUser
-from lms.djangoapps.certificates.api import certificates_viewable_for_course
+from openedx.core.djangoapps.certificates.api import certificates_viewable_for_course
 from openedx.core.lib.api.authentication import BearerAuthenticationAllowInactiveUser
 from openedx.core.djangoapps.courseware_api.utils import get_celebrations_dict
 
