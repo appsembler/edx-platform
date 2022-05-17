@@ -134,7 +134,8 @@ except ImportError:
 if 'figures' in INSTALLED_APPS:
     from figures.settings.lms_production import (
         update_webpack_loader,
-        update_celerybeat_schedule
+        update_celerybeat_schedule,
+        FiguresRouter
     )
     figures_tasks_default_queue = ENV_TOKENS['FIGURES'].get(
         'FIGURES_PIPELINE_TASKS_ROUTING_KEY',
@@ -146,3 +147,20 @@ if 'figures' in INSTALLED_APPS:
         ENV_TOKENS['FIGURES'],
         figures_tasks_default_queue
         )
+
+    # We don't call `figures.settings.lms_production.update_celery_routes`
+    # directly because `django.conf.settings` is passed to the function as
+    # parameter and that _might_ risk a timing collision, we've seen timing
+    # issues with settings loading before. Therefore, we call the code within
+    # `update_celery_routes` directly here. This is only needed for Ginkgo
+    if ENV_TOKENS['FIGURES'].get('FIGURES_PIPELINE_TASKS_ROUTING_KEY', False):
+        figures_router = FiguresRouter(figures_tasks_default_queue)
+        if isinstance(CELERY_ROUTES, str):
+            CELERY_ROUTES = (CELERY_ROUTES, figures_router,)
+        elif isinstance(CELERY_ROUTES, tuple):
+            CELERY_ROUTES += (figures_router,)
+        # else we will just skip instead of adding dict or array handling as
+        # we observe CELERY_ROUTES as a string or a tuple in our deployments
+        # IF we skip, then Celery will use the default queue for tasks where
+        # the queue is not explicitly set (CeleryBeat, for example).
+        CELERY_IMPORTS += ('figures.tasks',)
