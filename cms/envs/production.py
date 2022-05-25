@@ -542,6 +542,10 @@ if FEATURES.get('TAHOE_STUDIO_LOCAL_LOGIN'):
     derived('FRONTEND_LOGOUT_URL')
     LOGOUT_REDIRECT_URL = reverse_lazy('home')
 
+### Appsembler customization - Studio SSO ###
+if FEATURES.get('STUDIO_SSO_ENABLED', False):
+    AUTHENTICATION_BACKENDS.insert(0, 'tahoe_idp.magiclink_backends.MagicLinkBackend')
+
 ####################### Plugin Settings ##########################
 
 # This is at the bottom because it is going to load more settings after base settings are loaded
