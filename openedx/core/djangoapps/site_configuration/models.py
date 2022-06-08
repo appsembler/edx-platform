@@ -342,7 +342,11 @@ class SiteConfiguration(models.Model):
             scss_file = 'main.scss'
 
         try:
-            css_output = sites_utils.compile_sass(scss_file, custom_branding=self._sass_var_override)
+            if theme_version == 'tahoe-v2':
+                css_output = sites_utils.compile_sass('_main-v2.scss', custom_branding=self._sass_var_override_v2)
+            else:
+                # TODO: Deprecated. Remove once all sites are migrated to Tahoe 2.0 structure.
+                css_output = sites_utils.compile_sass('main.scss', custom_branding=self._sass_var_override)
             with storage.open(css_file_name, 'w') as f:
                 f.write(css_output)
             successful_sass_compile = True
@@ -420,6 +424,23 @@ class SiteConfiguration(models.Model):
     def _sass_var_override(self, path):
         if 'branding-basics' in path:
             return [(path, self._formatted_sass_variables())]
+        if 'customer-sass-input' in path:
+            return [(path, self.get_value('customer_sass_input', ''))]
+        return None
+
+    def _formatted_sass_variables_v2(self):
+        if self.api_adapter:
+            # Tahoe: Use `SiteConfigAdapter` if available.
+            beeline.add_context_field('value_source', 'site_config_service')
+            sass_variables = self.api_adapter.get_amc_v1_theme_css_variables()
+        else:
+            beeline.add_context_field('value_source', 'django_model')
+            sass_variables = self.sass_variables
+        return " ".join(["${}: {};".format(var, val) for var, val in sass_variables])
+
+    def _sass_var_override_v2(self, path):
+        if 'tahoe-v2-variables-overrides' in path:
+            return [(path, self._formatted_sass_variables_v2())]
         if 'customer-sass-input' in path:
             return [(path, self.get_value('customer_sass_input', ''))]
         return None
