@@ -49,8 +49,8 @@ class BaseEnrollmentApiTestCase(ModuleStoreTestCase):
         super(BaseEnrollmentApiTestCase, self).setUp()
         self.my_site = SiteFactory(domain='my-site.test')
         self.other_site = SiteFactory(domain='other-site.test')
-        self.other_site_org = OrganizationFactory(sites=[self.other_site])
-        self.my_site_org = OrganizationFactory(sites=[self.my_site])
+        self.other_site_org = OrganizationFactory(linked_site=self.other_site)
+        self.my_site_org = OrganizationFactory(linked_site=self.my_site)
 
         self.my_courses = [CourseFactory.create() for i in range(0, 2)]
         self.my_course_overviews = [
@@ -81,7 +81,7 @@ class BaseEnrollmentApiTestCase(ModuleStoreTestCase):
                                        organization=self.my_site_org,
                                        is_amc_admin=True)
 
-        self.get_curent_site_patch = 'lms.djangoapps.instructor.sites.get_current_site'
+        self.get_curent_site_patch = 'lms.djangoapps.instructor.enrollment.get_current_site'
 
     def call_enrollment_api(self, method, site, caller, req_extra=None):
         req_extra = req_extra or {}

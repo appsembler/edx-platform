@@ -20,6 +20,8 @@ from model_utils.models import TimeStampedModel
 
 from .exceptions import TahoeConfigurationException
 from ..appsembler.sites.waffle import ENABLE_CONFIG_VALUES_MODIFIER
+from ..appsembler.preview.helpers import is_preview_mode
+
 
 logger = getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -42,6 +44,15 @@ def get_initial_page_elements():
     """
     from openedx.core.djangoapps.appsembler.sites import utils
     return utils.get_initial_page_elements()
+
+
+def get_customer_themes_storage():
+    storage_class = get_storage_class(settings.DEFAULT_FILE_STORAGE)
+    return storage_class(**settings.CUSTOMER_THEMES_BACKEND_OPTIONS)
+
+
+THEME_AMC_V1 = 'amc-v1'
+THEME_TAHOE_V2 = 'tahoe-v2'
 
 
 @python_2_unicode_compatible
@@ -280,6 +291,30 @@ class SiteConfiguration(models.Model):
         self.delete_css_override()
         super(SiteConfiguration, self).delete(using=using)
 
+    def get_css_overrides_file(self, preview=None):
+        """
+        Return the css override file base name.
+
+        Depending on the `preview` parameter, the file can be returned either for preview (`draft`) or live CSS file.
+        """
+        domain = self.site.domain
+        domain_without_port_number = domain.split(':')[0]
+
+        if preview is None:
+            preview = is_preview_mode()
+
+        if preview:
+            css_file_prefix = 'preview-'
+        else:
+            css_file_prefix = ''
+        return '{prefix}{domain}.css'.format(
+            prefix=css_file_prefix,
+            domain=domain_without_port_number,
+        )
+
+    def get_theme_version(self):
+        return self.get_value('THEME_VERSION', THEME_AMC_V1)
+
     def compile_microsite_sass(self):
         """
         Compiles the microsite sass and save it into the storage bucket.
@@ -287,29 +322,27 @@ class SiteConfiguration(models.Model):
         :return dict {
           "successful_sass_compile": boolean: whether the CSS was compiled successfully
           "sass_compile_message": string: Status message that's safe to show for customers.
+          "scss_file_used": string: The source css file name.
+          "site_css_file": string: The stored file in the customer theme storage.
+          "theme_version": string: Theme version.
+          "configuration_source": string: "site_config_service_client" or "openedx_site_configuration_model".
         }
         """
         # Importing `sites.utils` locally to avoid test-time Django errors.
         # TODO: Fix Site Configuration and Organizations hacks. https://github.com/appsembler/edx-platform/issues/329
         from openedx.core.djangoapps.appsembler.sites import utils as sites_utils
 
-        storage = self.get_customer_themes_storage()
-        css_file_name = self.get_value('css_overrides_file')
-        if not css_file_name:
-            developer_message = 'Skipped compiling due to missing `css_overrides_file`'
-            exception_message = 'Tahoe: {developer_message} for `{site}` config_id=`{config_id}`'.format(
-                developer_message=developer_message,
-                site=self.site.domain,
-                config_id=self.id,
-            )
-            logger.exception(exception_message, exc_info=TahoeConfigurationException(exception_message))
-            return {
-                'successful_sass_compile': False,
-                'sass_compile_message': developer_message,
-            }
+        if self.api_adapter:
+            configuration_source = 'site_config_service_client'
+            # Clear cache to fetch fresh css and config variables
+            self.api_adapter.delete_backend_configs_cache()
+        else:
+            configuration_source = 'openedx_site_configuration_model'
 
-        theme_version = self.get_value('THEME_VERSION', 'amc-v1')
-        if theme_version == 'tahoe-v2':
+        storage = get_customer_themes_storage()
+        css_file_name = self.get_css_overrides_file()
+        theme_version = self.get_theme_version()
+        if theme_version == THEME_TAHOE_V2:
             scss_file = '_main-v2.scss'
         else:
             # TODO: Deprecated. Remove once all sites are migrated to Tahoe 2.0 structure.
@@ -333,11 +366,31 @@ class SiteConfiguration(models.Model):
             'successful_sass_compile': successful_sass_compile,
             'sass_compile_message': sass_compile_message,
             'scss_file_used': scss_file,
+            'site_css_file': css_file_name,
+            'theme_version': theme_version,
+            'configuration_source': configuration_source,
         }
 
-    def get_css_url(self):
-        storage = self.get_customer_themes_storage()
-        return storage.url(self.get_value('css_overrides_file'))
+    def get_css_url(self, preview=None):
+        """
+        Return the fully qualified css override file with to be included in the theme.
+
+        Depending on the `preview` parameter, the file can be returned either for preview (`draft`) or live CSS file.
+
+        If the preview css file isn't compiled, the live CSS file will be returned.
+        """
+        storage = get_customer_themes_storage()
+
+        if preview is None:
+            preview = is_preview_mode()
+
+        css_override_file = self.get_css_overrides_file(preview=preview)
+
+        if preview and not storage.exists(css_override_file):
+            # If the CSS preview file is stale or missing use the regular one
+            css_override_file = self.get_css_overrides_file(preview=False)
+
+        return storage.url(css_override_file)
 
     def set_sass_variables(self, entries):
         """
@@ -349,33 +402,55 @@ class SiteConfiguration(models.Model):
                 new_value = (var_name, [entries[var_name], entries[var_name]])
                 self.sass_variables[index] = new_value
 
-    def get_customer_themes_storage(self):
-        storage_class = get_storage_class(settings.DEFAULT_FILE_STORAGE)
-        return storage_class(**settings.CUSTOMER_THEMES_BACKEND_OPTIONS)
-
     def delete_css_override(self):
-        css_file = self.get_value('css_overrides_file')
-        if css_file:
+        live_css_file = self.get_css_overrides_file()
+        draft_css_file = self.get_css_overrides_file()
+
+        for css_file in [live_css_file, draft_css_file]:
             try:
-                storage = self.get_customer_themes_storage()
-                storage.delete(self.get_value('css_overrides_file'))
+                storage = get_customer_themes_storage()
+                storage.delete(css_file)
             except Exception:  # pylint: disable=broad-except  # noqa
                 logger.warning("Can't delete CSS file {}".format(css_file))
 
-    @beeline.traced('site_config._formatted_sass_variables')
-    def _formatted_sass_variables(self):
+    @beeline.traced('site_config._get_theme_v1_variables_overrides')
+    def _get_theme_v1_variables_overrides(self):
+        """
+        Get the amc-v1 theme variable overrides.
+
+        TODO: Remove once AMC is shut down.
+        """
+        beeline.add_context_field('value_source', 'django_model')
+        sass_variables = self.sass_variables
+        return " ".join(["{}: {};".format(var, val[0]) for var, val in sass_variables])
+
+    @beeline.traced('site_config._get_theme_v2_variables_overrides')
+    def _get_theme_v2_variables_overrides(self):
+        """
+        Get tahoe-v2 variable names.
+        """
+        beeline.add_context_field('value_source', 'site_config_service')
+
         if self.api_adapter:
             # Tahoe: Use `SiteConfigAdapter` if available.
             beeline.add_context_field('value_source', 'site_config_service')
-            sass_variables = self.api_adapter.get_amc_v1_theme_css_variables()
+            css_variables_dict = self.api_adapter.get_css_variables_dict()
         else:
             beeline.add_context_field('value_source', 'django_model')
-            sass_variables = self.sass_variables
-        return " ".join(["{}: {};".format(var, val[0]) for var, val in sass_variables])
+            # Assume a sass variables dict, this is useful for devstack and testing purposes.
+            css_variables_dict = self.sass_variables
+
+        if not isinstance(css_variables_dict, dict):
+            raise Exception('_get_theme_v2_variables_overrides expects a theme v2 dictionary of css variables')
+
+        return " ".join(["${}: {};".format(var, val) for var, val in css_variables_dict.items()])
 
     def _sass_var_override(self, path):
         if 'branding-basics' in path:
-            return [(path, self._formatted_sass_variables())]
+            # TODO: Remove once AMC is shut down.
+            return [(path, self._get_theme_v1_variables_overrides())]
+        if 'tahoe-v2-variables-overrides' in path:
+            return [(path, self._get_theme_v2_variables_overrides())]
         if 'customer-sass-input' in path:
             return [(path, self.get_value('customer_sass_input', ''))]
         return None

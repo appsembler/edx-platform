@@ -1,6 +1,8 @@
 """
 Tests for site configuration's Tahoe customizations.
 """
+from io import StringIO
+
 import logging
 import pytest
 from sass import CompileError
@@ -186,6 +188,27 @@ class SiteConfigurationTests(TestCase):
             tahoex_org_name = self.test_config['course_org_filter']
             assert SiteConfiguration.get_value_for_org(tahoex_org_name, 'LMS_ROOT_URL') == self.expected_site_root_url
 
+    def test_get_css_url_in_live_mode(self):
+        site_config = SiteConfigurationFactory.create(site=self.site)
+        assert site_config.get_css_url() == '/static/uploads/example-site.tahoe.appsembler.com.css'
+
+    def test_get_css_url_in_preview_mode_missing_file(self):
+        """
+        Because the preview file isn't compiled, calling get_css_url(preview=True) should return the `live` file.
+        """
+        site_config = SiteConfigurationFactory.create(site=self.site)
+        assert site_config.get_css_url(preview=True) == '/static/uploads/example-site.tahoe.appsembler.com.css'
+
+    @patch('openedx.core.djangoapps.site_configuration.models.get_customer_themes_storage')
+    def test_get_css_url_in_preview_existing_file(self, mock_get_storage):
+        storage = Mock()
+        storage.exists.return_value = True  # Act as if the file exists.
+        storage.open.return_value = StringIO()
+        storage.url = lambda filename: '/path/to/{}'.format(filename)
+        mock_get_storage.return_value = storage
+        site_config = SiteConfigurationFactory.create(site=self.site)
+        assert site_config.get_css_url(preview=True) == '/path/to/preview-example-site.tahoe.appsembler.com.css'
+
 
 @pytest.mark.django_db
 @patch('openedx.core.djangoapps.appsembler.sites.utils.compile_sass', Mock(return_value='I am working CSS'))
@@ -195,7 +218,7 @@ def test_logs_of_site_configuration_compile_sass_successful_on_save(caplog):
     """
     caplog.set_level(logging.INFO)
     assert 'Sass compile' not in caplog.text
-    SiteConfigurationFactory.create(site_values={'css_overrides_file': 'omar.css'})
+    SiteConfigurationFactory.create(site_values={})
     assert 'tahoe sass compiled successfully' in caplog.text, 'Should compile sass on save'
 
 
@@ -209,25 +232,10 @@ def test_site_configuration_compile_sass_on_save_fail_gracefully(caplog, clean_s
     caplog.set_level(logging.INFO)
     site_config = clean_site_configuration_factory(
         site=Site.objects.create(domain='test.com'),
-        site_values={'css_overrides_file': 'omar.css'}
+        site_values={},
     )
     site_config.save()
     assert 'CSS is not working -- Omar' in caplog.text, 'Should log failures instead of throwing an exception'
-
-
-@pytest.mark.django_db
-def test_site_configuration_compile_sass_missing_override_file(caplog, clean_site_configuration_factory):
-    """
-    Ensure save() is successful on sass compile errors.
-    """
-    caplog.set_level(logging.INFO)
-    site_config = clean_site_configuration_factory(
-        site=Site.objects.create(domain='test.com'),
-    )
-    sass_status = site_config.compile_microsite_sass()
-    assert not sass_status['successful_sass_compile'], 'Should fail due to missing css_overrides_file'
-    assert 'Skipped compiling due to missing `css_overrides_file`' == sass_status['sass_compile_message']
-    assert 'missing `css_overrides_file`' in caplog.text, 'Should log failures instead of throwing an exception'
 
 
 @pytest.mark.django_db
@@ -238,9 +246,7 @@ def test_site_configuration_compile_sass_failure(caplog, clean_site_configuratio
     Test sass status returns on failure.
     """
     caplog.set_level(logging.INFO)
-    site_configuration = clean_site_configuration_factory(
-        site_values={'css_overrides_file': 'omar.css'}
-    )
+    site_configuration = clean_site_configuration_factory(site_values={})
     sass_status = site_configuration.compile_microsite_sass()
     assert not sass_status['successful_sass_compile']
     assert 'CSS is not working -- Omar' in sass_status['sass_compile_message']
@@ -253,9 +259,7 @@ def test_site_configuration_compile_sass_success(caplog, clean_site_configuratio
     Test sass status returns on success.
     """
     caplog.set_level(logging.INFO)
-    site_configuration = clean_site_configuration_factory(
-        site_values={'css_overrides_file': 'omar.css'}
-    )
+    site_configuration = clean_site_configuration_factory(site_values={})
     sass_status = site_configuration.compile_microsite_sass()
     assert sass_status['successful_sass_compile']
     assert 'Sass compile finished successfully' in sass_status['sass_compile_message']
@@ -283,10 +287,15 @@ class SiteConfigAPIClientTests(TestCase):
         "course_about_show_social_links": False,
     }
 
-    sass_variables = [
+    sass_variables_v1 = [
         ["$brand-primary-color", ["#0090C1", "#0090C1"]],
         ["$brand-accent-color", ["#7f8c8d", "#7f8c8d"]],
     ]
+
+    sass_variables_v2 = {
+        'primary_brand_color': '#0090c1',
+        'buttons_accents_color': '#0040f6',
+    }
 
     backend_configs = {
         'configuration': {
@@ -295,11 +304,11 @@ class SiteConfigAPIClientTests(TestCase):
                     'title': 'About page from site configuration service',
                 }
             },
-            'css': {
-                '$brand-primary-color': '#0090C1',
-                '$brand-accent-color': '#7f8c8d',
+            'css': sass_variables_v2,
+            'setting': {
+                'THEME_VERSION': 'tahoe-v2',
+                **test_config,
             },
-            'setting': test_config,
             'secret': {
                 'SEGMENT_KEY': 'test-secret-from-service',
             },
@@ -331,16 +340,51 @@ class SiteConfigAPIClientTests(TestCase):
         site_configuration.save()
         assert site_configuration.get_value('platform_name') == 'API Adapter Platform'
 
-    def test_formatted_sass_variables_with_adapter(self):
+    def test_theme_v1_variables_overrides_without_adapter(self):
         """
-        Ensure api_adapter is used for `_formatted_sass_variables()`.
+        Ensure `_get_theme_v1_variables_overrides()` works without the adapter.
         """
         site_configuration = SiteConfigurationFactory.create(
             site=self.site,
             site_values={},
+            sass_variables=self.sass_variables_v1,
+        )
+        assert site_configuration._get_theme_v1_variables_overrides()
+
+    def test_theme_v2_variables_overrides_without_adapter_old_variables(self):
+        """
+        Ensure `_get_theme_v2_variables_overrides()` checks of a v2 type CSS variables.
+        """
+        site_configuration = SiteConfigurationFactory.create(
+            site=self.site,
+            site_values={},
+            sass_variables=self.sass_variables_v1,
+        )
+        with pytest.raises(Exception, match='expects a theme v2 dictionary of css variables'):
+            assert site_configuration._get_theme_v2_variables_overrides()
+
+    def test_theme_v2_variables_overrides_without_adapter_new_variables(self):
+        """
+        Ensure `_get_theme_v2_variables_overrides()` works with v2 type CSS variables.
+        """
+        site_configuration = SiteConfigurationFactory.create(
+            site=self.site,
+            site_values={},
+            sass_variables=self.sass_variables_v2,
+        )
+        assert site_configuration._get_theme_v2_variables_overrides()
+
+    def test_theme_v2_variables_overrides_with_adapter(self):
+        """
+        Ensure `_get_theme_v2_variables_overrides()` works with the adapter.
+        """
+        site_configuration = SiteConfigurationFactory.create(
+            site=self.site,
+            site_values={},
+            sass_variables={},
         )
         site_configuration.api_adapter = self.api_adapter
-        assert site_configuration._formatted_sass_variables()
+        assert site_configuration._get_theme_v2_variables_overrides()
 
     def test_page_content_without_adapter(self):
         """
