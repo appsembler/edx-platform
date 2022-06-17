@@ -72,3 +72,10 @@ def start_celery_trace(task_id, task, args, kwargs, **rest_args):
 def end_celery_trace(task, state, **kwargs):
     beeline.add_field("celery.status", state)
     beeline.finish_trace(task.request.trace)
+
+
+# send enqueued segment event to the server
+@task_postrun.connect
+def send_segment_events(task, state, **kwargs):
+    global default_client
+    default_client.flush()
