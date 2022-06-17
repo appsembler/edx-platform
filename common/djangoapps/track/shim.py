@@ -9,6 +9,8 @@ import copy
 import analytics
 from analytics.client import Client
 
+from django.conf import settings
+
 from openedx.core.djangoapps.site_configuration import helpers
 from openedx.core.djangoapps.appsembler.eventtracking import exceptions, utils
 
@@ -134,6 +136,9 @@ class DefaultMultipleSegmentClient(object):
         for param in ['host', 'debug', 'on_error', 'send']:
             if hasattr(analytics, param):
                 params[param] = getattr(analytics, param)
+
+        params['sync_mode'] = getattr(settings, 'SEGMENT_CLIENT_SYNC_MODE', False)
+
         return Client(write_key, **params)
 
     def _get_site_segment_key(self, *args):
