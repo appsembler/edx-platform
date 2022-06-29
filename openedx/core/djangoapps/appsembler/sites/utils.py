@@ -7,6 +7,7 @@ A lot of this module should be migrated into more specific modules such as `taho
 from datetime import timedelta
 
 import beeline
+from organizations.api import get_organization_courses
 
 from urllib.parse import urlparse
 
@@ -26,6 +27,7 @@ from oauth2_provider.models import AccessToken, RefreshToken, Application
 from oauth2_provider.generators import generate_client_id
 
 from django.utils.text import slugify
+from xmodule.modulestore.django import modulestore
 
 from organizations import api as org_api
 from organizations import models as org_models
@@ -477,6 +479,21 @@ def bootstrap_site(site, org_data=None, username=None):
     else:
         user = {}
     return organization, site, user
+
+
+def get_deletable_course_keys():
+    """
+    Get keys of courses without active organization.
+    """
+    all_course_keys = {course.id for course in modulestore().get_course_summaries()}
+
+    active_course_keys = set()
+
+    for organization in get_active_organizations():
+        for course in get_organization_courses({'id': organization.id}):
+            active_course_keys.add(course['course_id'])
+
+    return all_course_keys - active_course_keys
 
 
 @beeline.traced(name="delete_site")
