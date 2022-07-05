@@ -5,21 +5,19 @@ Test cases to cover CourseEnrollmentAllowed models (and its feature) with APPSEM
 import json
 from mock import patch
 from rest_framework import status
-from unittest import skipIf
 from xmodule.modulestore.tests.factories import CourseFactory
 
 from django.urls import reverse
 from django.contrib.auth.models import User
-from django.conf import settings
 from student.models import CourseEnrollment, CourseEnrollmentAllowed
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from student.tests.factories import UserFactory
+from tahoe_sites.tests.utils import create_organization_mapping
 
 from .test_utils import with_organization_context, lms_multi_tenant_test
 from openedx.core.djangoapps.appsembler.api.tests.factories import (
     CourseOverviewFactory,
     OrganizationCourseFactory,
-    UserOrganizationMappingFactory,
 )
 
 
@@ -52,9 +50,7 @@ class TestCourseEnrollmentAllowedMultitenant(ModuleStoreTestCase):
         """
         client = self.client_class()
         caller = UserFactory.create(password=self.PASSWORD)
-        UserOrganizationMappingFactory(user=caller,
-                                       organization=org,
-                                       is_amc_admin=True)
+        create_organization_mapping(user=caller, organization=org, is_admin=True)
         client.login(username=caller.username, password=self.PASSWORD)
         url = reverse('tahoe-api:v1:enrollments-list')
         body = json.dumps({
