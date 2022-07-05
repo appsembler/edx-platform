@@ -130,6 +130,9 @@ class MultiTenantAMCSignupTest(APITestCase):
             self.register_learner(learner_email, 'learner')
 
         user = User.objects.get(email=learner_email)
+        user.is_active = True
+        user.save()  # Simulate account activation via email
+
         organization = get_organization_for_user(user=user)
         assert not is_active_admin_on_organization(user=user, organization=organization), 'Should be just a learner'
 

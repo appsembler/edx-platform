@@ -4,6 +4,7 @@ Registration related views.
 
 
 import datetime
+import django.core.exceptions
 import json
 import logging
 
@@ -30,9 +31,11 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from social_core.exceptions import AuthAlreadyAssociated, AuthException
 from social_django import utils as social_utils
+
+from django.core.exceptions import ObjectDoesNotExist
 from tahoe_sites.api import (
     add_user_to_organization,
-    is_exist_organization_user_by_email,
+    get_organization_for_user,
     get_organization_user_by_email,
     update_admin_role_in_organization,
 )
@@ -250,18 +253,19 @@ def create_account_with_params(request, params):
 
     _track_user_registration(user, profile, params, third_party_provider)
 
+    # TODO: RED-2845 Clean when AMC is removed.
     if not is_request_for_new_amc_site(request):
         # When _new_ trial is requested, we register the user first, then the
         # Organization and SiteConfiguration.
-        # So the new AMC admin user will not have a link to the created organization
-        # until `bootstrap_site()` is called.
-        # Tech Debt: This is a weird logic in my opinion that we should simplify into a single API call -- Omar
+        # So the new is_admin role is will not be set until `bootstrap_site()` is called.
         current_org = get_current_organization(failure_return_none=True)
         if current_org:
-            if not is_exist_organization_user_by_email(email=user.email, organization=current_org):
-                add_user_to_organization(
-                    user=user, organization=current_org, is_admin=is_request_for_amc_admin(request)
-                )
+            is_admin = is_request_for_amc_admin(request)
+            try:
+                get_organization_for_user(user)
+                update_admin_role_in_organization(user=user, organization=current_org, set_as_admin=is_admin)
+            except ObjectDoesNotExist:
+                add_user_to_organization(user, current_org, is_admin=is_admin)
 
     # Announce registration
     REGISTER_USER.send(sender=None, user=user, registration=registration)
