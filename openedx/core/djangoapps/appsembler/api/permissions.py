@@ -21,16 +21,10 @@ def is_site_admin_user(request):
     current_site = django.contrib.sites.shortcuts.get_current_site(request)
 
     # get orgs for the site
-    try:
-        organization = get_organization_by_site(site=current_site)
-    except Organization.DoesNotExist:
-        return False
-    except Organization.MultipleObjectsReturned:
-        log.warning(
-            'is_site_admin_user: This module expects a one:one relationship between organization and site. '
-            'Raised by site (%s)', current_site.id
-        )
-        return False
+    # try:
+    organization = get_organization_by_site(site=current_site)
+    # except Organization.DoesNotExist:
+    #     return False
 
     return is_active_admin_on_organization(user=request.user, organization=organization)
 

@@ -125,9 +125,10 @@ class EnrollmentApiGetTest(BaseEnrollmentApiTestCase):
                 'course_id': str(selected_course.id),
             }
         })
+
+        assert response.status_code == 200, response.content.decode('utf-8')
         results = response.data['results']
 
-        self.assertEqual(response.status_code, 200)
         self.assertEqual(len(results), len(expected_enrollments))
         # TODO: Validate each record
 
