@@ -1,7 +1,10 @@
 from django.test import TestCase
-from organizations.models import UserOrganizationMapping
-from organizations.tests.factories import UserFactory, OrganizationFactory
+from organizations.tests.factories import OrganizationFactory
 from rest_framework.test import APIRequestFactory
+from tahoe_sites.tests.utils import create_organization_mapping
+from tahoe_sites.api import create_tahoe_site_by_link
+
+from student.tests.factories import UserFactory
 
 from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
 from openedx.core.djangoapps.appsembler.sites.permissions import AMCAdminPermission
@@ -16,7 +19,7 @@ class AMCAdminPermissionsTestCase(TestCase):
 
     def setUp(self):
         super(AMCAdminPermissionsTestCase, self).setUp()
-        self.user = UserFactory.create()
+        self.user = UserFactory.create(is_active=True)
         self.site = SiteFactory.create(
             domain='foo.dev',
             name='foo.dev'
@@ -24,15 +27,17 @@ class AMCAdminPermissionsTestCase(TestCase):
         factory = APIRequestFactory()
         self.request = factory.get('/test/')
         self.request.user = self.user
+        self.request.site = self.site
         self.organization = OrganizationFactory()
+        create_tahoe_site_by_link(self.organization, self.site)
 
     def test_random_user(self):
         self.assertFalse(AMCAdminPermission().has_permission(self.request, None))
 
     def test_organization_nonadmin_user(self):
-        UserOrganizationMapping.objects.create(user=self.user, organization=self.organization, is_amc_admin=False)
+        create_organization_mapping(user=self.user, organization=self.organization, is_admin=False)
         self.assertFalse(AMCAdminPermission().has_permission(self.request, None))
 
     def test_organization_admin_user(self):
-        UserOrganizationMapping.objects.create(user=self.user, organization=self.organization, is_amc_admin=True)
+        create_organization_mapping(user=self.user, organization=self.organization, is_admin=True)
         self.assertTrue(AMCAdminPermission().has_permission(self.request, None))
