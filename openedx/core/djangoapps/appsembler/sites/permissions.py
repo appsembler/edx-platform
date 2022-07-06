@@ -1,6 +1,6 @@
 from rest_framework import permissions
-from organizations.models import Organization
-from tahoe_sites.api import get_current_organization, is_active_admin_on_organization
+
+from tahoe_sites.models import UserOrganizationMapping
 
 
 class AMCAdminPermission(permissions.BasePermission):
@@ -9,10 +9,9 @@ class AMCAdminPermission(permissions.BasePermission):
     """
 
     def has_permission(self, request, view):
-        try:
-            is_organization_admin = is_active_admin_on_organization(
-                user=request.user, organization=get_current_organization(request=request)
-            )
-        except Organization.DoesNotExist:
-            is_organization_admin = False
-        return is_organization_admin or request.user.is_superuser
+        is_organization_admin = UserOrganizationMapping.objects.filter(
+            user=request.user,
+            is_admin=True,
+        ).exists()
+        is_superuser = request.user.is_superuser
+        return request.user.is_active and (is_organization_admin or is_superuser)
