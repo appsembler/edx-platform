@@ -15,8 +15,6 @@ def should_show_hubspot(user):
     if user.is_superuser or user.is_staff:
         return False
 
-    is_active_admin = user.id in list(deprecated_get_admin_users_queryset_by_email(email=user.email))
-    if not is_active_admin:
-        return False
+    is_active_admin = user in deprecated_get_admin_users_queryset_by_email(email=user.email)
 
-    return True
+    return is_active_admin
