@@ -16,6 +16,8 @@ from django.core import cache
 # to returning the default cache. This will happen with dev machines.
 from django.utils.translation import get_language
 
+from .tahoe_cache_util import suffix_tahoe_cache_key
+
 try:
     cache = cache.caches['general']         # pylint: disable=invalid-name
 except Exception:
@@ -60,15 +62,9 @@ def cache_if_anonymous(*get_parameters):
                 # Use the cache. The same view accessed through different domain names may
                 # return different things, so include the domain name in the key.
                 domain = str(request.META.get('HTTP_HOST')) + '.'
-                # This is used to clear the cache for old SiteConfigrations.
-                # Once a SiteConfiguration is saved it will create a new SiteConfigurationHistory
-                # row. We use this to break the cache since we need to load the new resources. We rely on
-                # memcached to reap the old entries from it's datastore once they are expired
-                if hasattr(request, 'site'):
-                    version = request.site.configuration_histories.count()
-                else:
-                    version = 1
                 cache_key = domain + "cache_if_anonymous." + get_language() + '.' + request.path
+
+                cache_key = suffix_tahoe_cache_key(request, cache_key)
 
                 # Include the values of GET parameters in the cache key.
                 for get_parameter in get_parameters:
@@ -80,7 +76,7 @@ def cache_if_anonymous(*get_parameters):
                             get_parameter: six.text_type(parameter_value).encode('utf-8')
                         })
 
-                response = cache.get(cache_key, version=version)
+                response = cache.get(cache_key)
 
                 if response:
                     # A hack to ensure that the response data is a valid text type for both Python 2 and 3.
@@ -90,7 +86,7 @@ def cache_if_anonymous(*get_parameters):
                         response.write(item)
                 else:
                     response = view_func(request, *args, **kwargs)
-                    cache.set(cache_key, response, 60 * 3, version=version)
+                    cache.set(cache_key, response, 60 * 3)
 
                 return response
 
