@@ -35,6 +35,7 @@ from openedx.core.djangoapps.appsembler.sites.utils import (
     get_customer_files_storage,
     to_safe_file_name,
 )
+from tahoe_sites.api import get_organization_for_user, get_site_by_organization
 
 log = logging.Logger(__name__)
 
@@ -49,8 +50,13 @@ class SiteViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = Site.objects.exclude(id=settings.SITE_ID)
         user = self.request.user
         if not user.is_superuser:
-            queryset = queryset.filter(organizations__in=user.organizations.all())
+            queryset = queryset.filter(id=get_site_by_organization(
+                organization=get_organization_for_user(user=user)
+            ).id)
         return queryset
+
+    def get_filtered_site_id(self):
+        return self.kwargs.get('pk')
 
 
 class SiteConfigurationViewSet(viewsets.ModelViewSet):
@@ -70,6 +76,10 @@ class SiteConfigurationViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         delete_site(instance.site)
+
+    def get_filtered_site_id(self):
+        filtered_config = self.kwargs.get('pk')
+        return SiteConfiguration.objects.get(id=filtered_config).site.id if filtered_config else None
 
 
 class FileUploadView(views.APIView):

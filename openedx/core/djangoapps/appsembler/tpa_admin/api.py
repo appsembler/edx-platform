@@ -29,6 +29,9 @@ class SAMLConfigurationViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticated, AMCAdminPermission)
     filterset_class = SAMLConfigurationFilter
 
+    def get_filtered_site_id(self):
+        return self.kwargs.get('site_id')
+
 
 class SAMLConfigurationSiteDetail(generics.RetrieveAPIView):
     """
@@ -53,6 +56,9 @@ class SAMLProviderConfigViewSet(viewsets.ModelViewSet):
     authentication_classes = (BearerAuthenticationAllowInactiveUser,)
     permission_classes = (IsAuthenticated, AMCAdminPermission)
     filterset_class = SAMLProviderConfigFilter
+
+    def get_filtered_site_id(self):
+        return self.kwargs.get('site_id')
 
 
 class SAMLProviderSiteDetail(generics.ListAPIView):
