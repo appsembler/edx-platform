@@ -16,7 +16,7 @@ from django.core import cache
 # to returning the default cache. This will happen with dev machines.
 from django.utils.translation import get_language
 
-from .tahoe_cache_util import suffix_tahoe_cache_key
+from openedx.core.djangoapps.appsembler.multi_tenant_cache import api as multi_tenant_cache_apis
 
 try:
     cache = cache.caches['general']         # pylint: disable=invalid-name
@@ -64,7 +64,7 @@ def cache_if_anonymous(*get_parameters):
                 domain = str(request.META.get('HTTP_HOST')) + '.'
                 cache_key = domain + "cache_if_anonymous." + get_language() + '.' + request.path
 
-                cache_key = suffix_tahoe_cache_key(request, cache_key)
+                cache_key = multi_tenant_cache_apis.suffix_tahoe_cache_key(request, cache_key)
 
                 # Include the values of GET parameters in the cache key.
                 for get_parameter in get_parameters:

@@ -19,6 +19,7 @@ from jsonfield.fields import JSONField
 from model_utils.models import TimeStampedModel
 
 from ..appsembler.preview.helpers import is_preview_mode
+from ..appsembler.multi_tenant_cache import api as multi_tenant_cache_apis
 
 logger = getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -337,6 +338,8 @@ class SiteConfiguration(models.Model):
         else:
             configuration_source = 'openedx_site_configuration_model'
 
+        multi_tenant_cache_apis.clear_tahoe_site_cache(self.site.domain)
+
         storage = get_customer_themes_storage()
         css_file_name = self.get_css_overrides_file()
         theme_version = self.get_theme_version()
@@ -452,6 +455,14 @@ class SiteConfiguration(models.Model):
         if 'customer-sass-input' in path:
             return [(path, self.get_value('customer_sass_input', ''))]
         return None
+
+
+@receiver(post_save, sender=SiteConfiguration)
+def clean_site_cache_on_save(sender, instance, created, **kwargs):
+    """
+    Clean the site cache after SiteConfiguration.save().
+    """
+    multi_tenant_cache_apis.clear_tahoe_site_cache(instance.site.domain)
 
 
 @receiver(post_save, sender=SiteConfiguration)
