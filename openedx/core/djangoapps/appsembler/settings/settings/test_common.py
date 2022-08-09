@@ -30,3 +30,5 @@ def plugin_settings(settings):
         settings.INSTALLED_APPS += [
             'openedx.core.djangoapps.appsembler.multi_tenant_emails',
         ]
+
+    settings.FEATURES['TAHOE_SITES_USE_ORGS_MODELS'] = False
