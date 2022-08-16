@@ -3,6 +3,7 @@ Integration helpers for SiteConfig Client adapter.
 """
 
 import logging
+from organizations.models import Organization
 from uuid import UUID
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -50,6 +51,18 @@ def is_enabled_for_site(site):
 def enable_for_site(site, note=''):
     uuid = tahoe_sites.api.get_uuid_by_site(site)
     enable_feature_for_site(uuid, note=note)
+
+
+def get_site_configuration_for_org_by_short_name(org_name):
+    """
+    Get the SiteConfiguration for a specific organization by its short_name.
+
+    Warning: This method is rather weak. We should depend on stronger ties such
+             as OrganizationCourse model instead of a string.
+    """
+    organization = Organization.objects.get(short_name=org_name)
+    site = tahoe_sites.api.get_site_by_organization(organization)
+    return site.configuration
 
 
 def get_active_site_uuids_from_site_config_service():
