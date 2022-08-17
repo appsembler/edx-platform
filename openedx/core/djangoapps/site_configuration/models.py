@@ -265,7 +265,7 @@ class SiteConfiguration(models.Model):
             A set of all organizations present in site configuration.
         """
         if settings.FEATURES.get('TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT', False):
-            return get_all_orgs()
+            return tahoe_organization_helpers.get_all_orgs()
 
         org_filter_set = set()
 
