@@ -172,9 +172,9 @@ class CertificateManager(object):
         certificates = None
 
         if configuration_helpers.get_value_for_org(
-                course.id.org,
-                'CERTIFICATES_HTML_VIEW',
-                False
+            course.id.org,
+            'CERTIFICATES_HTML_VIEW',
+            False
         ):
             certificates = CertificateManager.get_certificates(course)
             # we are assuming only one certificate in certificates collection.
