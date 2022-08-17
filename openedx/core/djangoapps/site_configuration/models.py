@@ -16,6 +16,7 @@ from django.db import models
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.encoding import python_2_unicode_compatible
+from django.utils.functional import cached_property
 from jsonfield.fields import JSONField
 from model_utils.models import TimeStampedModel
 
@@ -66,10 +67,6 @@ class SiteConfiguration(models.Model):
 
     .. no_pii:
     """
-
-    _api_adapter = None  # Tahoe: Placeholder for `site_config_client`'s `SiteConfigAdapter`
-    _api_adapter_initialization_attempted = False
-
     tahoe_config_modifier = None  # Tahoe: Placeholder for `TahoeConfigurationValueModifier` instance
 
     site = models.OneToOneField(Site, related_name='configuration', on_delete=models.CASCADE)
@@ -92,19 +89,17 @@ class SiteConfiguration(models.Model):
     def __repr__(self):
         return self.__str__()
 
-    @property
+    @cached_property
     def api_adapter(self):
         with beeline.tracer('site_config.init_api_client_adapter'):
-            if not self._api_adapter_initialization_attempted:
-                # Tahoe: Import is placed here to avoid model import at project startup
-                from openedx.core.djangoapps.appsembler.sites import (
-                    site_config_client_helpers as site_helpers,
-                )
-                if site_helpers.is_enabled_for_site(self.site):
-                    self._api_adapter = site_helpers.init_site_configuration_adapter(self.site)
-                self._api_adapter_initialization_attempted = True
+            # Tahoe: Import is placed here to avoid model import at project startup
+            from openedx.core.djangoapps.appsembler.sites import (
+                site_config_client_helpers as site_helpers,
+            )
+            if site_helpers.is_enabled_for_site(self.site):
+                return site_helpers.init_site_configuration_adapter(self.site)
 
-        return self._api_adapter
+        return None
 
     @beeline.traced('site_config.get_value')
     def get_value(self, name, default=None):
