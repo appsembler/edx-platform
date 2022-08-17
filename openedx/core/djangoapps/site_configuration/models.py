@@ -7,23 +7,42 @@ import beeline
 import collections
 from logging import getLogger
 
-from organizations.models import Organization
 from sass import CompileError
 
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.files.storage import get_storage_class
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.encoding import python_2_unicode_compatible
 from jsonfield.fields import JSONField
 from model_utils.models import TimeStampedModel
 
 from ..appsembler.preview.helpers import is_preview_mode
-
+from . import tahoe_organization_helpers
 
 logger = getLogger(__name__)  # pylint: disable=invalid-name
+
+
+def get_initial_sass_variables():
+    """
+    Proxy to `utils.get_initial_sass_variables` to avoid test-time Django errors.
+
+    # TODO: Fix Site Configuration and Organizations hacks. https://github.com/appsembler/edx-platform/issues/329
+    """
+    from openedx.core.djangoapps.appsembler.sites import utils
+    return utils.get_initial_sass_variables()
+
+
+def get_initial_page_elements():
+    """
+    Proxy to `utils.get_initial_page_elements` to avoid test-time Django errors.
+
+    # TODO: Fix Site Configuration and Organizations hacks. https://github.com/appsembler/edx-platform/issues/329
+    """
+    from openedx.core.djangoapps.appsembler.sites import utils
+    return utils.get_initial_page_elements()
 
 
 def get_customer_themes_storage():
@@ -64,8 +83,8 @@ class SiteConfiguration(models.Model):
         default=dict,
         load_kwargs={'object_pairs_hook': collections.OrderedDict}
     )
-    sass_variables = JSONField(blank=True, default={})
-    page_elements = JSONField(blank=True, default={})
+    sass_variables = JSONField(blank=True, default=get_initial_sass_variables)
+    page_elements = JSONField(blank=True, default=get_initial_page_elements)
 
     def __str__(self):
         return u"<SiteConfiguration: {site} >".format(site=self.site)  # xss-lint: disable=python-wrap-html
@@ -200,11 +219,8 @@ class SiteConfiguration(models.Model):
             org (str): Org to use to filter SiteConfigurations
             select_related (list or None): A list of values to pass as arguments to select_related
         """
-        if settings.FEATURES.get('TAHOE_CONFIG_FIND_ORG_VIA_SHORT_NAME', False):
-            # Tahoe: This is an on by-default feature in production This uses `short_name`
-            #        lookup instead of looking up by `course_org_filter`.
-            from openedx.core.djangoapps.appsembler.sites import site_config_client_helpers
-            return site_config_client_helpers.get_site_configuration_for_org_by_short_name(org)
+        if settings.FEATURES.get('TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT', False):
+            return tahoe_organization_helpers.get_configuration_for_org(org)
 
         query = cls.objects.filter(site_values__contains=org, enabled=True).all()
         if select_related is not None:
@@ -248,14 +264,12 @@ class SiteConfiguration(models.Model):
         Returns:
             A set of all organizations present in site configuration.
         """
+        if settings.FEATURES.get('TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT', False):
+            return get_all_orgs()
+
         org_filter_set = set()
 
-        query = cls.objects.filter(site_values__contains='course_org_filter', enabled=True)
-        if hasattr(SiteConfiguration, 'sass_variables'):
-            # TODO: Clean up Site Configuration hacks: https://github.com/appsembler/edx-platform/issues/329
-            query = query.defer('page_elements', 'sass_variables')
-
-        for configuration in query:
+        for configuration in cls.objects.filter(site_values__contains='course_org_filter', enabled=True).all():
             course_org_filter = configuration.get_value('course_org_filter', [])
             if not isinstance(course_org_filter, list):
                 course_org_filter = [course_org_filter]
@@ -270,11 +284,6 @@ class SiteConfiguration(models.Model):
         Returns:
             True if given organization is present in site configurations otherwise False.
         """
-        if settings.FEATURES.get('TAHOE_CONFIG_FIND_ORG_VIA_SHORT_NAME', False):
-            # Tahoe: This is an on by-default feature in production.
-            #        This uses `short_name` lookup instead of looking up `course_org_filter`.
-            return Organization.objects.filter(short_name=org).exists()
-
         return org in cls.get_all_orgs()
 
     def delete(self, using=None):
