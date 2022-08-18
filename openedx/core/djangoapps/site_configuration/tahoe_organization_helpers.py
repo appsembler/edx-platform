@@ -28,8 +28,8 @@ def get_all_orgs():
 
     Unlike the upstream method, this is compatible with the Site Configuration Client.
     """
-    from openedx.core.djangoapps.appsembler.sites.utils import get_active_organizations
-    return get_active_organizations().values_list('short_name', flat=True)
+    from openedx.core.djangoapps.appsembler.sites import utils as site_utils
+    return site_utils.get_active_organizations().values_list('short_name', flat=True)
 
 
 def get_configuration_for_org(org):
