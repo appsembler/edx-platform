@@ -6,20 +6,22 @@ import beeline
 
 import collections
 from logging import getLogger
+
 from sass import CompileError
 
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.files.storage import get_storage_class
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.encoding import python_2_unicode_compatible
+from django.utils.functional import cached_property
 from jsonfield.fields import JSONField
 from model_utils.models import TimeStampedModel
 
 from ..appsembler.preview.helpers import is_preview_mode
-
+from . import tahoe_organization_helpers
 
 logger = getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -65,10 +67,6 @@ class SiteConfiguration(models.Model):
 
     .. no_pii:
     """
-
-    _api_adapter = None  # Tahoe: Placeholder for `site_config_client`'s `SiteConfigAdapter`
-    _api_adapter_initialization_attempted = False
-
     tahoe_config_modifier = None  # Tahoe: Placeholder for `TahoeConfigurationValueModifier` instance
 
     site = models.OneToOneField(Site, related_name='configuration', on_delete=models.CASCADE)
@@ -91,19 +89,17 @@ class SiteConfiguration(models.Model):
     def __repr__(self):
         return self.__str__()
 
-    @property
+    @cached_property
     def api_adapter(self):
         with beeline.tracer('site_config.init_api_client_adapter'):
-            if not self._api_adapter_initialization_attempted:
-                # Tahoe: Import is placed here to avoid model import at project startup
-                from openedx.core.djangoapps.appsembler.sites import (
-                    site_config_client_helpers as site_helpers,
-                )
-                if site_helpers.is_enabled_for_site(self.site):
-                    self._api_adapter = site_helpers.init_site_configuration_adapter(self.site)
-                self._api_adapter_initialization_attempted = True
+            # Tahoe: Import is placed here to avoid model import at project startup
+            from openedx.core.djangoapps.appsembler.sites import (
+                site_config_client_helpers as site_helpers,
+            )
+            if site_helpers.is_enabled_for_site(self.site):
+                return site_helpers.init_site_configuration_adapter(self.site)
 
-        return self._api_adapter
+        return None
 
     @beeline.traced('site_config.get_value')
     def get_value(self, name, default=None):
@@ -218,12 +214,10 @@ class SiteConfiguration(models.Model):
             org (str): Org to use to filter SiteConfigurations
             select_related (list or None): A list of values to pass as arguments to select_related
         """
-        query = cls.objects.filter(site_values__contains=org, enabled=True)
+        if settings.FEATURES.get('TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT', False):
+            return tahoe_organization_helpers.get_configuration_for_org(org)
 
-        if hasattr(SiteConfiguration, 'sass_variables'):
-            # TODO: Clean up Site Configuration hacks: https://github.com/appsembler/edx-platform/issues/329
-            query = query.defer('page_elements', 'sass_variables')
-
+        query = cls.objects.filter(site_values__contains=org, enabled=True).all()
         if select_related is not None:
             query = query.select_related(*select_related)
         for configuration in query:
@@ -265,14 +259,12 @@ class SiteConfiguration(models.Model):
         Returns:
             A set of all organizations present in site configuration.
         """
+        if settings.FEATURES.get('TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT', False):
+            return tahoe_organization_helpers.get_all_orgs()
+
         org_filter_set = set()
 
-        query = cls.objects.filter(site_values__contains='course_org_filter', enabled=True)
-        if hasattr(SiteConfiguration, 'sass_variables'):
-            # TODO: Clean up Site Configuration hacks: https://github.com/appsembler/edx-platform/issues/329
-            query = query.defer('page_elements', 'sass_variables')
-
-        for configuration in query:
+        for configuration in cls.objects.filter(site_values__contains='course_org_filter', enabled=True).all():
             course_org_filter = configuration.get_value('course_org_filter', [])
             if not isinstance(course_org_filter, list):
                 course_org_filter = [course_org_filter]

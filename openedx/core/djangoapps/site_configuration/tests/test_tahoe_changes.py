@@ -11,6 +11,9 @@ from unittest.mock import patch, Mock
 import ddt
 from urllib.parse import urlsplit
 
+from organizations.models import Organization
+from organizations.tests.factories import OrganizationFactory
+
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.test import TestCase
@@ -18,8 +21,10 @@ from django.test.utils import override_settings
 
 from site_config_client.openedx.adapter import SiteConfigAdapter
 
+from openedx.core.djangoapps.appsembler.multi_tenant_emails.tests.test_utils import with_organization_context
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 from openedx.core.djangoapps.site_configuration.tests.factories import SiteConfigurationFactory
+from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 
 
 @pytest.fixture
@@ -298,8 +303,7 @@ class SiteConfigAPIClientTests(TestCase):
             site=self.site,
             site_values={},
         )
-        site_configuration._api_adapter = self.api_adapter
-        site_configuration._api_adapter_initialization_attempted = True
+        site_configuration.api_adapter = self.api_adapter
         site_configuration.save()
         assert site_configuration.get_value('platform_name') == 'API Adapter Platform'
 
@@ -346,8 +350,7 @@ class SiteConfigAPIClientTests(TestCase):
             site_values={},
             sass_variables={},
         )
-        site_configuration._api_adapter = self.api_adapter
-        site_configuration._api_adapter_initialization_attempted = True
+        site_configuration.api_adapter = self.api_adapter
         assert site_configuration._get_theme_v2_variables_overrides()
 
     def test_page_content_without_adapter(self):
@@ -378,8 +381,7 @@ class SiteConfigAPIClientTests(TestCase):
                 },
             },
         )
-        site_configuration._api_adapter = self.api_adapter
-        site_configuration._api_adapter_initialization_attempted = True
+        site_configuration.api_adapter = self.api_adapter
         assert site_configuration.get_page_content('about') == {
             'title': 'About page from site configuration service',
         }
@@ -403,8 +405,7 @@ class SiteConfigAPIClientTests(TestCase):
         site_configuration = SiteConfigurationFactory.create(
             site=self.site,
         )
-        site_configuration._api_adapter = self.api_adapter
-        site_configuration._api_adapter_initialization_attempted = True
+        site_configuration.api_adapter = self.api_adapter
         assert site_configuration.get_secret_value('SEGMENT_KEY') == 'test-secret-from-service'
 
     def test_admin_config_without_adapter(self):
@@ -426,6 +427,58 @@ class SiteConfigAPIClientTests(TestCase):
         site_configuration = SiteConfigurationFactory.create(
             site=self.site,
         )
-        site_configuration._api_adapter = self.api_adapter
-        site_configuration._api_adapter_initialization_attempted = True
+        site_configuration.api_adapter = self.api_adapter
         assert site_configuration.get_admin_setting('IDP_TENANT_ID') == 'dummy-tenant-id'
+
+
+@pytest.mark.django_db
+@patch.dict('django.conf.settings.FEATURES', {'TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT': True})
+@patch('openedx.core.djangoapps.appsembler.sites.utils.get_active_organizations')
+def test_get_all_orgs_filters_by_active(mock_active_orgs):
+    """
+    Test `get_all_orgs()` while using TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT.
+    """
+    OrganizationFactory.create(short_name='red')
+    OrganizationFactory.create(short_name='blue')
+    inactive_org = OrganizationFactory.create(short_name='inactive')
+
+    fake_active_orgs = Organization.objects.exclude(pk=inactive_org.pk)
+    mock_active_orgs.return_value = fake_active_orgs
+
+    all_orgs = configuration_helpers.get_all_orgs()
+    assert set(all_orgs) == {'red', 'blue'}, 'Should rely on get_active_organizations'
+
+
+@pytest.mark.django_db
+@patch.dict('django.conf.settings.FEATURES', {'TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT': True})
+@patch('openedx.core.djangoapps.appsembler.sites.utils.get_active_organizations')
+def test_get_configuration_for_org_via_short_name(mock_active_orgs):
+    """
+    Test `get_configuration_for_org()` while using TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT.
+
+    This method tests get_configuration_for_org indirectly.
+    """
+    mock_active_orgs.return_value = Organization.objects.all()
+
+    unconfigured_url = configuration_helpers.get_value_for_org('blue1', 'blog_url', default='default_url')
+    assert unconfigured_url == 'default_url', 'Should return default value'
+
+    with with_organization_context(site_color='blue1', configs={'blog_url': 'http://blog.com'}):
+        # Configure the organization
+        configured_blog_url = configuration_helpers.get_value_for_org('blue1', 'blog_url', default='default_url')
+
+    assert configured_blog_url == 'http://blog.com', 'should read from site configs properly'
+
+
+@pytest.mark.django_db
+@patch.dict('django.conf.settings.FEATURES', {'TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT': True})
+@patch('openedx.core.djangoapps.appsembler.sites.utils.get_active_organizations')
+def test_get_configuration_for_org_via_short_name_inactive_org(mock_active_orgs):
+    """
+    Test `get_configuration_for_org()` with expired subscription while using
+
+    This method tests get_configuration_for_org with TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT indirectly.
+    """
+    mock_active_orgs.return_value = Organization.objects.none()
+    inactive_org_url = configuration_helpers.get_value_for_org('blue1', 'blog_url', default='default_url')
+    assert inactive_org_url == 'default_url', 'If the organization is not active, ignore its configurations'

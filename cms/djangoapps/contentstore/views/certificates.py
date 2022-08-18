@@ -48,11 +48,10 @@ from student.auth import has_studio_write_access
 from student.roles import GlobalStaff
 from util.db import MYSQL_MAX_INT, generate_int_id
 from util.json_request import JsonResponse
-
 from xmodule.modulestore import EdxJSONEncoder
 from xmodule.modulestore.django import modulestore
 
-from cms.djangoapps.appsembler.certificates_helpers import is_certificates_enabled_for_course_site
+from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 
 CERTIFICATE_SCHEMA_VERSION = 1
 CERTIFICATE_MINIMUM_ID = 100
@@ -172,7 +171,11 @@ class CertificateManager(object):
         is_active = False
         certificates = None
 
-        if is_certificates_enabled_for_course_site(course.id):
+        if configuration_helpers.get_value_for_org(
+            course.id.org,
+            'CERTIFICATES_HTML_VIEW',
+            False
+        ):
             certificates = CertificateManager.get_certificates(course)
             # we are assuming only one certificate in certificates collection.
             for certificate in certificates:
