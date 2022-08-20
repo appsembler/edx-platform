@@ -68,39 +68,35 @@ def clear_tahoe_site_cache(site_domain, now=None):
 
     now = str(now)
 
-    cache_key = _build_tahoe_config_update_time_cache_key(site_domain)
+    cache_key = build_tahoe_config_update_time_cache_key(site_domain)
     cache.set(cache_key, now)
     return now
 
 
-def suffix_tahoe_cache_key(request, cache_key):
+def suffix_tahoe_cache_key(request_site, cache_key):
     """
     Suffix the key to clear the cache for old SiteConfiguration.
 
     Provides cache-invalidating suffix that changes after each SiteConfiguration
     update or CSS compile.
     """
-    if hasattr(request, 'site'):
-        site_domain = request.site.domain
-    else:
-        site_domain = 'no_site'
-
-    last_config_update = _get_tahoe_config_update_time(site_domain)
+    site_domain = getattr(request_site, 'domain', 'no_site')
+    last_config_update = get_tahoe_config_update_time(site_domain)
     return '{}.{}.'.format(cache_key, last_config_update)
 
 
-def _build_tahoe_config_update_time_cache_key(site_domain):
+def build_tahoe_config_update_time_cache_key(site_domain):
     """
     Helper to build site config last update time cache key.
     """
-    return 'tahoe_config_update.{site_domain}'.format(site_domain=site_domain)
+    return 'tahoe_config_update:{site_domain}'.format(site_domain=site_domain)
 
 
-def _get_tahoe_config_update_time(site_domain, now=None):
+def get_tahoe_config_update_time(site_domain, now=None):
     """
     Read the latest update time for the site's config.
     """
-    cache_key = _build_tahoe_config_update_time_cache_key(site_domain)
+    cache_key = build_tahoe_config_update_time_cache_key(site_domain)
 
     last_config_update = cache.get(cache_key)
 
