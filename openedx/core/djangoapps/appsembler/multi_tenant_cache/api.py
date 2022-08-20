@@ -78,7 +78,7 @@ def suffix_tahoe_cache_key(request, cache_key):
     Suffix the key to clear the cache for old SiteConfiguration.
 
     Provides cache-invalidating suffix that changes after each SiteConfiguration
-   update or CSS compile.
+    update or CSS compile.
     """
     if hasattr(request, 'site'):
         site_domain = request.site.domain
