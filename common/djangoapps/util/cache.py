@@ -64,10 +64,12 @@ def cache_if_anonymous(*get_parameters):
                 domain = str(request.META.get('HTTP_HOST')) + '.'
                 cache_key = domain + "cache_if_anonymous." + get_language() + '.' + request.path
 
-                cache_key = multi_tenant_cache_apis.suffix_tahoe_cache_key(
-                    request.site,
-                    cache_key,
-                )
+                if settings.FEATURES.get('TAHOE_MULTI_TENANT_SITE_CACHE', True):
+                    # On by-default feature to ensure site-specific cache with methods for clear it.
+                    cache_key = multi_tenant_cache_apis.suffix_tahoe_cache_key(
+                        request.site,
+                        cache_key,
+                    )
 
                 # Include the values of GET parameters in the cache key.
                 for get_parameter in get_parameters:
