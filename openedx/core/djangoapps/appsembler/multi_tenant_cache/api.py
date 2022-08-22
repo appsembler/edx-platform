@@ -47,12 +47,12 @@ This solution requires adding another SiteConfigLastUpdate(Model) class to store
 This solution was dimissed to avoid adding yet another model to Open edX.
 
 """
-from django.core import cache as django_cache
+from django.core import cache
 
 try:
-    cache = django_cache.caches['general']
+    cache = cache.caches['general']         # pylint: disable=invalid-name
 except Exception:
-    cache = django_cache.cache
+    cache = cache.cache
 
 
 __all__ = ['clear_tahoe_site_cache', 'suffix_tahoe_cache_key']
