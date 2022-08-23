@@ -12,33 +12,25 @@ COPY . /openedx/edx-platform
 WORKDIR /openedx/edx-platform
 
 # Install standard Open edX python requirements
-RUN pip install -r ./requirements/edx/base.txt  \
-    && pip install -r ./requirements/edx/appsembler.txt
+RUN pip install -r requirements/edx/base.txt -r requirements/edx/appsembler.txt
 
 # Sync with `edx-configs` `appsembler/tahoe/us/juniper/prod/files/server-vars.yml`
-RUN echo "Installing pip packages:" \
-    && pip install openedx-scorm-xblock==10.4.0 \
-    && pip install xblock-launchcontainer==2.3.1 \
-    && pip install xblock-prismjs==0.1.4 \
-    && pip install xblock-problem-builder==4.1.9 \
-    && echo \
-    && pip install https://github.com/appsembler/pdfXBlock/archive/v0.3.1.tar.gz \
-    && pip install https://github.com/edx/xblock-free-text-response/archive/4149cc450.tar.gz \
-    && pip install https://github.com/pmitros/FeedbackXBlock/archive/v1.1.tar.gz \
-    && pip install https://github.com/ubc/ubcpi/archive/1.0.0.tar.gz \
-    && echo \
-    && pip install course-access-groups==0.5.4 \
-    && pip install figures==0.4.1 \
-    && pip install tahoe-figures-plugins==0.1.1  \
-    && pip install tahoe-lti==0.3.0 \
-    && pip install tahoe-scorm==0.1.2 \
-    && echo \
-    && pip install https://github.com/appsembler/openedx-completion-aggregator/archive/3.0.3-2021-may-18-bug-fixes.tar.gz \
-    && echo "Finished installing pip packages."
-
-EXPOSE 8000
-
-FROM edxapp-build as edxapp-build-experimental
+RUN pip install \
+    openedx-scorm-xblock==10.4.0 \
+    xblock-grade-fetcher==0.4.8 \
+    xblock-launchcontainer==2.3.1 \
+    xblock-prismjs==0.1.4 \
+    xblock-problem-builder==4.1.9 \
+    https://github.com/appsembler/pdfXBlock/archive/v0.3.1.tar.gz \
+    https://github.com/edx/xblock-free-text-response/archive/4149cc450.tar.gz \
+    https://github.com/pmitros/FeedbackXBlock/archive/v1.1.tar.gz \
+    https://github.com/ubc/ubcpi/archive/1.0.0.tar.gz \
+    course-access-groups==0.5.4 \
+    figures==0.4.1 \
+    tahoe-figures-plugins==0.1.1  \
+    tahoe-lti==0.3.0 \
+    tahoe-scorm==0.1.2 \
+    https://github.com/appsembler/openedx-completion-aggregator/archive/3.0.3-2021-may-18-bug-fixes.tar.gz
 
 # Collect production assets. By default, only assets from the default theme
 # will be processed. This makes the docker image lighter and faster to build.
@@ -50,6 +42,8 @@ FROM edxapp-build as edxapp-build-experimental
 # We need to rely on a separate openedx-assets command to accelerate asset processing.
 # For instance, we don't want to run all steps of asset collection every time the theme
 # is modified.
+
+# TODO: Fix theme compilation after Nutmeg upgrade is complete
 RUN rm -rf /openedx/staticfiles/ \
     && mkdir --mode=755 /openedx/staticfiles/ \
     && npm install --verbose --registry=https://registry.npmjs.org/ \
@@ -58,21 +52,33 @@ RUN rm -rf /openedx/staticfiles/ \
     && openedx-assets webpack --env=prod \
     && openedx-assets common
 
-# Sync with `edx-configs` `appsembler/tahoe/us/juniper/staging/files/server-vars.yml`
-RUN echo "Installing pip packages:" \
-    && pip install gestore==0.1.0-dev3 \
-    && pip install xblock-grade-fetcher==0.2 \
-    && echo "Finished installing pip packages."
+RUN rm -rf /openedx/themes/edx-theme-codebase \
+    && mkdir -p /openedx/themes/ \
+    && git clone https://github.com/appsembler/edx-theme-codebase.git --branch=juniper/prod /openedx/themes/edx-theme-codebase \
+    && git clone https://github.com/appsembler/edx-theme-customers.git --branch=juniper/tahoe-prod /openedx/themes/edx-theme-codebase/customer_specific \
+    && openedx-assets themes \
+    && openedx-assets collect --settings=tutor_assets \
+    && rdfind -makesymlinks true -followsymlinks true /openedx/staticfiles/ \
+    && mkdir -p /edx/var/edxapp \
+    && ln -sdf /openedx/themes /edx/var/edxapp/themes
 
-RUN mkdir -p /openedx/themes/ \
+# TODO: Compile i18n using tutor.i18n settings like `overhangio/openedx:10.5.3`
+
+EXPOSE 8000
+
+
+
+FROM edxapp-build as edxapp-build-experimental
+
+RUN rm -rf /openedx/themes/edx-theme-codebase \
+    && mkdir -p /openedx/themes/ \
     && git clone https://github.com/appsembler/edx-theme-codebase.git --branch=juniper/main /openedx/themes/edx-theme-codebase \
     && git clone https://github.com/appsembler/edx-theme-customers.git --branch=juniper/tahoe /openedx/themes/edx-theme-codebase/customer_specific \
     && openedx-assets themes \
     && openedx-assets collect --settings=tutor_assets \
     && rdfind -makesymlinks true -followsymlinks true /openedx/staticfiles/ \
     && mkdir -p /edx/var/edxapp \
-    && ln -sd /openedx/themes /edx/var/edxapp/themes \
-    && echo "Finished compiling theme."
+    && ln -sdf /openedx/themes /edx/var/edxapp/themes
 
 # TODO: Compile i18n using tutor.i18n settings like `overhangio/openedx:10.5.3`
 

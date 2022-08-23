@@ -14,9 +14,17 @@ django-hijack-admin==2.1.10
 honeycomb-beeline==2.12.1
 
 # Patched upstream packages
-https://github.com/edx-solutions/xblock-google-drive/archive/589d9f51f9b.tar.gz  # v0.2.0 but the repo has no tags
 -e git+https://github.com/appsembler/edx-ora2.git@2.7.6-appsembler.1#egg=2.7.6
 -e git+https://github.com/appsembler/edx-sga.git@821cf8c563c86d92630e57e2cae06ab1dfaeff09#egg=v0.11.0-appsembler2
+-e git+https://github.com/technige/py2neo.git@py2neo-3.1.2#egg=py2neo==3.1.2  # Fix installation bug
+XBlock==1.2.2  # i18n fixes
+analytics-python==1.4.0  # RED-2969: To enable sync_mode for workers server
+django==2.2.23  # Security patches
+git+https://github.com/open-craft/xblock-poll@3f09dda40d912735ccbe8781215e8f50b3af368f#egg=xblock-poll==1.11.0  # Tahoe: bumped from 1.9.6 for i18n updates
+https://github.com/appsembler/edx-organizations/archive/5.2.0-appsembler14.tar.gz  # Override for multi-tenancy
+https://github.com/appsembler/edx-search/archive/1.3.4-appsembler6.tar.gz  # Integrate with Course Access Groups
+https://github.com/edx-solutions/xblock-google-drive/archive/589d9f51f9b.tar.gz  # v0.2.0 but the repo has no tags
+libsass==0.11.1  # Secrity fixes
 
 # Tahoe plugins and customizations
 django-tiers==0.2.7
