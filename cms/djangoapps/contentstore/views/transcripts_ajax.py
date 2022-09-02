@@ -238,8 +238,6 @@ def upload_transcripts(request):
                 input_format=Transcript.SRT,
                 output_format=Transcript.SJSON,
             ).encode()
-            log.debug('#' * 32)
-            log.debug(sjson_subs)
             transcript_created = create_or_update_video_transcript(
                 video_id=edx_video_id,
                 language_code='en',
@@ -250,8 +248,6 @@ def upload_transcripts(request):
                 },
                 file_data=ContentFile(sjson_subs),
             )
-            log.debug('#' * 32)
-            log.debug(transcript_created)
 
             if transcript_created is None:
                 response = JsonResponse({'status': 'Invalid Video ID'}, status=400)
