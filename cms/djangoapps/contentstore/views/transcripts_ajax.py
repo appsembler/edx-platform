@@ -17,6 +17,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.http import Http404, HttpResponse
 from django.utils.translation import ugettext as _
 from edxval.api import (
@@ -233,6 +234,10 @@ def upload_transcripts(request):
         try:
             # Convert 'srt' transcript into the 'sjson' and upload it to
             # configured transcript storage. For example, S3.
+            # check if the transcript_file is django InMemoryUploadedFile
+            if isinstance(transcript_file, InMemoryUploadedFile):
+                transcript_file = transcript_file.read()
+                transcript_file = transcript_file.decode("utf-8")
             sjson_subs = Transcript.convert(
                 content=transcript_file.encode("utf-8"),
                 input_format=Transcript.SRT,
