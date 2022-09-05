@@ -4,6 +4,7 @@ from openedx.core.djangoapps.appsembler.sites.models import AlternativeDomain
 
 from django.core.management import BaseCommand
 
+
 class Command(BaseCommand):
     help = "Outputs the list of custom domains that will be used to generate let's encrypt certs"
 
