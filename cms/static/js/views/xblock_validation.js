@@ -1,6 +1,5 @@
-define(['jquery', 'underscore', 'js/views/baseview', 'gettext', 'edx-ui-toolkit/js/utils/html-utils'],
-    function($, _, BaseView, gettext, HtmlUtils) {
-        'use strict';
+define(['jquery', 'underscore', 'js/views/baseview', 'gettext'],
+    function($, _, BaseView, gettext) {
         /**
          * View for xblock validation messages as displayed in Studio.
          */
@@ -14,13 +13,12 @@ define(['jquery', 'underscore', 'js/views/baseview', 'gettext', 'edx-ui-toolkit/
             },
 
             render: function() {
-                var attributes = {
+                this.$el.html(this.template({
                     validation: this.model,
                     additionalClasses: this.getAdditionalClasses(),
                     getIcon: this.getIcon.bind(this),
                     getDisplayName: this.getDisplayName.bind(this)
-                };
-                this.$el.html(HtmlUtils.HTML(this.template(attributes)).toString());
+                }));
                 return this;
             },
 
