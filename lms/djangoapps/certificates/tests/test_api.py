@@ -199,7 +199,10 @@ class CertificateDownloadableStatusTests(WebCertificateTestMixin, ModuleStoreTes
                 'is_downloadable': True,
                 'is_generating': False,
                 'is_unverified': False,
-                'download_url': '/certificates/{uuid}'.format(uuid=cert_status['uuid']),
+                'download_url': '/certificates/user/{user_id}/course/{course_id}'.format(
+                    user_id=self.student.id,
+                    course_id=self.course.id,
+                ),
                 'is_pdf_certificate': False,
                 'uuid': cert_status['uuid']
             }
@@ -508,14 +511,16 @@ class CertificateGetTests(SharedModuleStoreTestCase):
         self.assertEqual(expected_url, cert_url)
 
         expected_url = reverse(
-            'certificates:render_cert_by_uuid',
-            kwargs=dict(certificate_uuid=self.uuid)
+            'certificates:html_view',
+            kwargs={
+                "user_id": str(self.student.id),
+                "course_id": six.text_type(self.web_cert_course.id),
+            }
         )
 
         cert_url = certs_api.get_certificate_url(
             user_id=self.student.id,
-            course_id=self.web_cert_course.id,
-            uuid=self.uuid
+            course_id=self.web_cert_course.id
         )
         self.assertEqual(expected_url, cert_url)
 
