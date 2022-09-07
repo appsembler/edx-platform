@@ -126,10 +126,7 @@ var edx = edx || {};
             // Get or create the step container
             $stepEl = $('#current-step-container');
             if (!$stepEl.length) {
-                $stepEl = edx.HtmlUtils.append(
-                  $(this.el),
-                  edx.HtmlUtils.HTML('<div id="current-step-container"></div>').toString()
-                );
+                $stepEl = $('<div id="current-step-container"></div>').appendTo(this.el);
             }
 
             // Render the subview
