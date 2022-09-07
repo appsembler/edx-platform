@@ -2,9 +2,7 @@
 
 <%!
 from django.utils.translation import ugettext as _
-from openedx.core.djangolib.js_utils import (
-    dump_js_escaped_json, js_escaped_string
-)
+from openedx.core.djangolib.js_utils import js_escaped_string
 %>
 % if display_name is not UNDEFINED and display_name is not None:
     <h3 class="hd hd-2">${display_name}</h3>
@@ -100,14 +98,14 @@ from openedx.core.djangolib.js_utils import (
   var salt = Math.floor((1 + Math.random()) * 0x100000).toString(36);
   var id = "${id | n, js_escaped_string}";
   function initializeCDNExperiment() {
-    sendPerformanceBeacon(id + "_" + salt, ${cdn_exp_group | n, dump_js_escaped_json}, "", "load");
+    sendPerformanceBeacon(id + "_" + salt, ${cdn_exp_group}, "", "load");
     cdnStartTime = Date.now();
     $.each(['loadstart', 'abort', 'error', 'stalled', 'loadedmetadata',
                     'loadeddata', 'canplay', 'canplaythrough', 'seeked'],
                     function(index, eventName) {
       $("#video_" + id).bind("html5:" + eventName, null, function() {
         timeElapsed = Date.now() - cdnStartTime;
-        sendPerformanceBeacon(id + "_" + salt, ${cdn_exp_group | n, dump_js_escaped_json}, timeElapsed, eventName);
+        sendPerformanceBeacon(id + "_" + salt, ${cdn_exp_group}, timeElapsed, eventName);
       });
     });
   }
