@@ -39,5 +39,6 @@ def plugin_settings(settings):
         }
     })
 
-    settings.TAHOE_NUTMEG_TEMP_SKIP_TEST = True
+    settings.FEATURES['TAHOE_SITES_USE_ORGS_MODELS'] = False
 
+    settings.TAHOE_NUTMEG_TEMP_SKIP_TEST = True
