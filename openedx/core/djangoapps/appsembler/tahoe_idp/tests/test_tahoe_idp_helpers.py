@@ -44,7 +44,7 @@ def user_with_org():
     ({}, {}, False, 'When no flag is enabled, the feature should be disabled'),
 ])
 def test_is_tahoe_idp_enabled(settings, global_flags, site_flags, should_be_enabled, message):
-    settings.FEATURES = global_flags
+    settings.FEATURES.update(global_flags)
     with override_site_config('admin', **site_flags):
         assert helpers.is_tahoe_idp_enabled() == should_be_enabled, message
 
@@ -75,13 +75,13 @@ def test_get_idp_register_url_with_next():
 
 
 def test_get_idp_form_url_with_tahoe_idp_disabled(settings):
-    settings.FEATURES = {'ENABLE_THIRD_PARTY_AUTH': True}
+    settings.FEATURES['ENABLE_THIRD_PARTY_AUTH'] = True
     with override_site_config('admin', ENABLE_TAHOE_IDP=False):
         assert not helpers.get_idp_form_url(Mock(), Mock(), Mock()), 'Only get a redirect URL when `tahoe-idp` is used'
 
 
 def test_get_idp_form_url_with_tahoe_tpa_disabled(settings):
-    settings.FEATURES = {'ENABLE_THIRD_PARTY_AUTH': False}
+    settings.FEATURES['ENABLE_THIRD_PARTY_AUTH'] = False
     with override_site_config('admin', ENABLE_TAHOE_IDP=True):
         url = helpers.get_idp_form_url(Mock(), Mock(), Mock())
 
@@ -89,7 +89,7 @@ def test_get_idp_form_url_with_tahoe_tpa_disabled(settings):
 
 
 def test_get_idp_form_url_for_login(settings):
-    settings.FEATURES = {'ENABLE_THIRD_PARTY_AUTH': True}
+    settings.FEATURES['ENABLE_THIRD_PARTY_AUTH'] = True
     with override_site_config('admin', ENABLE_TAHOE_IDP=True):
         url = helpers.get_idp_form_url(Mock(), 'login', '/home')
 
@@ -98,7 +98,7 @@ def test_get_idp_form_url_for_login(settings):
 
 @patch('openedx.core.djangoapps.appsembler.tahoe_idp.helpers.pipeline_running', Mock(return_value=False))
 def test_get_idp_form_url_for_register_without_pipeline(settings):
-    settings.FEATURES = {'ENABLE_THIRD_PARTY_AUTH': True}
+    settings.FEATURES['ENABLE_THIRD_PARTY_AUTH'] = True
 
     with override_site_config('admin', ENABLE_TAHOE_IDP=True):
         url = helpers.get_idp_form_url(None, 'register', '/home')
@@ -116,7 +116,7 @@ def test_get_idp_form_url_for_register_with_pipeline(settings):
     Upon registration, Open edX  auto-submits the frontend hidden registration form.
     Returning, None to avoid breaking an otherwise needed form submit.
     """
-    settings.FEATURES = {'ENABLE_THIRD_PARTY_AUTH': True}
+    settings.FEATURES['ENABLE_THIRD_PARTY_AUTH'] = True
     with override_site_config('admin', ENABLE_TAHOE_IDP=True):
         url = helpers.get_idp_form_url(None, 'register', '/home')
     assert not url, 'Return no URL when there is a running pipeline'

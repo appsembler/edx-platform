@@ -105,9 +105,7 @@ def test_courseware_in_preview_mode(settings):
     """
     Support the Tahoe preview in `lms.djangoapps.courseware.access_utils.in_preview_mode`.
     """
-    settings.FEATURES = {
-        'PREVIEW_LMS_BASE': 'preview.example.com',
-    }
+    settings.FEATURES['PREVIEW_LMS_BASE'] = 'preview.example.com'
     with patch(
         'lms.djangoapps.courseware.access_utils.get_current_request_hostname'
     ) as mock_get_hostname:

@@ -14,5 +14,5 @@ def test_tahoe_credentials_records_url(settings):
     """
     assert get_credentials_records_url(), 'By default a URL should be returned, otherwise upstream tests will break'
 
-    settings.FEATURES = {'TAHOE_ENABLE_CREDENTIALS': False}
+    settings.FEATURES['TAHOE_ENABLE_CREDENTIALS'] = False
     assert not get_credentials_records_url(), 'In Tahoe production credentials can be disabled'
