@@ -6,6 +6,7 @@ import time
 import unittest
 
 import ddt
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.db import IntegrityError, connection
@@ -192,6 +193,10 @@ class GenerateIntIdTestCase(TestCase):
             self.assertIn(int_id, list(set(range(minimum, maximum + 1)) - used_ids))
 
 
+@unittest.skipIf(
+    settings.TAHOE_NUTMEG_TEMP_SKIP_TEST,
+    'restore this when we de-fork edx-organizations for good'
+)
 class MigrationTests(TestCase):
     """
     Tests for migrations.

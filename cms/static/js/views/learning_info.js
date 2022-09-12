@@ -5,10 +5,9 @@ define([
     'underscore',
     'backbone',
     'gettext',
-    'js/utils/templates',
-    'edx-ui-toolkit/js/utils/html-utils'
+    'js/utils/templates'
 ],
-function($, _, Backbone, gettext, TemplateUtils, HtmlUtils) {
+function($, _, Backbone, gettext, TemplateUtils) {
     'use strict';
     var LearningInfoView = Backbone.View.extend({
 
@@ -34,12 +33,7 @@ function($, _, Backbone, gettext, TemplateUtils, HtmlUtils) {
             var self = this;
             var learning_information = this.model.get('learning_info');
             $.each(learning_information, function(index, info) {
-                var attributes = {
-                    index: index,
-                    info: info,
-                    info_count: learning_information.length
-                };
-                $(self.el).append(HtmlUtils.HTML(self.template(attributes)).toString());
+                $(self.el).append(self.template({index: index, info: info, info_count: learning_information.length}));
             });
         },
 

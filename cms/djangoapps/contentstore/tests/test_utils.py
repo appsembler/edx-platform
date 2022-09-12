@@ -53,8 +53,9 @@ class LMSLinksTestCase(TestCase):
         mode = 'professional'
 
         self.assertEqual(
-            utils.get_lms_link_for_certificate_web_view(course_key, mode),
-            "//localhost:8000/certificates/course/{course_key}?preview={mode}".format(
+            utils.get_lms_link_for_certificate_web_view(dummy_user, course_key, mode),
+            "//localhost:8000/certificates/user/{user_id}/course/{course_key}?preview={mode}".format(
+                user_id=dummy_user,
                 course_key=course_key,
                 mode=mode
             )
@@ -62,8 +63,9 @@ class LMSLinksTestCase(TestCase):
 
         with with_site_configuration_context(configuration={"course_org_filter": "mitX", "LMS_BASE": "dummyhost:8000"}):
             self.assertEqual(
-                utils.get_lms_link_for_certificate_web_view(course_key, mode),
-                "//dummyhost:8000/certificates/course/{course_key}?preview={mode}".format(
+                utils.get_lms_link_for_certificate_web_view(dummy_user, course_key, mode),
+                "//dummyhost:8000/certificates/user/{user_id}/course/{course_key}?preview={mode}".format(
+                    user_id=dummy_user,
                     course_key=course_key,
                     mode=mode
                 )

@@ -1,4 +1,5 @@
 import hashlib
+import unittest
 import os
 from mock import patch, mock_open
 from io import StringIO
@@ -62,6 +63,10 @@ from oauth2_provider.models import AccessToken, RefreshToken, Application
 from student.roles import CourseCreatorRole
 
 
+@unittest.skipIf(
+    settings.TAHOE_NUTMEG_TEMP_SKIP_TEST,
+    'devstack commands to be fixed later to comply with Tahoe 2.0'
+)
 @override_settings(
     DEBUG=True,
     DEFAULT_SITE_THEME='edx-theme-codebase',
@@ -118,6 +123,10 @@ class CreateDevstackSiteCommandTestCase(TestCase):
         assert RefreshToken.objects.get(user=user).token == fake_token, 'Refresh token is needed'
 
 
+@unittest.skipIf(
+    settings.TAHOE_NUTMEG_TEMP_SKIP_TEST,
+    'these are related to AMC which will be removed soon'
+)
 @override_settings(
     DEBUG=True,
 )
@@ -152,6 +161,10 @@ class TestCandidateSitesCleanupCommand(TestCase):
         assert self.get_site().configuration.get_value('SITE_NAME') == self.get_site().domain
 
 
+@unittest.skipIf(
+    settings.TAHOE_NUTMEG_TEMP_SKIP_TEST,
+    'these are related to AMC which will be removed soon'
+)
 @override_settings(
     DEBUG=True,
     DEFAULT_SITE_THEME='edx-theme-codebase',

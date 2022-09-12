@@ -1,7 +1,9 @@
 import json
 from mock import patch, Mock
+import unittest
 import uuid
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework import status
@@ -12,6 +14,10 @@ from tahoe_sites.api import get_organization_for_user, is_active_admin_on_organi
 from .test_utils import lms_multi_tenant_test, with_organization_context
 
 
+@unittest.skipIf(
+    settings.TAHOE_NUTMEG_TEMP_SKIP_TEST,
+    'we\'ll not have AMC by then, only dashboard Tahoe 2.0'
+)
 @lms_multi_tenant_test
 @patch(
     # Patch to avoids error when importing from CMS

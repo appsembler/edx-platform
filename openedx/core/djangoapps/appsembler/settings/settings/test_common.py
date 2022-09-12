@@ -38,3 +38,7 @@ def plugin_settings(settings):
             'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         }
     })
+
+    settings.FEATURES['TAHOE_SITES_USE_ORGS_MODELS'] = False
+
+    settings.TAHOE_NUTMEG_TEMP_SKIP_TEST = True

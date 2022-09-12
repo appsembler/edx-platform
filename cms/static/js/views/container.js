@@ -1,9 +1,9 @@
 define([
     'jquery', 'underscore', 'js/views/xblock', 'js/utils/module',
-    'gettext', 'edx-ui-toolkit/js/utils/string-utils',
-    'common/js/components/views/feedback_notification', 'jquery.ui'
+    'gettext', 'common/js/components/views/feedback_notification',
+    'jquery.ui'
 ], // The container view uses sortable, which is provided by jquery.ui.
-    function($, _, XBlockView, ModuleUtils, gettext, StringUtils, NotificationView) {
+    function($, _, XBlockView, ModuleUtils, gettext, NotificationView) {
         'use strict';
 
         var studioXBlockWrapperClass = '.studio-xblock-wrapper';
@@ -142,15 +142,7 @@ define([
             },
 
             makeRequestSpecificSelector: function(selector) {
-                return StringUtils.interpolate(
-                    gettext('{startTag}{requestToken}{endTag}{selector}'),
-                    {
-                        startTag: 'div.xblock[data-request-token="',
-                        requestToken: this.requestToken,
-                        endTag: '"] > ',
-                        selector: selector
-                    }
-                );
+                return 'div.xblock[data-request-token="' + this.requestToken + '"] > ' + selector;
             }
         });
 

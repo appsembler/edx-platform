@@ -1,7 +1,5 @@
-define(['domReady', 'jquery', 'underscore', 'js/views/utils/create_course_utils',
-    'common/js/components/utils/view_utils', 'edx-ui-toolkit/js/utils/html-utils'],
-    function(domReady, $, _, CreateCourseUtilsFactory, ViewUtils, HtmlUtils) {
-        'use strict';
+define(['domReady', 'jquery', 'underscore', 'js/views/utils/create_course_utils', 'common/js/components/utils/view_utils'],
+    function(domReady, $, _, CreateCourseUtilsFactory, ViewUtils) {
         var CreateCourseUtils = new CreateCourseUtilsFactory({
             name: '.rerun-course-name',
             org: '.rerun-course-org',
@@ -22,7 +20,6 @@ define(['domReady', 'jquery', 'underscore', 'js/views/utils/create_course_utils'
         });
 
         var saveRerunCourse = function(e) {
-            var courseInfo;
             e.preventDefault();
 
             if (CreateCourseUtils.hasInvalidRequiredFields()) {
@@ -35,7 +32,7 @@ define(['domReady', 'jquery', 'underscore', 'js/views/utils/create_course_utils'
             var number = $newCourseForm.find('.rerun-course-number').val();
             var run = $newCourseForm.find('.rerun-course-run').val();
 
-            courseInfo = {
+            course_info = {
                 source_course_key: source_course_key,
                 org: org,
                 number: number,
@@ -43,20 +40,18 @@ define(['domReady', 'jquery', 'underscore', 'js/views/utils/create_course_utils'
                 run: run
             };
 
-            analytics.track('Reran a Course', courseInfo); // eslint-disable-line no-undef
-            CreateCourseUtils.create(courseInfo, function(errorMessage) {
+            analytics.track('Reran a Course', course_info);
+            CreateCourseUtils.create(course_info, function(errorMessage) {
                 $('.wrapper-error').addClass('is-shown').removeClass('is-hidden');
-                $('#course_rerun_error').html(HtmlUtils.joinHtml(HtmlUtils.HTML('<p>'), errorMessage, HtmlUtils.HTML('</p>')).toString()); // eslint-disable-line max-len
-                $('.rerun-course-save').addClass('is-disabled').attr('aria-disabled', true)
-                .removeClass('is-processing')
-                .text(gettext('Create Re-run'));
+                $('#course_rerun_error').html('<p>' + errorMessage + '</p>');
+                $('.rerun-course-save').addClass('is-disabled').attr('aria-disabled', true).removeClass('is-processing').html(gettext('Create Re-run'));
                 $('.action-cancel').removeClass('is-hidden');
             });
 
             // Go into creating re-run state
-            $('.rerun-course-save').addClass('is-disabled').attr('aria-disabled', true)
-            .addClass('is-processing')
-            .html(HtmlUtils.joinHtml(HtmlUtils.HTML('<span class="icon fa fa-refresh fa-spin" aria-hidden="true"></span>'), gettext('Processing Re-run Request')).toString()); // eslint-disable-line max-len
+            $('.rerun-course-save').addClass('is-disabled').attr('aria-disabled', true).addClass('is-processing').html(
+               '<span class="icon fa fa-refresh fa-spin" aria-hidden="true"></span>' + gettext('Processing Re-run Request')  // eslint-disable-line max-len
+            );
             $('.action-cancel').addClass('is-hidden');
         };
 

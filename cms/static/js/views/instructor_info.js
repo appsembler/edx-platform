@@ -7,10 +7,9 @@ define([
     'gettext',
     'js/utils/templates',
     'js/models/uploads',
-    'js/views/uploads',
-    'edx-ui-toolkit/js/utils/html-utils'
+    'js/views/uploads'
 ],
-    function($, _, Backbone, gettext, TemplateUtils, FileUploadModel, FileUploadDialog, HtmlUtils) {
+    function($, _, Backbone, gettext, TemplateUtils, FileUploadModel, FileUploadDialog) {
         'use strict';
         var InstructorInfoView = Backbone.View.extend({
 
@@ -32,16 +31,14 @@ define([
             },
 
             render: function() {
-                var attributes;
                 // Assemble the render view for this model.
                 $('.course-instructor-details-fields').empty();
                 var self = this;
                 $.each(this.model.get('instructor_info').instructors, function(index, data) {
-                    attributes = {
+                    $(self.el).append(self.template({
                         data: data,
                         index: index
-                    };
-                    $(self.el).append(HtmlUtils.HTML(self.template(attributes)).toString());
+                    }));
                 });
 
                 // Avoid showing broken image on mistyped/nonexistent image
