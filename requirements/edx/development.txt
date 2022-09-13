@@ -62,7 +62,7 @@ django-appconf==1.0.4     # via -r requirements/edx/testing.txt, django-statici1
 django-celery==3.3.1      # via -r requirements/edx/testing.txt
 django-classy-tags==2.0.0  # via -r requirements/edx/testing.txt, django-sekizai
 django-config-models==2.0.2  # via -r requirements/edx/testing.txt, edx-enterprise
-django-cookies-samesite==0.6.6  # via -r requirements/edx/testing.txt
+-e git+https://github.com/jotes/django-cookies-samesite@v0.6.6#egg=django-cookies-samesite==v0.6.6
 django-cors-headers==2.5.3  # via -c requirements/edx/../constraints.txt, -r requirements/edx/testing.txt
 django-countries==5.5     # via -c requirements/edx/../constraints.txt, -r requirements/edx/testing.txt, edx-enterprise
 django-crum==0.7.7        # via -r requirements/edx/testing.txt, edx-enterprise, edx-proctoring, edx-rbac, super-csv
