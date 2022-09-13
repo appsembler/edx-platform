@@ -87,6 +87,8 @@ class AlternativeDomainAdmin(admin.ModelAdmin):
     )
 
 
-admin.site.unregister(User)
-admin.site.register(User, TahoeUserAdmin)
-admin.site.register(AlternativeDomain, AlternativeDomainAdmin)
+if not getattr(settings, 'TAHOE_NUTMEG_TEMP_SKIP_TEST'):
+    # Nutmeg Code Merge 1/6 - Note 09
+    admin.site.unregister(User)
+    admin.site.register(User, TahoeUserAdmin)
+    admin.site.register(AlternativeDomain, AlternativeDomainAdmin)
