@@ -219,7 +219,7 @@ class TestCourseHomePage(CourseHomePageTestCase):
 
         # Fetch the view and verify the query counts
         # TODO: decrease query count as part of REVO-28
-        with self.assertNumQueries(77, table_blacklist=QUERY_COUNT_TABLE_BLACKLIST):
+        with self.assertNumQueries(72, table_blacklist=QUERY_COUNT_TABLE_BLACKLIST):
             with check_mongo_calls(4):
                 url = course_home_url(self.course)
                 self.client.get(url)
@@ -252,7 +252,8 @@ class TestCourseHomePageAccess(CourseHomePageTestCase):
         super(TestCourseHomePageAccess, self).setUp()
 
         # Make this a verified course so that an upgrade message might be shown
-        add_course_mode(self.course, upgrade_deadline_expired=False)
+        add_course_mode(self.course, mode_slug=CourseMode.AUDIT)
+        add_course_mode(self.course)
 
         # Add a welcome message
         create_course_update(self.course, self.staff_user, TEST_WELCOME_MESSAGE)
@@ -439,9 +440,9 @@ class TestCourseHomePageAccess(CourseHomePageTestCase):
         discount_expiration_date = get_discount_expiration_date(user, self.course).strftime(u'%B %d')
         upgrade_link = verified_upgrade_deadline_link(user=user, course=self.course)
         bannerText = u'''<div class="first-purchase-offer-banner" role="note">
-             <span class="first-purchase-offer-banner-bold">
-             Upgrade by {discount_expiration_date} and save {percentage}% [{strikeout_price}]</span>
-             <br>Use code <b>EDXWELCOME</b> at checkout! <a href="{upgrade_link}">Upgrade Now</a>
+             <span class="first-purchase-offer-banner-bold"><b>
+             Upgrade by {discount_expiration_date} and save {percentage}% [{strikeout_price}]</b></span>
+             <br>Use code <b>EDXWELCOME</b> at checkout! <a id="welcome" href="{upgrade_link}">Upgrade Now</a>
              </div>'''.format(
             discount_expiration_date=discount_expiration_date,
             percentage=percentage,
@@ -588,7 +589,9 @@ class TestCourseHomePageAccess(CourseHomePageTestCase):
         audit_user = UserFactory(password=self.TEST_PASSWORD)
         self.client.login(username=audit_user.username, password=self.TEST_PASSWORD)
         audit_enrollment = CourseEnrollment.enroll(audit_user, course.id, mode=CourseMode.AUDIT)
-        ScheduleFactory(start_date=THREE_YEARS_AGO + timedelta(days=1), enrollment=audit_enrollment)
+        audit_enrollment.created = THREE_YEARS_AGO + timedelta(days=1)
+        audit_enrollment.save()
+        ScheduleFactory(enrollment=audit_enrollment)
 
         response = self.client.get(url)
 
@@ -707,6 +710,7 @@ class TestCourseHomePageAccess(CourseHomePageTestCase):
         # Verify that unenrolled users visiting a course with a Master's track
         # that is not the only track are shown an enroll call to action message
         add_course_mode(self.course, CourseMode.MASTERS, 'Master\'s Mode', upgrade_deadline_expired=False)
+        remove_course_mode(self.course, CourseMode.AUDIT)
 
         self.create_user_for_course(self.course, CourseUserType.UNENROLLED)
         url = course_home_url(self.course)
@@ -977,7 +981,7 @@ class CourseHomeFragmentViewTests(ModuleStoreTestCase):
         response = self.client.get(self.url)
         self.assertContains(response, 'section-upgrade')
         url = EcommerceService().get_checkout_page_url(self.verified_mode.sku)
-        self.assertContains(response, '<a class="btn-brand btn-upgrade"')
+        self.assertContains(response, '<a id="green_upgrade" class="btn-brand btn-upgrade"')
         self.assertContains(response, url)
         self.assertContains(
             response,

@@ -24,6 +24,7 @@ from django.views.decorators.http import require_POST
 from edx_ace import ace
 from edx_ace.recipient import Recipient
 from eventtracking import tracker
+from ratelimit.decorators import ratelimit
 from rest_framework.views import APIView
 from tahoe_sites.api import get_organization_user_by_email
 
@@ -45,13 +46,14 @@ from student.forms import send_account_recovery_email_for_user
 from student.models import AccountRecovery
 from util.json_request import JsonResponse
 from util.password_policy_validators import normalize_password, validate_password
-from util.request_rate_limiter import PasswordResetEmailRateLimiter
 
 from openedx.core.djangoapps.appsembler.tahoe_idp import helpers as tahoe_idp_helpers
 
 from tahoe_idp import api as tahoe_idp_api
 
 
+POST_EMAIL_KEY = 'post:email'
+REAL_IP_KEY = 'openedx.core.djangoapps.util.ratelimit.real_ip'
 SETTING_CHANGE_INITIATED = 'edx.user.settings.change_initiated'
 
 # Maintaining this naming for backwards compatibility.
@@ -261,15 +263,19 @@ def request_password_change(email, is_secure):
 
 @csrf_exempt
 @require_POST
+@ratelimit(key=POST_EMAIL_KEY, rate=settings.PASSWORD_RESET_EMAIL_RATE)
+@ratelimit(key=REAL_IP_KEY, rate=settings.PASSWORD_RESET_IP_RATE)
 def password_reset(request):
     """
     Attempts to send a password reset e-mail.
     """
+    user = request.user
+    # Prefer logged-in user's email
+    email = user.email if user.is_authenticated else request.POST.get('email')
+    AUDIT_LOG.info("Password reset initiated for email %s.", email)
 
-    password_reset_email_limiter = PasswordResetEmailRateLimiter()
-
-    if password_reset_email_limiter.is_rate_limit_exceeded(request):
-        AUDIT_LOG.warning("Password reset rate limit exceeded")
+    if getattr(request, 'limited', False):
+        AUDIT_LOG.warning("Password reset rate limit exceeded for email %s.", email)
         return JsonResponse(
             {
                 'success': False,
@@ -299,8 +305,6 @@ def password_reset(request):
     else:
         # bad user? tick the rate limiter counter
         AUDIT_LOG.info("Bad password_reset user passed in.")
-
-    password_reset_email_limiter.tick_request_counter(request)
 
     return JsonResponse({
         'success': True,
@@ -552,6 +556,8 @@ def _get_user_from_email(email):
 
 
 @require_POST
+@ratelimit(key=POST_EMAIL_KEY, rate=settings.PASSWORD_RESET_EMAIL_RATE)
+@ratelimit(key=REAL_IP_KEY, rate=settings.PASSWORD_RESET_IP_RATE)
 def password_change_request_handler(request):
     """Handle password change requests originating from the account page.
 
@@ -576,19 +582,17 @@ def password_change_request_handler(request):
         POST /account/password
 
     """
+    user = request.user
+    # Prefer logged-in user's email
+    email = user.email if user.is_authenticated else request.POST.get('email')
+    AUDIT_LOG.info("Password reset initiated for user %s.", email)
 
-    password_reset_email_limiter = PasswordResetEmailRateLimiter()
-
-    if password_reset_email_limiter.is_rate_limit_exceeded(request):
-        AUDIT_LOG.warning("Password reset rate limit exceeded")
+    if getattr(request, 'limited', False):
+        AUDIT_LOG.warning("Password reset rate limit exceeded for email %s.", email)
         return HttpResponse(
             _("Your previous request is in progress, please try again in a few moments."),
             status=403
         )
-
-    user = request.user
-    # Prefer logged-in user's email
-    email = user.email if user.is_authenticated else request.POST.get('email')
 
     if email:
         try:
@@ -621,7 +625,6 @@ def password_change_request_handler(request):
                           .format(email=email, error=err))
             return HttpResponse(_("Some error occured during password change. Please try again"), status=500)
 
-        password_reset_email_limiter.tick_request_counter(request)
         return HttpResponse(status=200)
     else:
         return HttpResponseBadRequest(_("No email address provided."))

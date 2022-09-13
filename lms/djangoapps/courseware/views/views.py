@@ -22,12 +22,12 @@ from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpRespo
 from django.shortcuts import redirect
 from django.template.context_processors import csrf
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.http import urlquote_plus
 from django.utils.text import slugify
 from django.utils.translation import ugettext
 from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import ugettext_noop
 from django.views.decorators.cache import cache_control
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -56,6 +56,7 @@ from lms.djangoapps.ccx.custom_exception import CCXLocatorValidationException
 from lms.djangoapps.certificates import api as certs_api
 from lms.djangoapps.certificates.models import CertificateStatuses
 from lms.djangoapps.commerce.utils import EcommerceService
+from lms.djangoapps.course_home_api.utils import is_request_from_learning_mfe
 from lms.djangoapps.courseware.access import has_access, has_ccx_coach_role
 from lms.djangoapps.courseware.access_utils import check_course_open_for_learner, check_public_access
 from lms.djangoapps.courseware.courses import (
@@ -108,13 +109,10 @@ from openedx.core.djangoapps.site_configuration import helpers as configuration_
 from openedx.core.djangoapps.util.user_messages import PageLevelMessages
 from openedx.core.djangoapps.zendesk_proxy.utils import create_zendesk_ticket
 from openedx.core.djangolib.markup import HTML, Text
+from openedx.core.lib.mobile_utils import is_request_from_mobile_app
+from openedx.features.content_type_gating.models import ContentTypeGatingConfig
 from openedx.features.course_duration_limits.access import generate_course_expired_fragment
-from openedx.features.course_experience import (
-    COURSE_ENABLE_UNENROLLED_ACCESS_FLAG,
-    RELATIVE_DATES_FLAG,
-    UNIFIED_COURSE_TAB_FLAG,
-    course_home_url_name
-)
+from openedx.features.course_experience import UNIFIED_COURSE_TAB_FLAG, course_home_url_name
 from openedx.features.course_experience.course_tools import CourseToolsPluginManager
 from openedx.features.course_experience.utils import dates_banner_should_display
 from openedx.features.course_experience.views.course_dates import CourseDatesFragmentView
@@ -307,7 +305,16 @@ def load_metadata_from_youtube(video_id, request):
         yt_timeout = settings.YOUTUBE.get('TEST_TIMEOUT', 1500) / 1000  # converting milli seconds to seconds
 
         headers = {}
-        http_referer = request.META.get('HTTP_REFERER')
+        http_referer = None
+
+        try:
+            # This raises an attribute error if called from the xblock yt_video_metadata handler, which passes
+            # a webob request instead of a django request.
+            http_referer = request.META.get('HTTP_REFERER')
+        except AttributeError:
+            # So here, let's assume it's a webob request and access the referer the webob way.
+            http_referer = request.referer
+
         if http_referer:
             headers['Referer'] = http_referer
 
@@ -454,13 +461,6 @@ def course_info(request, course_id):
         if not user_can_skip_entrance_exam(user, course):
             return redirect(reverse('courseware', args=[text_type(course.id)]))
 
-        # TODO: LEARNER-611: Remove deprecated course.bypass_home.
-        # If the user is coming from the dashboard and bypass_home setting is set,
-        # redirect them straight to the courseware page.
-        is_from_dashboard = reverse('dashboard') in request.META.get('HTTP_REFERER', [])
-        if course.bypass_home and is_from_dashboard:
-            return redirect(reverse('courseware', args=[course_id]))
-
         # Construct the dates fragment
         dates_fragment = None
 
@@ -578,7 +578,6 @@ class StaticCourseTabView(EdxFragmentView):
             'active_page': 'static_tab_{0}'.format(tab['url_slug']),
             'tab': tab,
             'fragment': fragment,
-            'uses_pattern_library': False,
             'disable_courseware_js': True,
         })
 
@@ -715,23 +714,13 @@ class CourseTabView(EdxFragmentView):
             log.exception("Error while rendering courseware-error page")
             raise
 
-    def uses_bootstrap(self, request, course, tab):
-        """
-        Returns true if this view uses Bootstrap.
-        """
-        return tab.uses_bootstrap
-
     @beeline.traced(name="CourseTabView.create_page_context")
     def create_page_context(self, request, course=None, tab=None, **kwargs):
         """
         Creates the context for the fragment's template.
         """
-        from lms.urls import RESET_COURSE_DEADLINES_NAME
-        from openedx.features.course_experience.urls import COURSE_HOME_VIEW_NAME
-
         can_masquerade = request.user.has_perm(MASQUERADE_AS_STUDENT, course)
         supports_preview_menu = tab.get('supports_preview_menu', False)
-        uses_bootstrap = self.uses_bootstrap(request, course, tab=tab)
         if supports_preview_menu:
             masquerade, masquerade_user = setup_masquerade(
                 request,
@@ -750,8 +739,7 @@ class CourseTabView(EdxFragmentView):
             'can_masquerade': can_masquerade,
             'masquerade': masquerade,
             'supports_preview_menu': supports_preview_menu,
-            'uses_bootstrap': uses_bootstrap,
-            'uses_pattern_library': not uses_bootstrap,
+            'uses_bootstrap': True,
             'disable_courseware_js': True,
         }
         # Avoid Multiple Mathjax loading on the 'user_profile'
@@ -783,10 +771,7 @@ class CourseTabView(EdxFragmentView):
             page_context = self.create_page_context(request, course=course, tab=tab, **kwargs)
         tab = page_context['tab']
         page_context['fragment'] = fragment
-        if self.uses_bootstrap(request, course, tab=tab):
-            return render_to_response('courseware/tab-view.html', page_context)
-        else:
-            return render_to_response('courseware/tab-view-v2.html', page_context)
+        return render_to_response('courseware/tab-view.html', page_context)
 
 
 @beeline.traced(name="courseware.views.syllabus")
@@ -1025,6 +1010,7 @@ def program_marketing(request, program_uuid):
     return render_to_response('courseware/program_marketing.html', context)
 
 
+@login_required
 @ensure_csrf_cookie
 @ensure_valid_course_key
 def dates(request, course_id):
@@ -1054,37 +1040,45 @@ def dates(request, course_id):
         )
         request.user = masquerade_user
 
+    user_is_enrolled = CourseEnrollment.is_enrolled(request.user, course_key)
+    user_is_staff = bool(has_access(request.user, 'staff', course_key))
+
+    # Render the full content to enrolled users, as well as to course and global staff.
+    # Unenrolled users who are not course or global staff are redirected to the Outline Tab.
+    if not user_is_enrolled and not user_is_staff:
+        raise CourseAccessRedirect(reverse('openedx.course_experience.course_home', args=[course_id]))
+
     course_date_blocks = get_course_date_blocks(course, request.user, request,
                                                 include_access=True, include_past_dates=True)
 
-    learner_is_verified = False
-    enrollment = get_enrollment(request.user.username, course_id)
-    if enrollment:
-        learner_is_verified = enrollment.get('mode') == 'verified'
+    learner_is_full_access = not ContentTypeGatingConfig.enabled_for_enrollment(request.user, course_key)
 
     # User locale settings
     user_timezone_locale = user_timezone_locale_prefs(request)
     user_timezone = user_timezone_locale['user_timezone']
     user_language = user_timezone_locale['user_language']
 
-    missed_deadlines, enrollment_mode = dates_banner_should_display(course_key, request)
+    missed_deadlines, missed_gated_content = dates_banner_should_display(course_key, request.user)
 
     context = {
         'course': course,
         'course_date_blocks': course_date_blocks,
         'verified_upgrade_link': verified_upgrade_deadline_link(request.user, course=course),
-        'learner_is_verified': learner_is_verified,
+        'learner_is_full_access': learner_is_full_access,
         'user_timezone': user_timezone,
         'user_language': user_language,
         'supports_preview_menu': True,
         'can_masquerade': can_masquerade,
         'masquerade': masquerade,
         'on_dates_tab': True,
+        'content_type_gating_enabled': ContentTypeGatingConfig.enabled_for_enrollment(
+            user=request.user,
+            course_key=course_key,
+        ),
         'missed_deadlines': missed_deadlines,
-        'enrollment_mode': enrollment_mode,
+        'missed_gated_content': missed_gated_content,
         'reset_deadlines_url': reverse(RESET_COURSE_DEADLINES_NAME),
-        'reset_deadlines_redirect_url_base': COURSE_DATES_NAME,
-        'reset_deadlines_redirect_url_id_dict': {'course_id': str(course.id)}
+        'has_ended': course.has_ended(),
     }
 
     return render_to_response('courseware/dates.html', context)
@@ -1174,9 +1168,9 @@ def _progress(request, course_key, student_id):
         'masquerade': masquerade,
         'supports_preview_menu': True,
         'student': student,
-        'credit_course_requirements': _credit_course_requirements(course_key, student),
+        'credit_course_requirements': credit_course_requirements(course_key, student),
         'course_expiration_fragment': course_expiration_fragment,
-        'certificate_data': _get_cert_data(student, course, enrollment_mode, course_grade)
+        'certificate_data': get_cert_data(student, course, enrollment_mode, course_grade)
     }
 
     context.update(
@@ -1244,7 +1238,7 @@ def _certificate_message(student, course, enrollment_mode):
     return REQUESTING_CERT_DATA
 
 
-def _get_cert_data(student, course, enrollment_mode, course_grade=None):
+def get_cert_data(student, course, enrollment_mode, course_grade=None):
     """Returns students course certificate related data.
     Arguments:
         student (User): Student for whom certificate to retrieve.
@@ -1276,7 +1270,7 @@ def _get_cert_data(student, course, enrollment_mode, course_grade=None):
     return cert_data
 
 
-def _credit_course_requirements(course_key, student):
+def credit_course_requirements(course_key, student):
     """Return information about which credit requirements a user has satisfied.
     Arguments:
         course_key (CourseKey): Identifier for the course.
@@ -1644,7 +1638,7 @@ def render_xblock(request, usage_key_string, check_if_enrolled=True):
     Returns an HttpResponse with HTML content for the xBlock with the given usage_key.
     The returned HTML is a chromeless rendering of the xBlock (excluding content of the containing courseware).
     """
-    from lms.urls import RENDER_XBLOCK_NAME, RESET_COURSE_DEADLINES_NAME
+    from lms.urls import COURSE_DATES_NAME, RESET_COURSE_DEADLINES_NAME
     from openedx.features.course_experience.urls import COURSE_HOME_VIEW_NAME
 
     usage_key = UsageKey.from_string(usage_key_string)
@@ -1683,7 +1677,7 @@ def render_xblock(request, usage_key_string, check_if_enrolled=True):
                     'mark-completed-on-view-after-delay': completion_service.get_complete_on_view_delay_ms()
                 }
 
-        missed_deadlines, enrollment_mode = dates_banner_should_display(course_key, request)
+        missed_deadlines, missed_gated_content = dates_banner_should_display(course_key, request.user)
 
         context = {
             'fragment': block.render('student_view', context=student_view_context),
@@ -1698,11 +1692,14 @@ def render_xblock(request, usage_key_string, check_if_enrolled=True):
             'staff_access': bool(request.user.has_perm(VIEW_XQA_INTERFACE, course)),
             'xqa_server': settings.FEATURES.get('XQA_SERVER', 'http://your_xqa_server.com'),
             'missed_deadlines': missed_deadlines,
-            'enrollment_mode': enrollment_mode,
+            'missed_gated_content': missed_gated_content,
+            'has_ended': course.has_ended(),
             'web_app_course_url': reverse(COURSE_HOME_VIEW_NAME, args=[course.id]),
             'on_courseware_page': True,
             'verified_upgrade_link': verified_upgrade_deadline_link(request.user, course=course),
-            'is_learning_mfe': request.META.get('HTTP_REFERER', '').startswith(settings.LEARNING_MICROFRONTEND_URL),
+            'is_learning_mfe': is_request_from_learning_mfe(request),
+            'is_mobile_app': is_request_from_mobile_app(request),
+            'reset_deadlines_url': reverse(RESET_COURSE_DEADLINES_NAME),
         }
         return render_to_response('courseware/courseware-chromeless.html', context)
 
@@ -1726,13 +1723,11 @@ def _get_fa_header(header):
                platform_name=configuration_helpers.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)).split('\n')
 
 
-FA_INCOME_LABEL = _('Annual Household Income')
-FA_REASON_FOR_APPLYING_LABEL = 'Tell us about your current financial situation. Why do you need assistance?'
-FA_GOALS_LABEL = 'Tell us about your learning or professional goals. How will a Verified Certificate in ' \
-                 'this course help you achieve these goals?'
+FA_INCOME_LABEL = ugettext_noop('Annual Household Income')
+FA_REASON_FOR_APPLYING_LABEL = ugettext_noop('Tell us about your current financial situation. Why do you need assistance?')
+FA_GOALS_LABEL = ugettext_noop('Tell us about your learning or professional goals. How will a Verified Certificate in this course help you achieve these goals?')
 
-FA_EFFORT_LABEL = 'Tell us about your plans for this course. What steps will you take to help you complete ' \
-                  'the course work and receive a certificate?'
+FA_EFFORT_LABEL = ugettext_noop('Tell us about your plans for this course. What steps will you take to help you complete the course work and receive a certificate?')
 
 FA_SHORT_ANSWER_INSTRUCTIONS = _('Use between 1250 and 2500 characters or so in your response.')
 
@@ -1795,7 +1790,7 @@ def financial_assistance_request(request):
             ('Username', username),
             ('Full Name', legal_name),
             ('Course ID', course_id),
-            ('Annual Household Income', income),
+            (FA_INCOME_LABEL, income),
             ('Country', country),
             ('Allowed for marketing purposes', 'Yes' if marketing_permission else 'No'),
             (FA_REASON_FOR_APPLYING_LABEL, '\n' + reason_for_applying + '\n\n'),
@@ -1856,7 +1851,7 @@ def financial_assistance_form(request):
             {
                 'name': 'income',
                 'type': 'select',
-                'label': FA_INCOME_LABEL,
+                'label': _(FA_INCOME_LABEL),
                 'placeholder': '',
                 'defaultValue': '',
                 'required': True,
@@ -1866,7 +1861,7 @@ def financial_assistance_form(request):
             {
                 'name': 'reason_for_applying',
                 'type': 'textarea',
-                'label': _(FA_REASON_FOR_APPLYING_LABEL),  # pylint: disable=translation-of-non-string
+                'label': _(FA_REASON_FOR_APPLYING_LABEL),
                 'placeholder': '',
                 'defaultValue': '',
                 'required': True,
@@ -1879,7 +1874,7 @@ def financial_assistance_form(request):
             {
                 'name': 'goals',
                 'type': 'textarea',
-                'label': _(FA_GOALS_LABEL),  # pylint: disable=translation-of-non-string
+                'label': _(FA_GOALS_LABEL),
                 'placeholder': '',
                 'defaultValue': '',
                 'required': True,
@@ -1892,7 +1887,7 @@ def financial_assistance_form(request):
             {
                 'name': 'effort',
                 'type': 'textarea',
-                'label': _(FA_EFFORT_LABEL),  # pylint: disable=translation-of-non-string
+                'label': _(FA_EFFORT_LABEL),
                 'placeholder': '',
                 'defaultValue': '',
                 'required': True,

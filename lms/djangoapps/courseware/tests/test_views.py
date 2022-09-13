@@ -4,18 +4,24 @@ Tests courseware views.py
 """
 
 
+import html
 import itertools
 import json
 import unittest
 from datetime import datetime, timedelta
-from pytz import utc
 from uuid import uuid4
 
-import crum
-import ddt
 import six
+from markupsafe import escape
+from mock import MagicMock, PropertyMock, call, create_autospec, patch
+from pytz import UTC, utc
+from six import text_type
+from six.moves import range
+from six.moves.urllib.parse import quote, urlencode
+
 from completion.test_utils import CompletionWaffleTestMixin
 from crum import set_current_request
+import ddt
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.http import Http404, HttpResponseBadRequest
@@ -24,32 +30,17 @@ from django.test.client import Client
 from django.test.utils import override_settings
 from django.urls import reverse, reverse_lazy
 from freezegun import freeze_time
-from markupsafe import escape
 from milestones.tests.utils import MilestonesTestCaseMixin
-from mock import MagicMock, PropertyMock, call, create_autospec, patch
+from opaque_keys.edx.keys import CourseKey, UsageKey
 from opaque_keys.edx.locator import BlockUsageLocator, CourseLocator
-from pytz import UTC
-from six import text_type
-from six.moves import range
-from six.moves.html_parser import HTMLParser
-from six.moves.urllib.parse import quote, urlencode
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
 from xblock.fields import Scope, String
-
 import lms.djangoapps.courseware.views.views as views
 
 from capa.tests.response_xml_factory import MultipleChoiceResponseXMLFactory
 from course_modes.models import CourseMode
 from course_modes.tests.factories import CourseModeFactory
-from lms.djangoapps.courseware.access_utils import check_course_open_for_learner
-from lms.djangoapps.courseware.model_data import FieldDataCache, set_score
-from lms.djangoapps.courseware.module_render import get_module, handle_xblock_callback
-from lms.djangoapps.courseware.tests.factories import GlobalStaffFactory, RequestFactoryNoCsrf, StudentModuleFactory
-from lms.djangoapps.courseware.tests.helpers import get_expiration_banner_text
-from lms.djangoapps.courseware.testutils import RenderXBlockTestMixin
-from lms.djangoapps.courseware.url_helpers import get_redirect_url
-from lms.djangoapps.courseware.user_state_client import DjangoXBlockUserStateClient
 from lms.djangoapps.certificates import api as certs_api
 from lms.djangoapps.certificates.models import (
     CertificateGenerationConfiguration,
@@ -59,17 +50,23 @@ from lms.djangoapps.certificates.models import (
 from lms.djangoapps.certificates.tests.factories import CertificateInvalidationFactory, GeneratedCertificateFactory
 from lms.djangoapps.commerce.models import CommerceConfiguration
 from lms.djangoapps.commerce.utils import EcommerceService
-from lms.djangoapps.courseware.views.index import show_courseware_mfe_link
+from lms.djangoapps.courseware.access_utils import check_course_open_for_learner
+from lms.djangoapps.courseware.model_data import FieldDataCache, set_score
+from lms.djangoapps.courseware.module_render import get_module, handle_xblock_callback
+from lms.djangoapps.courseware.tests.factories import GlobalStaffFactory, RequestFactoryNoCsrf, StudentModuleFactory
+from lms.djangoapps.courseware.tests.helpers import get_expiration_banner_text
+from lms.djangoapps.courseware.testutils import RenderXBlockTestMixin
 from lms.djangoapps.courseware.toggles import (
     COURSEWARE_MICROFRONTEND_COURSE_TEAM_PREVIEW,
-    REDIRECT_TO_COURSEWARE_MICROFRONTEND,
+    REDIRECT_TO_COURSEWARE_MICROFRONTEND
 )
-from lms.djangoapps.courseware.url_helpers import get_microfrontend_url
+from lms.djangoapps.courseware.url_helpers import get_microfrontend_url, get_redirect_url
+from lms.djangoapps.courseware.user_state_client import DjangoXBlockUserStateClient
+from lms.djangoapps.courseware.views.index import show_courseware_mfe_link
 from lms.djangoapps.grades.config.waffle import ASSUME_ZERO_GRADE_IF_ABSENT
 from lms.djangoapps.grades.config.waffle import waffle as grades_waffle
 from lms.djangoapps.verify_student.models import VerificationDeadline
 from lms.djangoapps.verify_student.services import IDVerificationService
-from opaque_keys.edx.keys import CourseKey, UsageKey
 from openedx.core.djangoapps.catalog.tests.factories import CourseFactory as CatalogCourseFactory
 from openedx.core.djangoapps.catalog.tests.factories import CourseRunFactory, ProgramFactory
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
@@ -100,7 +97,6 @@ from xmodule.course_module import COURSE_VISIBILITY_PRIVATE, COURSE_VISIBILITY_P
 from xmodule.graders import ShowCorrectness
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.django import modulestore
-
 from xmodule.modulestore.tests.django_utils import (
     TEST_DATA_MIXED_MODULESTORE,
     TEST_DATA_SPLIT_MODULESTORE,
@@ -272,8 +268,8 @@ class IndexQueryTestCase(ModuleStoreTestCase):
     NUM_PROBLEMS = 20
 
     @ddt.data(
-        (ModuleStoreEnum.Type.mongo, 10, 167),
-        (ModuleStoreEnum.Type.split, 4, 165),
+        (ModuleStoreEnum.Type.mongo, 10, 170),
+        (ModuleStoreEnum.Type.split, 4, 166),
     )
     @ddt.unpack
     def test_index_query_counts(self, store_type, expected_mongo_query_count, expected_mysql_query_count):
@@ -694,7 +690,7 @@ class ViewsTestCase(BaseViewsTestCase):
             'location': six.text_type(usage_key),
         })
         response = self.client.get(url)
-        response_content = HTMLParser().unescape(response.content.decode('utf-8'))
+        response_content = html.unescape(response.content.decode('utf-8'))
 
         # We have update the state 4 times: twice to change content, and twice
         # to set the scores. We'll check that the identifying content from each is
@@ -911,21 +907,11 @@ class ViewsTestCase(BaseViewsTestCase):
     def test_bypass_course_info(self):
         course_id = six.text_type(self.course_key)
 
-        self.assertFalse(self.course.bypass_home)
-
         response = self.client.get(reverse('info', args=[course_id]))
         self.assertEqual(response.status_code, 200)
 
         response = self.client.get(reverse('info', args=[course_id]), HTTP_REFERER=reverse('dashboard'))
         self.assertEqual(response.status_code, 200)
-
-        self.course.bypass_home = True
-        self.store.update_item(self.course, self.user.id)
-        self.assertTrue(self.course.bypass_home)
-
-        response = self.client.get(reverse('info', args=[course_id]), HTTP_REFERER=reverse('dashboard'))
-
-        self.assertRedirects(response, reverse('courseware', args=[course_id]), fetch_redirect_response=False)
 
         response = self.client.get(reverse('info', args=[course_id]), HTTP_REFERER='foo')
         self.assertEqual(response.status_code, 200)
@@ -1438,8 +1424,8 @@ class ProgressPageTests(ProgressPageBaseTests):
             self.assertContains(resp, u"Download Your Certificate")
 
     @ddt.data(
-        (True, 54),
-        (False, 53),
+        (True, 52),
+        (False, 51),
     )
     @ddt.unpack
     def test_progress_queries_paced_courses(self, self_paced, query_count):
@@ -1452,8 +1438,8 @@ class ProgressPageTests(ProgressPageBaseTests):
 
     @patch.dict(settings.FEATURES, {'ASSUME_ZERO_GRADE_IF_ABSENT_FOR_ALL_TESTS': False})
     @ddt.data(
-        (False, 62, 40),
-        (True, 53, 35)
+        (False, 60, 41),
+        (True, 51, 36)
     )
     @ddt.unpack
     def test_progress_queries(self, enable_waffle, initial, subsequent):
@@ -1632,7 +1618,8 @@ class ProgressPageTests(ProgressPageBaseTests):
         CourseDurationLimitConfig.objects.create(enabled=True, enabled_as_of=datetime(2018, 1, 1))
         user = UserFactory.create()
         self.assertTrue(self.client.login(username=user.username, password='test'))
-        add_course_mode(self.course, upgrade_deadline_expired=False)
+        add_course_mode(self.course, mode_slug=CourseMode.AUDIT)
+        add_course_mode(self.course)
         CourseEnrollmentFactory(user=user, course_id=self.course.id, mode=course_mode)
 
         response = self._get_progress_page()
@@ -1710,7 +1697,7 @@ class ProgressPageTests(ProgressPageBaseTests):
         )
         # Invalidate user certificate
         generated_certificate.invalidate()
-        response = views._get_cert_data(self.user, self.course, CourseMode.HONOR, MagicMock(passed=True))
+        response = views.get_cert_data(self.user, self.course, CourseMode.HONOR, MagicMock(passed=True))
         self.assertEqual(response.cert_status, 'invalidated')
         self.assertEqual(response.title, 'Your certificate has been invalidated')
 
@@ -1723,7 +1710,7 @@ class ProgressPageTests(ProgressPageBaseTests):
         self.generate_certificate(
             "http://www.example.com/certificate.pdf", "honor"
         )
-        response = views._get_cert_data(
+        response = views.get_cert_data(
             self.user, self.course, CourseMode.HONOR, MagicMock(passed=True)
         )
 
@@ -1739,7 +1726,7 @@ class ProgressPageTests(ProgressPageBaseTests):
         )
         with patch('lms.djangoapps.certificates.api.certificate_downloadable_status',
                    return_value=self.mock_certificate_downloadable_status(is_generating=True)):
-            response = views._get_cert_data(self.user, self.course, CourseMode.HONOR, MagicMock(passed=True))
+            response = views.get_cert_data(self.user, self.course, CourseMode.HONOR, MagicMock(passed=True))
 
         self.assertEqual(response.cert_status, 'generating')
         self.assertEqual(response.title, "We're working on it...")
@@ -1753,7 +1740,7 @@ class ProgressPageTests(ProgressPageBaseTests):
         )
         with patch('lms.djangoapps.certificates.api.certificate_downloadable_status',
                    return_value=self.mock_certificate_downloadable_status(is_unverified=True)):
-            response = views._get_cert_data(self.user, self.course, CourseMode.HONOR, MagicMock(passed=True))
+            response = views.get_cert_data(self.user, self.course, CourseMode.HONOR, MagicMock(passed=True))
 
         self.assertEqual(response.cert_status, 'unverified')
         self.assertEqual(response.title, "Certificate unavailable")
@@ -1767,7 +1754,7 @@ class ProgressPageTests(ProgressPageBaseTests):
         )
         with patch('lms.djangoapps.certificates.api.certificate_downloadable_status',
                    return_value=self.mock_certificate_downloadable_status()):
-            response = views._get_cert_data(self.user, self.course, CourseMode.HONOR, MagicMock(passed=True))
+            response = views.get_cert_data(self.user, self.course, CourseMode.HONOR, MagicMock(passed=True))
 
         self.assertEqual(response.cert_status, 'requesting')
         self.assertEqual(response.title, "Congratulations, you qualified for a certificate!")
@@ -2811,7 +2798,8 @@ class TestIndexViewWithCourseDurationLimits(ModuleStoreTestCase):
         """
         CourseDurationLimitConfig.objects.create(enabled=True, enabled_as_of=datetime(2018, 1, 1))
         self.assertTrue(self.client.login(username=self.user.username, password='test'))
-        add_course_mode(self.course, upgrade_deadline_expired=False)
+        add_course_mode(self.course, mode_slug=CourseMode.AUDIT)
+        add_course_mode(self.course)
         response = self.client.get(
             reverse(
                 'courseware_section',
@@ -3083,6 +3071,7 @@ class DatesTabTestCase(ModuleStoreTestCase):
         self.course = CourseFactory.create(start=now + timedelta(days=-1), self_paced=True)
         self.course.end = now + timedelta(days=3)
 
+        ContentTypeGatingConfig.objects.create(enabled=True, enabled_as_of=datetime(2018, 1, 1))
         CourseModeFactory(course_id=self.course.id, mode_slug=CourseMode.AUDIT)
         CourseModeFactory(
             course_id=self.course.id,
@@ -3096,10 +3085,39 @@ class DatesTabTestCase(ModuleStoreTestCase):
 
         self.user = UserFactory()
         self.client.login(username=self.user.username, password=TEST_PASSWORD)
+        ContentTypeGatingConfig.objects.create(enabled=True, enabled_as_of=datetime(2017, 1, 1))
 
     def _get_response(self, course):
-        """ Returns the HTML for the progress page """
+        """ Returns the HTML for the dates page """
         return self.client.get(reverse('dates', args=[six.text_type(course.id)]))
+
+    def test_tab_redirects_if_not_logged_in(self):
+        self.client.logout()
+        response = self._get_response(self.course)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login?next=/courses/', response.url)
+
+    def test_tab_redirects_if_not_enrolled_and_not_staff(self):
+        response = self._get_response(self.course)
+        self.assertEqual(response.status_code, 302)
+        # Beginning of redirect URL
+        self.assertIn('/courses/', response.url)
+        # End of redirect URL
+        self.assertIn('/course/', response.url)
+
+        # Now check staff users can see
+        self.user.is_staff = True
+        self.user.save()
+        response = self._get_response(self.course)
+        self.assertEqual(response.status_code, 200)
+
+        # Enrolled users can also see
+        self.client.logout()
+        enrolled_user = UserFactory()
+        CourseEnrollmentFactory(course_id=self.course.id, user=enrolled_user, mode=CourseMode.VERIFIED)
+        self.client.login(username=enrolled_user.username, password=TEST_PASSWORD)
+        response = self._get_response(self.course)
+        self.assertEqual(response.status_code, 200)
 
     @RELATIVE_DATES_FLAG.override(active=True)
     @patch('edx_django_utils.monitoring.set_custom_metric')
@@ -3115,7 +3133,10 @@ class DatesTabTestCase(ModuleStoreTestCase):
                 start=now - timedelta(days=1),
                 due=now + timedelta(days=1),  # Setting this to tomorrow so it'll show the 'Due Next' pill
                 graded=True,
+                format='Homework',
             )
+            vertical = ItemFactory.create(category='vertical', parent_location=subsection.location)
+            ItemFactory.create(category='problem', parent_location=vertical.location, has_score=True)
 
         with patch('lms.djangoapps.courseware.views.views.get_enrollment') as mock_get_enrollment:
             mock_get_enrollment.return_value = {
@@ -3123,7 +3144,7 @@ class DatesTabTestCase(ModuleStoreTestCase):
             }
             response = self._get_response(self.course)
             self.assertContains(response, subsection.display_name)
-            # Show the Verification Deadline for everyone
+            # Show the Verification Deadline for verified only
             self.assertContains(response, 'Verification Deadline')
             # Make sure pill exists for today's date
             self.assertContains(response, '<div class="pill today">')
@@ -3131,6 +3152,8 @@ class DatesTabTestCase(ModuleStoreTestCase):
             self.assertContains(response, '<div class="pill due-next">')
             # No pills for verified enrollments
             self.assertNotContains(response, '<div class="pill verified">')
+            # Make sure the assignment type is rendered
+            self.assertContains(response, 'Homework:')
 
             enrollment.delete()
             enrollment = CourseEnrollmentFactory(course_id=self.course.id, user=self.user, mode=CourseMode.AUDIT)
@@ -3148,12 +3171,14 @@ class DatesTabTestCase(ModuleStoreTestCase):
 
             mock_set_custom_metric.assert_has_calls(expected_calls, any_order=True)
             self.assertContains(response, subsection.display_name)
-            # Show the Verification Deadline for everyone
-            self.assertContains(response, 'Verification Deadline')
+            # Don't show the Verification Deadline for audit
+            self.assertNotContains(response, 'Verification Deadline')
             # Pill doesn't exist for assignment due tomorrow
             self.assertNotContains(response, '<div class="pill due-next">')
             # Should have verified pills for audit enrollments
             self.assertContains(response, '<div class="pill verified">')
+            # Make sure the assignment type is rendered
+            self.assertContains(response, 'Homework:')
 
     @RELATIVE_DATES_FLAG.override(active=True)
     def test_reset_deadlines_banner_displays(self):
@@ -3170,7 +3195,7 @@ class DatesTabTestCase(ModuleStoreTestCase):
                 graded=True,
             )
         response = self._get_response(self.course)
-        self.assertContains(response, 'div class="dates-banner-text"')
+        self.assertContains(response, 'div class="banner-cta-text"')
 
 
 class TestShowCoursewareMFE(TestCase):

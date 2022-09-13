@@ -43,6 +43,7 @@ When refering to XBlocks, we use the entry-point name. For example,
 import importlib.util
 import os
 import sys
+from corsheaders.defaults import default_headers as corsheaders_default_headers
 from datetime import timedelta
 import lms.envs.common
 # Although this module itself may not use these imported variables, other dependent modules may.
@@ -255,8 +256,11 @@ FEATURES = {
     # Enable the courseware search functionality
     'ENABLE_COURSEWARE_INDEX': False,
 
-    # Enable content libraries search functionality
+    # Enable content libraries (modulestore) search functionality
     'ENABLE_LIBRARY_INDEX': False,
+
+    # Enable content libraries (blockstore) indexing
+    'ENABLE_CONTENT_LIBRARY_INDEX': False,
 
     # Enable course reruns, which will always use the split modulestore
     'ALLOW_COURSE_RERUNS': True,
@@ -389,6 +393,37 @@ FEATURES = {
     # .. toggle_status: supported
     # .. toggle_warnings: None
     'ENABLE_ORA_USER_STATE_UPLOAD_DATA': False,
+
+    # .. toggle_name: DEPRECATE_OLD_COURSE_KEYS_IN_STUDIO
+    # .. toggle_implementation: DjangoSetting
+    # .. toggle_default: True
+    # .. toggle_description: Warn about removing support for deprecated course keys.
+    #      To enable, set to True.
+    #      To disable, set to False.
+    #      To enable with a custom support deadline, set to an ISO-8601 date string:
+    #        eg: '2020-09-01'
+    # .. toggle_category: n/a
+    # .. toggle_use_cases: incremental_release
+    # .. toggle_creation_date: 2020-06-12
+    # .. toggle_expiration_date: 2020-12-01
+    # .. toggle_warnings: This can be removed once support is removed for deprecated course keys.
+    # .. toggle_tickets: https://openedx.atlassian.net/browse/DEPR-58
+    # .. toggle_status: supported
+    'DEPRECATE_OLD_COURSE_KEYS_IN_STUDIO': True,
+
+    # .. toggle_name: ENABLE_LIBRARY_AUTHORING_MICROFRONTEND
+    # .. toggle_implementation: DjangoSetting
+    # .. toggle_default: False
+    # .. toggle_description: Set to True to enable the Library Authoring MFE
+    # .. toggle_category: micro-frontend
+    # .. toggle_use_cases: incremental_release
+    # .. toggle_creation_date: 2020-06-20
+    # .. toggle_expiration_date: 2020-12-31
+    # .. toggle_tickets: https://openedx.atlassian.net/wiki/spaces/COMM/pages/1545011241/BD-14+Blockstore+Powered+Content+Libraries+Taxonomies
+    # .. toggle_status: supported
+    # .. toggle_warnings: Also set settings.LIBRARY_AUTHORING_MICROFRONTEND_URL and see REDIRECT_TO_LIBRARY_AUTHORING_MICROFRONTEND for rollout.
+    'ENABLE_LIBRARY_AUTHORING_MICROFRONTEND': False,
+
     'TAHOE_STUDIO_LOCAL_LOGIN': False,
     'TAHOE_ENABLE_API_DOCS_URLS': False,  # RED-2861
 }
@@ -398,6 +433,10 @@ ENABLE_JASMINE = False
 # List of logout URIs for each IDA that the learner should be logged out of when they logout of the LMS. Only applies to
 # IDA for which the social auth flow uses DOT (Django OAuth Toolkit).
 IDA_LOGOUT_URI_LIST = []
+
+############################# MICROFRONTENDS ###################################
+COURSE_AUTHORING_MICROFRONTEND_URL = None
+LIBRARY_AUTHORING_MICROFRONTEND_URL = None
 
 ############################# SOCIAL MEDIA SHARING #############################
 SOCIAL_SHARING_SETTINGS = {
@@ -644,8 +683,15 @@ MIDDLEWARE = [
     'openedx.core.djangoapps.header_control.middleware.HeaderControlMiddleware',
     'django.middleware.cache.UpdateCacheMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.sites.middleware.CurrentSiteMiddleware',
+
+    # CORS and CSRF
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'openedx.core.djangoapps.cors_csrf.middleware.CorsCSRFMiddleware',
+    'openedx.core.djangoapps.cors_csrf.middleware.CsrfCrossDomainCookieMiddleware',
+
+    # JWT auth
     'edx_rest_framework_extensions.auth.jwt.middleware.JwtAuthCookieMiddleware',
 
     # Allows us to define redirects via Django admin
@@ -1056,18 +1102,6 @@ PIPELINE['STYLESHEETS'] = {
         ],
         'output_filename': 'css/studio-main-v1-rtl.css',
     },
-    'style-main-v2': {
-        'source_filenames': [
-            'css/studio-main-v2.css',
-        ],
-        'output_filename': 'css/studio-main-v2.css',
-    },
-    'style-main-v2-rtl': {
-        'source_filenames': [
-            'css/studio-main-v2-rtl.css',
-        ],
-        'output_filename': 'css/studio-main-v2-rtl.css',
-    },
     'style-xmodule-annotations': {
         'source_filenames': [
             'css/vendor/ova/annotator.css',
@@ -1268,9 +1302,10 @@ YOUTUBE = {
 
 YOUTUBE_API_KEY = 'PUT_YOUR_API_KEY_HERE'
 
-############################# VIDEO UPLOAD PIPELINE #############################
+############################# SETTINGS FOR VIDEO UPLOAD PIPELINE #############################
 
 VIDEO_UPLOAD_PIPELINE = {
+    'VEM_S3_BUCKET': '',
     'BUCKET': '',
     'ROOT_PATH': '',
     'CONCURRENT_UPLOAD_LIMIT': 4,
@@ -1302,6 +1337,10 @@ INSTALLED_APPS = [
 
     # API access administration
     'openedx.core.djangoapps.api_admin',
+
+    # CORS and cross-domain CSRF
+    'corsheaders',
+    'openedx.core.djangoapps.cors_csrf',
 
     # History tables
     'simple_history',
@@ -1406,6 +1445,9 @@ INSTALLED_APPS = [
     # Catalog integration
     'openedx.core.djangoapps.catalog',
 
+    # Programs support
+    'openedx.core.djangoapps.programs.apps.ProgramsConfig',
+
     # django-oauth-toolkit
     'oauth2_provider',
 
@@ -1458,6 +1500,9 @@ INSTALLED_APPS = [
     'django_filters',
     'cms.djangoapps.api',
 
+    # edx-drf-extensions
+    'csrf.apps.CsrfAppConfig',  # Enables frontend apps to retrieve CSRF tokens.
+
     # Entitlements, used in openedx tests
     'entitlements',
 
@@ -1482,6 +1527,11 @@ INSTALLED_APPS = [
     # Management of per-user schedules
     'openedx.core.djangoapps.schedules',
     'rest_framework_jwt',
+
+    # Learning Sequence Navigation
+    'openedx.core.djangoapps.content.learning_sequences.apps.LearningSequencesConfig',
+
+    'ratelimitbackend',
 ]
 
 
@@ -1624,6 +1674,7 @@ OPTIONAL_APPS = (
     ('integrated_channels.sap_success_factors', None),
     ('integrated_channels.xapi', None),
     ('integrated_channels.cornerstone', None),
+    ('integrated_channels.canvas', None),
 )
 
 
@@ -1924,6 +1975,11 @@ ENTERPRISE_API_CACHE_TIMEOUT = 3600  # Value is in seconds
 # The default value of this needs to be a 16 character string
 ENTERPRISE_CUSTOMER_CATALOG_DEFAULT_CONTENT_FILTER = {}
 
+# The setting key maps to the channel code (e.g. 'SAP' for success factors), Channel code is defined as
+# part of django model of each integrated channel in edx-enterprise.
+# The absence of a key/value pair translates to NO LIMIT on the number of "chunks" transmitted per cycle.
+INTEGRATED_CHANNELS_API_CHUNK_TRANSMISSION_LIMIT = {}
+
 BASE_COOKIE_DOMAIN = 'localhost'
 
 # This limits the type of roles that are submittable via the `student` app's manual enrollment
@@ -1933,7 +1989,8 @@ MANUAL_ENROLLMENT_ROLE_CHOICES = ['Learner', 'Support', 'Partner']
 
 ############## Settings for the Discovery App ######################
 
-COURSE_CATALOG_API_URL = 'http://localhost:8008/api/v1'
+COURSE_CATALOG_URL_ROOT = 'http://localhost:8008'
+COURSE_CATALOG_API_URL = '{}/api/v1'.format(COURSE_CATALOG_URL_ROOT)
 
 # which access.py permission name to check in order to determine if a course is visible in
 # the course catalog. We default this to the legacy permission 'see_exists'.
@@ -2023,9 +2080,11 @@ SYSTEM_WIDE_ROLE_CLASSES = []
 
 ############## Installed Django Apps #########################
 
-from openedx.core.djangoapps.plugins import plugin_apps, plugin_settings, constants as plugin_constants
-INSTALLED_APPS.extend(plugin_apps.get_apps(plugin_constants.ProjectType.CMS))
-plugin_settings.add_plugins(__name__, plugin_constants.ProjectType.CMS, plugin_constants.SettingsType.COMMON)
+from edx_django_utils.plugins import get_plugin_apps, add_plugins
+from openedx.core.djangoapps.plugins.constants import ProjectType, SettingsType
+
+INSTALLED_APPS.extend(get_plugin_apps(ProjectType.CMS))
+add_plugins(__name__, ProjectType.CMS, SettingsType.COMMON)
 
 # Course exports streamed in blocks of this size. 8192 or 8kb is the default
 # setting for the FileWrapper class used to iterate over the export file data.
@@ -2056,16 +2115,17 @@ FINANCIAL_REPORTS = {
     'ROOT_PATH': 'sandbox',
 }
 
-CORS_ORIGIN_WHITELIST = []
-CORS_ORIGIN_ALLOW_ALL = False
+############# CORS headers for cross-domain requests #################
+if FEATURES.get('ENABLE_CORS_HEADERS'):
+    CORS_ALLOW_CREDENTIALS = True
+    CORS_ORIGIN_WHITELIST = ()
+    CORS_ORIGIN_ALLOW_ALL = False
+    CORS_ALLOW_INSECURE = False
+    CORS_ALLOW_HEADERS = corsheaders_default_headers + (
+        'use-jwt-cookie',
+    )
 
 LOGIN_REDIRECT_WHITELIST = []
-
-############### Settings for video pipeline ##################
-VIDEO_UPLOAD_PIPELINE = {
-    'BUCKET': '',
-    'ROOT_PATH': '',
-}
 
 DEPRECATED_ADVANCED_COMPONENT_TYPES = []
 
@@ -2101,15 +2161,6 @@ VIDEO_TRANSCRIPTS_SETTINGS = dict(
 
 VIDEO_TRANSCRIPTS_MAX_AGE = 31536000
 
-############################ TRANSCRIPT PROVIDERS SETTINGS ########################
-
-# Note: These settings will also exist in video-encode-manager, so any update here
-# should also be done there.
-CIELO24_SETTINGS = {
-    'CIELO24_API_VERSION': 1,
-    'CIELO24_BASE_API_URL': "https://api.cielo24.com/api",
-    'CIELO24_LOGIN_URL': "https://api.cielo24.com/api/account/login"
-}
 
 ##### shoppingcart Payment #####
 PAYMENT_SUPPORT_EMAIL = 'billing@example.com'
@@ -2248,3 +2299,16 @@ DISABLE_DEPRECATED_SIGNIN_URL = False
 # .. toggle_tickets: ARCH-1253
 # .. toggle_status: supported
 DISABLE_DEPRECATED_SIGNUP_URL = False
+
+##### LOGISTRATION RATE LIMIT SETTINGS #####
+LOGISTRATION_RATELIMIT_RATE = '100/5m'
+
+##### REGISTRATION RATE LIMIT SETTINGS #####
+REGISTRATION_VALIDATION_RATELIMIT = '30/7d'
+
+##### PASSWORD RESET RATE LIMIT SETTINGS #####
+PASSWORD_RESET_IP_RATE = '1/m'
+PASSWORD_RESET_EMAIL_RATE = '2/h'
+
+######################## Setting for content libraries ########################
+MAX_BLOCKS_PER_CONTENT_LIBRARY = 1000

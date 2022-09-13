@@ -15,7 +15,12 @@ from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.utils.translation import ugettext as _
 from django.views.decorators.http import require_http_methods
-from edx_proctoring.api import does_backend_support_onboarding, get_exam_configuration_dashboard_url
+from edx_proctoring.api import (
+    does_backend_support_onboarding,
+    get_exam_by_content_id,
+    get_exam_configuration_dashboard_url
+)
+from edx_proctoring.exceptions import ProctoredExamNotFoundException
 from help_tokens.core import HelpUrlExpert
 from opaque_keys.edx.keys import CourseKey
 from opaque_keys.edx.locator import LibraryUsageLocator
@@ -62,6 +67,7 @@ from util.milestones_helpers import is_entrance_exams_enabled
 from xblock_config.models import CourseEditLTIFieldsEnabledFlag
 from xblock_django.user_service import DjangoXBlockUserService
 from xmodule.course_module import DEFAULT_START_DATE
+from xmodule.library_tools import LibraryToolsService
 from xmodule.modulestore import EdxJSONEncoder, ModuleStoreEnum
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.draft_and_published import DIRECT_ONLY_CATEGORIES
@@ -96,6 +102,19 @@ def _filter_entrance_exam_grader(graders):
     if is_entrance_exams_enabled():
         graders = [grader for grader in graders if grader.get('type') != u'Entrance Exam']
     return graders
+
+
+def _is_library_component_limit_reached(usage_key):
+    """
+    Verify if the library has reached the maximum number of components allowed in it
+    """
+    store = modulestore()
+    parent = store.get_item(usage_key)
+    if not parent.has_children:
+        # Limit cannot be applied on such items
+        return False
+    total_children = len(parent.children)
+    return total_children + 1 > settings.MAX_BLOCKS_PER_CONTENT_LIBRARY
 
 
 @require_http_methods(("DELETE", "GET", "PUT", "POST", "PATCH"))
@@ -210,6 +229,18 @@ def xblock_handler(request, usage_key_string):
             ):
                 raise PermissionDenied()
 
+            # Libraries have a maximum component limit enforced on them
+            if (isinstance(parent_usage_key, LibraryUsageLocator) and
+                    _is_library_component_limit_reached(parent_usage_key)):
+                return JsonResponse(
+                    {
+                        'error': _(u'Libraries cannot have more than {limit} components').format(
+                            limit=settings.MAX_BLOCKS_PER_CONTENT_LIBRARY
+                        )
+                    },
+                    status=400
+                )
+
             dest_usage_key = _duplicate_item(
                 parent_usage_key,
                 duplicate_source_usage_key,
@@ -289,6 +320,8 @@ class StudioEditModuleRuntime(object):
                 return ConfigurationService(CourseEditLTIFieldsEnabledFlag)
             if service_name == "teams_configuration":
                 return TeamsConfigurationService()
+            if service_name == "library_tools":
+                return LibraryToolsService(modulestore(), self._user.id)
         return None
 
 
@@ -684,6 +717,16 @@ def _create_item(request):
         if category not in ['html', 'problem', 'video']:
             return HttpResponseBadRequest(
                 u"Category '%s' not supported for Libraries" % category, content_type='text/plain'
+            )
+
+        if _is_library_component_limit_reached(usage_key):
+            return JsonResponse(
+                {
+                    'error': _(u'Libraries cannot have more than {limit} components').format(
+                        limit=settings.MAX_BLOCKS_PER_CONTENT_LIBRARY
+                    )
+                },
+                status=400
             )
 
     created_block = create_xblock(
@@ -1244,6 +1287,9 @@ def create_xblock_info(xblock, data=None, metadata=None, include_ancestor_info=F
 
                 xblock_info.update({
                     'is_proctored_exam': xblock.is_proctored_exam,
+                    'was_ever_special_exam': _was_xblock_ever_special_exam(
+                        course, xblock
+                    ),
                     'online_proctoring_rules': rules_url,
                     'is_practice_exam': xblock.is_practice_exam,
                     'is_onboarding_exam': xblock.is_onboarding_exam,
@@ -1293,6 +1339,32 @@ def create_xblock_info(xblock, data=None, metadata=None, include_ancestor_info=F
         xblock_info['user_partition_info'] = get_visibility_partition_info(xblock, course=course)
 
     return xblock_info
+
+
+def _was_xblock_ever_special_exam(course, xblock):
+    """
+    Determine whether this XBlock is or was ever configured as a special exam.
+
+    If this block is *not* currently a special exam, the best way for us to tell
+    whether it was was *ever* configured as a special exam is by checking whether
+    edx-proctoring has an exam record associated with the block's ID.
+    If an exception is not raised, then we know that such a record exists,
+    indicating that this *was* once a special exam.
+
+    Arguments:
+        course (CourseDescriptor)
+        xblock (XBlock)
+
+    Returns: bool
+    """
+    if xblock.is_time_limited:
+        return True
+    try:
+        get_exam_by_content_id(course.id, xblock.location)
+    except ProctoredExamNotFoundException:
+        return False
+    else:
+        return True
 
 
 def add_container_page_publishing_info(xblock, xblock_info):
@@ -1394,10 +1466,10 @@ def _compute_visibility_state(xblock, child_info, is_unit_with_changes, is_cours
             return VisibilityState.live if is_live else VisibilityState.needs_attention
         else:
             return VisibilityState.ready if not is_unscheduled else VisibilityState.needs_attention
-    if is_unscheduled:
-        return VisibilityState.unscheduled
-    elif is_live:
+    if is_live:
         return VisibilityState.live
+    elif is_unscheduled:
+        return VisibilityState.unscheduled
     else:
         return VisibilityState.ready
 

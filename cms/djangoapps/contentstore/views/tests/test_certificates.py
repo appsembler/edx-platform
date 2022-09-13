@@ -264,7 +264,6 @@ class CertificatesListHandlerTestCase(
     @override_settings(LMS_BASE=None)
     def test_no_lms_base_for_certificate_web_view_link(self):
         test_link = get_lms_link_for_certificate_web_view(
-            user_id=self.user.id,
             course_key=self.course.id,
             mode='honor'
         )
@@ -272,10 +271,9 @@ class CertificatesListHandlerTestCase(
 
     @override_settings(LMS_BASE="lms_base_url")
     def test_lms_link_for_certificate_web_view(self):
-        test_url = "//lms_base_url/certificates/user/" \
-                   + str(self.user.id) + "/course/" + six.text_type(self.course.id) + '?preview=honor'
+        test_url = "//lms_base_url/certificates/" \
+                   "course/" + six.text_type(self.course.id) + '?preview=honor'
         link = get_lms_link_for_certificate_web_view(
-            user_id=self.user.id,
             course_key=self.course.id,
             mode='honor'
         )

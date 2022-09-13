@@ -2,10 +2,10 @@
 Helper methods for Studio views.
 """
 
-
+import hashlib
+import six
 from uuid import uuid4
 
-import six
 from django.conf import settings
 from django.http import HttpResponse
 from django.utils.translation import ugettext as _

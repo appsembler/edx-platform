@@ -10,6 +10,7 @@ from django.contrib.admin import autodiscover as django_autodiscover
 from django.utils.translation import ugettext_lazy as _
 from django.views.generic.base import RedirectView
 from edx_api_doc_tools import make_docs_urls
+from edx_django_utils.plugins import get_plugin_url_patterns
 from ratelimitbackend import admin
 
 from branding import views as branding_views
@@ -26,10 +27,9 @@ from lms.djangoapps.courseware.views import views as courseware_views
 from lms.djangoapps.courseware.views.index import CoursewareIndex
 from lms.djangoapps.courseware.views.views import CourseTabView, EnrollStaffView, StaticCourseTabView
 from lms.djangoapps.discussion import views as discussion_views
+from lms.djangoapps.discussion.config.settings import is_forum_daily_digest_enabled
 from lms.djangoapps.discussion.notification_prefs import views as notification_prefs_views
-from lms.djangoapps.instructor.views import coupons as instructor_coupons_views
 from lms.djangoapps.instructor.views import instructor_dashboard as instructor_dashboard_views
-from lms.djangoapps.instructor.views import registration_codes as instructor_registration_codes_views
 from lms.djangoapps.instructor_task import views as instructor_task_views
 from openedx.core.apidocs import api_info
 from openedx.core.djangoapps.appsembler.future_releases_hacks.views import resume_to
@@ -43,8 +43,7 @@ from openedx.core.djangoapps.django_comment_common.models import ForumsConfig
 from openedx.core.djangoapps.lang_pref import views as lang_pref_views
 from openedx.core.djangoapps.password_policy import compliance as password_policy_compliance
 from openedx.core.djangoapps.password_policy.forms import PasswordPolicyAwareAdminAuthForm
-from openedx.core.djangoapps.plugins import constants as plugin_constants
-from openedx.core.djangoapps.plugins import plugin_urls
+from openedx.core.djangoapps.plugins.constants import ProjectType
 from openedx.core.djangoapps.programs.models import ProgramsApiConfig
 from openedx.core.djangoapps.self_paced.models import SelfPacedConfiguration
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
@@ -121,8 +120,11 @@ urlpatterns = [
     url(r'^api/enrollment/v1/', include('openedx.core.djangoapps.enrollments.urls')),
 
     # Entitlement API RESTful endpoints
-    url(r'^api/entitlements/', include(('entitlements.api.urls', 'common.djangoapps.entitlements'),
+    url(r'^api/entitlements/', include(('entitlements.rest_api.urls', 'common.djangoapps.entitlements'),
                                        namespace='entitlements_api')),
+
+    # Demographics API RESTful endpoints
+    url(r'^api/demographics/', include('openedx.core.djangoapps.demographics.rest_api.urls')),
 
     # Courseware search endpoints
     url(r'^search/', include('search.urls')),
@@ -145,6 +147,7 @@ urlpatterns = [
 
     url(r'^api/commerce/', include(('commerce.api.urls', 'lms.djangoapps.commerce'), namespace='commerce_api')),
     url(r'^api/credit/', include('openedx.core.djangoapps.credit.urls')),
+    url(r'^api/toggles/', include('openedx.core.djangoapps.waffle_utils.urls')),
     url(r'^rss_proxy/', include('rss_proxy.urls')),
     url(r'^api/organizations/', include('organizations.urls', namespace='organizations')),
 
@@ -156,8 +159,9 @@ urlpatterns = [
 
     # Multiple course modes and identity verification
     url(r'^course_modes/', include('course_modes.urls')),
-    url(r'^api/course_modes/', include(('course_modes.api.urls', 'common.djangoapps.course_mods'),
+    url(r'^api/course_modes/', include(('course_modes.rest_api.urls', 'common.djangoapps.course_mods'),
                                        namespace='course_modes_api')),
+
     url(r'^verify_student/', include('verify_student.urls')),
 
     # URLs for managing dark launches of languages
@@ -231,19 +235,6 @@ if settings.WIKI_ENABLED:
         url(r'^courses/{}/wiki/'.format(settings.COURSE_KEY_REGEX),
             include((wiki_url_patterns, 'course_wiki_do_not_reverse'), namespace='course_wiki_do_not_reverse')),
     ]
-
-COURSE_URLS = [
-    url(
-        r'^look_up_registration_code$',
-        instructor_registration_codes_views.look_up_registration_code,
-        name='look_up_registration_code',
-    ),
-    url(
-        r'^registration_code_details$',
-        instructor_registration_codes_views.registration_code_details,
-        name='registration_code_details',
-    ),
-]
 
 urlpatterns += [
     # jump_to URLs for direct access to a location in the course
@@ -534,41 +525,6 @@ urlpatterns += [
         instructor_dashboard_views.set_course_mode_price,
         name='set_course_mode_price',
     ),
-    url(
-        r'^courses/{}/remove_coupon$'.format(
-            settings.COURSE_ID_PATTERN,
-        ),
-        instructor_coupons_views.remove_coupon,
-        name='remove_coupon',
-    ),
-    url(
-        r'^courses/{}/add_coupon$'.format(
-            settings.COURSE_ID_PATTERN,
-        ),
-        instructor_coupons_views.add_coupon,
-        name='add_coupon',
-    ),
-    url(
-        r'^courses/{}/update_coupon$'.format(
-            settings.COURSE_ID_PATTERN,
-        ),
-        instructor_coupons_views.update_coupon,
-        name='update_coupon',
-    ),
-    url(
-        r'^courses/{}/get_coupon_info$'.format(
-            settings.COURSE_ID_PATTERN,
-        ),
-        instructor_coupons_views.get_coupon_info,
-        name='get_coupon_info',
-    ),
-
-    url(
-        r'^courses/{}/'.format(
-            settings.COURSE_ID_PATTERN,
-        ),
-        include(COURSE_URLS)
-    ),
 
     # Discussions Management
     url(
@@ -762,7 +718,7 @@ if settings.FEATURES.get('ENABLE_DISCUSSION_SERVICE'):
         ),
     ]
 
-if settings.FEATURES.get('ENABLE_FORUM_DAILY_DIGEST'):
+if is_forum_daily_digest_enabled():
     urlpatterns += notification_prefs_urls
 
 urlpatterns += [
@@ -828,7 +784,6 @@ if configuration_helpers.get_value('ENABLE_BULK_ENROLLMENT_VIEW', settings.FEATU
 # Shopping cart
 urlpatterns += [
     url(r'^shoppingcart/', include('shoppingcart.urls')),
-    url(r'^commerce/', include(('lms.djangoapps.commerce.urls', 'lms.djangoapps.commerce'), namespace='commerce')),
 ]
 
 # Course goals
@@ -1032,9 +987,24 @@ urlpatterns += (
                 namespace='tahoe-api')),
 )
 
-urlpatterns.extend(plugin_urls.get_patterns(plugin_constants.ProjectType.LMS))
+urlpatterns.append(
+    url(
+        r'^api/learning_sequences/',
+        include(
+            ('openedx.core.djangoapps.content.learning_sequences.urls', 'learning_sequences'),
+            namespace='learning_sequences'
+        ),
+    ),
+)
+
+urlpatterns.extend(get_plugin_url_patterns(ProjectType.LMS))
 
 # Course Home API urls
 urlpatterns += [
     url(r'^api/course_home/', include('lms.djangoapps.course_home_api.urls')),
+]
+
+# Course Experience API urls
+urlpatterns += [
+    url(r'^api/course_experience/', include('openedx.features.course_experience.api.v1.urls')),
 ]

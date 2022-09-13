@@ -5,6 +5,7 @@ Specific overrides to the base prod settings to make development easier.
 
 import logging
 from os.path import abspath, dirname, join
+from corsheaders.defaults import default_headers as corsheaders_default_headers
 
 from .production import *  # pylint: disable=wildcard-import, unused-wildcard-import
 
@@ -107,7 +108,8 @@ DEBUG_TOOLBAR_CONFIG = {
 
 def should_show_debug_toolbar(request):
     # We always want the toolbar on devstack unless running tests from another Docker container
-    if request.get_host().startswith('edx.devstack.studio:'):
+    hostname = request.get_host()
+    if hostname.startswith('edx.devstack.studio:') or hostname.startswith('studio.devstack.edx:'):
         return False
     return True
 
@@ -115,6 +117,8 @@ def should_show_debug_toolbar(request):
 ################################ MILESTONES ################################
 FEATURES['MILESTONES_APP'] = True
 
+########################### ORGANIZATIONS #################################
+FEATURES['ORGANIZATIONS_APP'] = True
 
 ################################ ENTRANCE EXAMS ################################
 FEATURES['ENTRANCE_EXAMS'] = True
@@ -125,8 +129,9 @@ FEATURES['LICENSING'] = True
 XBLOCK_SETTINGS.update({'VideoBlock': {'licensing_enabled': True}})
 
 ################################ SEARCH INDEX ################################
-FEATURES['ENABLE_COURSEWARE_INDEX'] = FEATURES.get('ENABLE_COURSEWARE_INDEX', True)
-FEATURES['ENABLE_LIBRARY_INDEX'] = FEATURES.get('ENABLE_LIBRARY_INDEX', True)
+FEATURES['ENABLE_COURSEWARE_INDEX'] = False
+FEATURES['ENABLE_LIBRARY_INDEX'] = False
+FEATURES['ENABLE_CONTENT_LIBRARY_INDEX'] = False
 SEARCH_ENGINE = "search.elastic.ElasticSearchEngine"
 
 ################################ COURSE DISCUSSIONS ###########################
@@ -143,6 +148,9 @@ FEATURES['ENABLE_CREATOR_GROUP'] = False
 
 ################### FRONTEND APPLICATION PUBLISHER URL ###################
 FEATURES['FRONTEND_APP_PUBLISHER_URL'] = 'http://localhost:18400'
+
+################### FRONTEND APPLICATION LIBRARY AUTHORING ###################
+LIBRARY_AUTHORING_MICROFRONTEND_URL = 'http://localhost:3001'
 
 ################################# DJANGO-REQUIRE ###############################
 
@@ -195,9 +203,11 @@ BLOCKSTORE_API_URL = "http://edx.devstack.blockstore:18250/api/v1/"
 #####################################################################
 
 # pylint: disable=wrong-import-order, wrong-import-position
-from openedx.core.djangoapps.plugins import constants as plugin_constants, plugin_settings
+from edx_django_utils.plugins import add_plugins
+# pylint: disable=wrong-import-order, wrong-import-position
+from openedx.core.djangoapps.plugins.constants import ProjectType, SettingsType
 
-plugin_settings.add_plugins(__name__, plugin_constants.ProjectType.CMS, plugin_constants.SettingsType.DEVSTACK)
+add_plugins(__name__, ProjectType.CMS, SettingsType.DEVSTACK)
 
 
 OPENAPI_CACHE_TIMEOUT = 0
@@ -213,3 +223,11 @@ SECRET_KEY = '85920908f28904ed733fe576320db18cabd7b6cd'
 # See if the developer has any local overrides.
 if os.path.isfile(join(dirname(abspath(__file__)), 'private.py')):
     from .private import *  # pylint: disable=import-error,wildcard-import
+
+############# CORS headers for cross-domain requests #################
+FEATURES['ENABLE_CORS_HEADERS'] = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_HEADERS = corsheaders_default_headers + (
+    'use-jwt-cookie',
+)

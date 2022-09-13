@@ -40,7 +40,6 @@ from track import segment
 DISCOUNT_APPLICABILITY_FLAG = WaffleFlag(
     waffle_namespace=WaffleFlagNamespace(name=u'discounts'),
     flag_name=u'enable_discounting',
-    flag_undefined_default=False
 )
 
 DISCOUNT_APPLICABILITY_HOLDBACK = 'first_purchase_discount_holdback'
@@ -136,22 +135,26 @@ def can_receive_discount(user, course, discount_expiration_date=None):
     if is_enterprise_learner(user):
         return False
 
+    # Turn holdback on
+    if _is_in_holdback_and_bucket(user):
+        return False
+
     return True
 
 
-def _is_in_holdback(user):
+def _is_in_holdback_and_bucket(user):
     """
     Return whether the specified user is in the first-purchase-discount holdback group.
+    This will also stable bucket the user.
     """
     if datetime(2020, 8, 1, tzinfo=pytz.UTC) <= datetime.now(tz=pytz.UTC):
         return False
 
-    # Holdback is 50/50
-    bucket = stable_bucketing_hash_group(DISCOUNT_APPLICABILITY_HOLDBACK, 2, user.username)
+    # Holdback is 10%
+    bucket = stable_bucketing_hash_group(DISCOUNT_APPLICABILITY_HOLDBACK, 10, user.username)
 
     request = get_current_request()
     if hasattr(request, 'session') and DISCOUNT_APPLICABILITY_HOLDBACK not in request.session:
-
         properties = {
             'site': request.site.domain,
             'app_label': 'discounts',

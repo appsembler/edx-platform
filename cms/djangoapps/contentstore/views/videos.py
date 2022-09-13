@@ -3,24 +3,26 @@ Views related to the video upload feature
 """
 
 
+import codecs
 import csv
 import json
 import logging
 from contextlib import closing
 from datetime import datetime, timedelta
+import io
 from uuid import uuid4
 
-import rfc6266_parser
 import six
 from boto import s3
 from boto.sts import STSConnection
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.http import HttpResponse, HttpResponseNotFound
+from django.http import FileResponse, HttpResponseNotFound
 from django.urls import reverse
 from django.utils.translation import ugettext as _
 from django.utils.translation import ugettext_noop
+from openedx.core.djangoapps.video_pipeline.models import VEMPipelineIntegration
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from edxval.api import (
     SortDirection,
@@ -48,6 +50,7 @@ from openedx.core.djangoapps.video_config.models import VideoTranscriptEnabledFl
 from openedx.core.djangoapps.video_pipeline.config.waffle import (
     DEPRECATE_YOUTUBE,
     ENABLE_DEVSTACK_VIDEO_UPLOADS,
+    ENABLE_VEM_PIPELINE,
     waffle_flags
 )
 from openedx.core.djangoapps.waffle_utils import CourseWaffleFlag, WaffleFlagNamespace, WaffleSwitchNamespace
@@ -78,7 +81,6 @@ WAFFLE_STUDIO_FLAG_NAMESPACE = WaffleFlagNamespace(name=u'studio')
 ENABLE_VIDEO_UPLOAD_PAGINATION = CourseWaffleFlag(
     waffle_namespace=WAFFLE_STUDIO_FLAG_NAMESPACE,
     flag_name=u'enable_video_upload_pagination',
-    flag_undefined_default=False
 )
 # Default expiration, in seconds, of one-time URLs used for uploading videos.
 KEY_EXPIRATION_IN_SECONDS = 86400
@@ -460,17 +462,12 @@ def video_encodings_download(request, course_key_string):
             for key, value in ret.items()
         }
 
-    response = HttpResponse(content_type="text/csv")
-    # Translators: This is the suggested filename when downloading the URL
-    # listing for videos uploaded through Studio
-    filename = _("{course}_video_urls").format(course=course.id.course)
-    # See https://tools.ietf.org/html/rfc6266#appendix-D
-    response["Content-Disposition"] = rfc6266_parser.build_header(
-        filename + ".csv",
-        filename_compat="video_urls.csv"
-    )
+    # Write csv to bytes-like object. We need a separate writer and buffer as the csv
+    # writer writes str and the FileResponse expects a bytes files.
+    buffer = io.BytesIO()
+    buffer_writer = codecs.getwriter("utf-8")(buffer)
     writer = csv.DictWriter(
-        response,
+        buffer_writer,
         [
             col_name.encode("utf-8") if six.PY2 else col_name
             for col_name
@@ -481,7 +478,12 @@ def video_encodings_download(request, course_key_string):
     writer.writeheader()
     for video in videos:
         writer.writerow(make_csv_dict(video))
-    return response
+    buffer.seek(0)
+
+    # Translators: This is the suggested filename when downloading the URL
+    # listing for videos uploaded through Studio
+    filename = _("{course}_video_urls").format(course=course.id.course) + ".csv"
+    return FileResponse(buffer, as_attachment=True, filename=filename, content_type="text/csv")
 
 
 def _get_and_validate_course(course_key_string, user):
@@ -746,7 +748,7 @@ def videos_post(course, request):
     if error:
         return JsonResponse({'error': error}, status=400)
 
-    bucket = storage_service_bucket()
+    bucket = storage_service_bucket(course.id)
     req_files = data['files']
     resp_files = []
 
@@ -804,9 +806,10 @@ def videos_post(course, request):
     return JsonResponse({'files': resp_files}, status=200)
 
 
-def storage_service_bucket():
+def storage_service_bucket(course_key=None):
     """
-    Returns an S3 bucket for video uploads.
+    Returns an S3 bucket for video upload. The S3 bucket returned depends on
+    which pipeline, VEDA or VEM, is enabled.
     """
     if waffle_flags()[ENABLE_DEVSTACK_VIDEO_UPLOADS].is_enabled():
         credentials = AssumeRole.get_instance().credentials
@@ -822,11 +825,20 @@ def storage_service_bucket():
         }
 
     conn = s3.connection.S3Connection(**params)
+    vem_pipeline = VEMPipelineIntegration.current()
+
     # We don't need to validate our bucket, it requires a very permissive IAM permission
     # set since behind the scenes it fires a HEAD request that is equivalent to get_all_keys()
     # meaning it would need ListObjects on the whole bucket, not just the path used in each
     # environment (since we share a single bucket for multiple deployments in some configurations)
-    return conn.get_bucket(settings.VIDEO_UPLOAD_PIPELINE["BUCKET"], validate=False)
+    #
+    # All the videos should go to VEM by default. VEDA related code will remain in-place
+    # until its deprecation.
+    if vem_pipeline and vem_pipeline.enabled:
+        return conn.get_bucket(settings.VIDEO_UPLOAD_PIPELINE['VEM_S3_BUCKET'], validate=False)
+    else:
+        LOGGER.info('Uploading course: {} to VEDA bucket.'.format(course_key))
+        return conn.get_bucket(settings.VIDEO_UPLOAD_PIPELINE['BUCKET'], validate=False)
 
 
 def storage_service_key(bucket, file_name):

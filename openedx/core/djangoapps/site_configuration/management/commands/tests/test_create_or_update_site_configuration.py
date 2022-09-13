@@ -1,7 +1,6 @@
 """
 Tests for the create_or_update_site_configuration management command.
 """
-from __future__ import absolute_import, unicode_literals
 
 import unittest
 from django.conf import settings

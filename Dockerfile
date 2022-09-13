@@ -1,4 +1,4 @@
-FROM ubuntu:focal as base
+FROM ubuntu:xenial as base
 
 # Warning: This file is experimental.
 
@@ -20,6 +20,7 @@ RUN apt-get update && \
     libxml2-dev \
     libxmlsec1-dev \
     libxslt1-dev \
+    software-properties-common \
     swig \
     # openedx requirements
     gettext \
@@ -39,13 +40,17 @@ RUN apt-get update && \
     ntp \
     pkg-config \
     python3-dev \
-    python3-venv \
+    python3-pip \
+    python3.5 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN locale-gen en_US.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
+
+RUN ln -s /usr/bin/pip3 /usr/bin/pip
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
 WORKDIR /edx/app/edxapp/edx-platform
 
@@ -56,19 +61,14 @@ ENV PATH /edx/app/edxapp/edx-platform/bin:${PATH}
 ENV SETTINGS production
 RUN mkdir -p /edx/etc/
 
-ENV VIRTUAL_ENV=/edx/app/edxapp/venvs/edxapp
-RUN python3.8 -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
 # Install Python requirements
+RUN pip install pip==20.0.2
 COPY setup.py setup.py
 COPY common common
 COPY openedx openedx
 COPY lms lms
 COPY cms cms
-COPY requirements/pip.txt requirements/pip.txt
 COPY requirements/edx/base.txt requirements/edx/base.txt
-RUN pip install -r requirements/pip.txt
 RUN pip install -r requirements/edx/base.txt
 
 # Copy just JS requirements and install them.
