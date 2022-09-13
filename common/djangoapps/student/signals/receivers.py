@@ -78,12 +78,6 @@ def on_user_updated(sender, instance, **kwargs):
                     field="email"
                 )
 
-        if is_email_retired(instance.email):
-            raise AccountValidationError(
-                EMAIL_EXISTS_MSG_FMT.format(email=instance.email),
-                field="email"
-            )
-
 
 @receiver(post_save, sender=CourseEnrollment)
 def create_course_enrollment_celebration(sender, instance, created, **kwargs):
