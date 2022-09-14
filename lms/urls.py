@@ -977,7 +977,6 @@ urlpatterns += (
 # appsembler management console endpoint for student enrollment
 urlpatterns += (
     url(r'^appsembler/api/', include('openedx.core.djangoapps.appsembler.sites.urls')),
-    url(r'^appsembler/api/', include('openedx.core.djangoapps.appsembler.tpa_admin.urls')),
 )
 
 # Tahoe API for registrations, enrollments, and users
