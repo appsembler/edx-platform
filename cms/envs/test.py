@@ -135,6 +135,8 @@ LMS_BASE = "localhost:8000"
 LMS_ROOT_URL = "http://{}".format(LMS_BASE)
 FEATURES['PREVIEW_LMS_BASE'] = "preview.localhost"
 
+COURSE_AUTHORING_MICROFRONTEND_URL = "http://course-authoring-mfe"
+
 CACHES = {
     # This is the cache used for most things. Askbot will not work without a
     # functioning cache -- it relies on caching to load its settings in places.
@@ -243,6 +245,7 @@ VIDEO_CDN_URL = {
 # Courseware Search Index
 FEATURES['ENABLE_COURSEWARE_INDEX'] = True
 FEATURES['ENABLE_LIBRARY_INDEX'] = True
+FEATURES['ENABLE_CONTENT_LIBRARY_INDEX'] = False
 SEARCH_ENGINE = "search.tests.mock_search_engine.MockSearchEngine"
 
 FEATURES['ENABLE_ENROLLMENT_TRACK_USER_PARTITION'] = True
@@ -284,9 +287,11 @@ VIDEO_TRANSCRIPTS_SETTINGS = dict(
 
 ####################### Plugin Settings ##########################
 
-# pylint: disable=wrong-import-position
-from openedx.core.djangoapps.plugins import plugin_settings, constants as plugin_constants
-plugin_settings.add_plugins(__name__, plugin_constants.ProjectType.CMS, plugin_constants.SettingsType.TEST)
+# pylint: disable=wrong-import-position, wrong-import-order
+from edx_django_utils.plugins import add_plugins
+# pylint: disable=wrong-import-position, wrong-import-order
+from openedx.core.djangoapps.plugins.constants import ProjectType, SettingsType
+add_plugins(__name__, ProjectType.CMS, SettingsType.TEST)
 
 ########################## Derive Any Derived Settings  #######################
 
@@ -298,3 +303,8 @@ SYSTEM_WIDE_ROLE_CLASSES = os.environ.get("SYSTEM_WIDE_ROLE_CLASSES", [])
 DEFAULT_MOBILE_AVAILABLE = True
 
 PROCTORING_SETTINGS = {}
+
+##### LOGISTRATION RATE LIMIT SETTINGS #####
+LOGISTRATION_RATELIMIT_RATE = '5/5m'
+
+REGISTRATION_VALIDATION_RATELIMIT = '5/minute'

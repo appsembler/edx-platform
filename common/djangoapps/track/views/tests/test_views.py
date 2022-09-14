@@ -28,6 +28,7 @@ class TestTrackViews(EventTrackingTestCase):
         self.request_factory = RequestFactory()
 
         patcher = patch('track.views.tracker', autospec=True)
+
         self.mock_tracker = patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -195,20 +196,18 @@ class TestTrackViews(EventTrackingTestCase):
         views.server_track(request, str(sentinel.event_type), '{}')
 
         expected_event = {
-            'context': {
-                'event_source': 'server',
-                'page': None,
-                'username': 'anonymous'
-            },
             'timestamp': FROZEN_TIME,
-            'data': {},
+            'data': '{}',
             'name': str(sentinel.event_type),
+            'context':
+            {
+                'username': 'anonymous',
+                'page': None,
+                'event_source': 'server'
+            }
         }
-        assert_event_matches(expected_event, self.get_event())
 
-    def assert_mock_tracker_call_matches(self, expected_event):
-        self.assertEqual(len(self.mock_tracker.send.mock_calls), 1)
-        actual_event = self.mock_tracker.send.mock_calls[0][1][0]
+        actual_event = self.get_event()
         assert_event_matches(expected_event, actual_event)
 
     def test_server_track_with_middleware(self):
@@ -221,33 +220,35 @@ class TestTrackViews(EventTrackingTestCase):
             views.server_track(request, str(sentinel.event_type), '{}')
 
             expected_event = {
-                'context': {
-                    'course_id': 'foo/bar/baz',
-                    'client_id': None,
-                    'org_id': 'foo',
-                    'page': None,
-                    'accept_language': '',
-                    'host': 'testserver',
-                    'ip': '127.0.0.1',
-                    'session': '',
-                    'agent': '',
-                    'referer': '',
-                    'username': 'anonymous',
-                    'path': '/courses/foo/bar/baz/xmod/',
-                    'event_source': 'server',
-                    'user_id': ''
-                },
                 'timestamp': FROZEN_TIME,
-                'data': {
-                    'GET': {},
-                    'POST': {}
-                },
-                'name': '/courses/foo/bar/baz/xmod/'
+                'data': '{"GET": {}, "POST": {}}',
+                'name': self.path_with_course,
+                'context': {
+                    'username': 'anonymous',
+                    'user_id': '',
+                    'accept_language': '',
+                    'ip': '127.0.0.1',
+                    'org_id': 'foo',
+                    'agent': '',
+                    'event_source': 'server',
+                    'host': 'testserver',
+                    'session': '',
+                    'referer': '',
+                    'client_id': None,
+                    'course_id': 'foo/bar/baz',
+                    'path': self.path_with_course,
+                    'page': None
+                }
             }
         finally:
             middleware.process_response(request, None)
 
-        assert_event_matches(expected_event, self.get_event())
+        actual_event = self.get_event()
+        assert_event_matches(
+            expected_event,
+            actual_event,
+            tolerate={'string_payload'}
+        )
 
     def test_server_track_with_middleware_and_google_analytics_cookie(self):
         middleware = TrackMiddleware()
@@ -260,49 +261,50 @@ class TestTrackViews(EventTrackingTestCase):
             views.server_track(request, str(sentinel.event_type), '{}')
 
             expected_event = {
-                'context': {
-                    'course_id': 'foo/bar/baz',
-                    'client_id': '1033501218.1368477899',
-                    'org_id': 'foo',
-                    'page': None,
-                    'accept_language': '',
-                    'host': 'testserver',
-                    'ip': '127.0.0.1',
-                    'session': '',
-                    'agent': '',
-                    'referer': '',
-                    'username': 'anonymous',
-                    'path': '/courses/foo/bar/baz/xmod/',
-                    'event_source': 'server',
-                    'user_id': ''
-                },
                 'timestamp': FROZEN_TIME,
-                'data': {
-                    'GET': {},
-                    'POST': {}
-                },
-                'name': '/courses/foo/bar/baz/xmod/'
+                'data': '{"GET": {}, "POST": {}}',
+                'name': self.path_with_course,
+                'context': {
+                    'username': 'anonymous',
+                    'user_id': '',
+                    'accept_language': '',
+                    'ip': '127.0.0.1',
+                    'org_id': 'foo',
+                    'agent': '',
+                    'event_source': 'server',
+                    'host': 'testserver',
+                    'session': '',
+                    'referer': '',
+                    'client_id': '1033501218.1368477899',
+                    'course_id': 'foo/bar/baz',
+                    'path': self.path_with_course,
+                    'page': None
+                }
             }
+
         finally:
             middleware.process_response(request, None)
 
-        assert_event_matches(expected_event, self.get_event())
+        actual_event = self.get_event()
+        assert_event_matches(expected_event, actual_event, tolerate={'string_payload', })
 
     def test_server_track_with_no_request(self):
         request = None
         views.server_track(request, str(sentinel.event_type), '{}')
 
         expected_event = {
-            'context': {
-                'event_source': 'server',
-                'page': None,
-                'username': 'anonymous'
-            },
             'timestamp': FROZEN_TIME,
-            'data': {},
-            'name': str(sentinel.event_type)
+            'data': '{}',
+            'name': str(sentinel.event_type),
+            'context': {
+                'username': 'anonymous',
+                'page': None,
+                'event_source':
+                'server'
+            }
         }
-        assert_event_matches(expected_event, self.get_event())
+        actual_event = self.get_event()
+        assert_event_matches(expected_event, actual_event)
 
     def test_task_track(self):
         request_info = {
@@ -323,18 +325,18 @@ class TestTrackViews(EventTrackingTestCase):
         views.task_track(request_info, task_info, str(sentinel.event_type), self.event)
 
         expected_event = {
-            'username': 'anonymous',
-            'ip': '127.0.0.1',
-            'event_source': 'task',
-            'event_type': str(sentinel.event_type),
-            'event': expected_event_data,
-            'agent': 'agent',
-            'page': None,
-            'time': FROZEN_TIME,
-            'host': 'testserver',
+            'timestamp': FROZEN_TIME,
+            'data': expected_event_data,
+            'name': str(sentinel.event_type),
             'context': {
-                'course_id': '',
-                'org_id': ''
-            },
+                'username': 'anonymous',
+                'ip': '127.0.0.1',
+                'agent': 'agent',
+                'host': 'testserver',
+                'page': None,
+                'event_source': 'task'
+            }
         }
-        self.assert_mock_tracker_call_matches(expected_event)
+
+        actual_event = self.get_event()
+        assert_event_matches(expected_event, actual_event)

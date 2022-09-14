@@ -16,19 +16,20 @@ from django.core.validators import ValidationError
 from django.db import transaction
 from django.dispatch import Signal
 from django.http import HttpResponse, HttpResponseForbidden
-from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
-from django.views.decorators.debug import sensitive_post_parameters
 from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.translation import get_language
 from django.utils.translation import ugettext as _
-from pytz import UTC
-from requests import HTTPError
-from six import text_type
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from django.views.decorators.debug import sensitive_post_parameters
 from ipware.ip import get_ip
+from pytz import UTC
+from ratelimit.decorators import ratelimit
+from requests import HTTPError
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
+from six import text_type
 from social_core.exceptions import AuthAlreadyAssociated, AuthException
 from social_django import utils as social_utils
 
@@ -57,27 +58,27 @@ from openedx.core.djangoapps.user_api.accounts.api import (
     get_username_existence_validation_error,
     get_username_validation_error
 )
-from openedx.core.djangoapps.user_authn.utils import generate_password
 from openedx.core.djangoapps.user_api.preferences import api as preferences_api
 from openedx.core.djangoapps.user_authn.cookies import set_logged_in_cookies
+from openedx.core.djangoapps.user_authn.utils import generate_password, is_registration_api_v1
 from openedx.core.djangoapps.user_authn.views.registration_form import (
-    get_registration_extension_form,
     AccountCreationForm,
-    RegistrationFormFactory
+    RegistrationFormFactory,
+    get_registration_extension_form
 )
 from openedx.core.djangoapps.waffle_utils import WaffleFlag, WaffleFlagNamespace
 from student.helpers import (
+    AccountValidationError,
     authenticate_new_user,
     create_or_set_user_attribute_created_on_site,
-    do_create_account,
-    AccountValidationError,
+    do_create_account
 )
 from student.models import (
     RegistrationCookieConfiguration,
     UserAttribute,
     create_comments_service_user,
     email_exists_or_retired,
-    username_exists_or_retired,
+    username_exists_or_retired
 )
 from student.views import compose_and_send_activation_email
 from third_party_auth import pipeline, provider
@@ -127,8 +128,8 @@ REGISTER_USER = Signal(providing_args=["user", "registration"])
 REGISTRATION_FAILURE_LOGGING_FLAG = WaffleFlag(
     waffle_namespace=WaffleFlagNamespace(name=u'registration'),
     flag_name=u'enable_failure_logging',
-    flag_undefined_default=False
 )
+REAL_IP_KEY = 'openedx.core.djangoapps.util.ratelimit.real_ip'
 
 
 @transaction.non_atomic_requests
@@ -175,6 +176,10 @@ def create_account_with_params(request, params):
         'REGISTRATION_EXTRA_FIELDS',
         getattr(settings, 'REGISTRATION_EXTRA_FIELDS', {})
     )
+    if is_registration_api_v1(request):
+        if 'confirm_email' in extra_fields:
+            del extra_fields['confirm_email']
+
     # registration via third party (Google, Facebook) using mobile application
     # doesn't use social auth pipeline (no redirect uri(s) etc involved).
     # In this case all related info (required for account linking)
@@ -230,6 +235,11 @@ def create_account_with_params(request, params):
         if is_request_for_amc_admin(request):  # Appsembler specific
             add_course_creator_role(user)
 
+    # Sites using multiple languages need to record the language used during registration.
+    # If not, compose_and_send_activation_email will be sent in site's default language only.
+    create_or_set_user_attribute_created_on_site(user, request.site)
+    preferences_api.set_user_preference(user, LANGUAGE_KEY, get_language())
+
     # Check if system is configured to skip activation email for the current user.
     skip_email = _skip_activation_email(
         user, running_pipeline, third_party_provider, params,
@@ -239,11 +249,6 @@ def create_account_with_params(request, params):
         registration.activate()
     else:
         compose_and_send_activation_email(user, profile, registration)
-
-    # Perform operations that are non-critical parts of account creation
-    create_or_set_user_attribute_created_on_site(user, request.site)
-
-    preferences_api.set_user_preference(user, LANGUAGE_KEY, get_language())
 
     if settings.FEATURES.get('ENABLE_DISCUSSION_EMAIL_DIGEST'):
         try:
@@ -631,19 +636,6 @@ class RegistrationView(APIView):
             pass
 
 
-class RegistrationValidationThrottle(AnonRateThrottle):
-    """
-    Custom throttle rate for /api/user/v1/validation/registration
-    endpoint's use case.
-    """
-
-    scope = 'registration_validation'
-
-    def get_ident(self, request):
-        client_ip = get_ip(request)
-        return client_ip
-
-
 # pylint: disable=line-too-long
 class RegistrationValidationView(APIView):
     """
@@ -733,7 +725,6 @@ class RegistrationValidationView(APIView):
 
     # This end-point is available to anonymous users, so no authentication is needed.
     authentication_classes = []
-    throttle_classes = (RegistrationValidationThrottle,)
 
     def name_handler(self, request):
         name = request.data.get('name')
@@ -781,6 +772,9 @@ class RegistrationValidationView(APIView):
         "country": country_handler
     }
 
+    @method_decorator(
+        ratelimit(key=REAL_IP_KEY, rate=settings.REGISTRATION_VALIDATION_RATELIMIT, method='POST', block=True)
+    )
     def post(self, request):
         """
         POST /api/user/v1/validation/registration/

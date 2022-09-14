@@ -275,6 +275,16 @@ if 'debug_toolbar' in settings.INSTALLED_APPS:
 urlpatterns.append(url(r'^template/(?P<template>.+)$', openedx.core.djangoapps.debug.views.show_reference_template,
                        name='openedx.core.djangoapps.debug.views.show_reference_template'))
 
+urlpatterns.append(
+    url(
+        r'^api/learning_sequences/',
+        include(
+            ('openedx.core.djangoapps.content.learning_sequences.urls', 'learning_sequences'),
+            namespace='learning_sequences'
+        ),
+    ),
+)
+
 # display error page templates, for testing purposes
 urlpatterns += [
     url(r'^404$', handler404),
@@ -290,13 +300,26 @@ if settings.TAHOE_ENABLE_CUSTOM_ERROR_VIEW:
 if settings.FEATURES.get('TAHOE_ENABLE_API_DOCS_URLS', False):
     urlpatterns += make_docs_urls(api_info)
 
+# edx-drf-extensions csrf app
+urlpatterns += [
+    url(r'', include('csrf.urls')),
+]
+
 if 'openedx.testing.coverage_context_listener' in settings.INSTALLED_APPS:
     urlpatterns += [
         url(r'coverage_context', include('openedx.testing.coverage_context_listener.urls'))
     ]
 
-from openedx.core.djangoapps.plugins import constants as plugin_constants, plugin_urls
-urlpatterns.extend(plugin_urls.get_patterns(plugin_constants.ProjectType.CMS))
+# pylint: disable=wrong-import-position, wrong-import-order
+from edx_django_utils.plugins import get_plugin_url_patterns
+# pylint: disable=wrong-import-position
+from openedx.core.djangoapps.plugins.constants import ProjectType
+urlpatterns.extend(get_plugin_url_patterns(ProjectType.CMS))
+
+# Contentstore
+urlpatterns += [
+    url(r'^api/contentstore/', include('cms.djangoapps.contentstore.rest_api.urls'))
+]
 
 urlpatterns += (
     url(r'^hijack/', include('hijack.urls')),

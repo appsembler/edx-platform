@@ -12,11 +12,13 @@ from django.urls import reverse
 from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
+from ratelimit.decorators import ratelimit
 
 import third_party_auth
 from edxmako.shortcuts import render_to_response
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.user_api import accounts
+from openedx.core.djangoapps.user_api.accounts.toggles import should_redirect_to_logistration_mircrofrontend
 from openedx.core.djangoapps.user_api.accounts.utils import (
     is_multiple_user_enterprises_feature_enabled,
     is_secondary_email_feature_enabled
@@ -28,7 +30,8 @@ from openedx.core.djangoapps.user_authn.views.registration_form import Registrat
 from openedx.features.enterprise_support.api import enterprise_customer_for_request
 from openedx.features.enterprise_support.utils import (
     handle_enterprise_cookies_for_logistration,
-    update_logistration_context_for_enterprise
+    get_enterprise_slug_login_url,
+    update_logistration_context_for_enterprise,
 )
 from student.helpers import get_next_url_for_login_page
 from third_party_auth import pipeline
@@ -126,6 +129,12 @@ def get_login_session_form(request):
 
 
 @require_http_methods(['GET'])
+@ratelimit(
+    key='openedx.core.djangoapps.util.ratelimit.real_ip',
+    rate=settings.LOGISTRATION_RATELIMIT_RATE,
+    method='GET',
+    block=True
+)
 @ensure_csrf_cookie
 @xframe_allow_whitelisted
 def login_and_registration_form(request, initial_mode="login"):
@@ -181,6 +190,15 @@ def login_and_registration_form(request, initial_mode="login"):
         except (KeyError, ValueError, IndexError) as ex:
             log.exception(u"Unknown tpa_hint provider: %s", ex)
 
+    # Redirect to logistration MFE if it is enabled
+    if should_redirect_to_logistration_mircrofrontend():
+        query_params = request.GET.urlencode()
+        url_path = '/{}{}'.format(
+            initial_mode,
+            '?' + query_params if query_params else ''
+        )
+        return redirect(settings.ACCOUNT_MICROFRONTEND_URL + url_path)
+
     # Account activation message
     account_activation_messages = [
         {
@@ -219,7 +237,8 @@ def login_and_registration_form(request, initial_mode="login"):
             'account_creation_allowed': configuration_helpers.get_value(
                 'ALLOW_PUBLIC_ACCOUNT_CREATION', settings.FEATURES.get('ALLOW_PUBLIC_ACCOUNT_CREATION', True)),
             'is_account_recovery_feature_enabled': is_secondary_email_feature_enabled(),
-            'is_multiple_user_enterprises_feature_enabled': is_multiple_user_enterprises_feature_enabled()
+            'is_multiple_user_enterprises_feature_enabled': is_multiple_user_enterprises_feature_enabled(),
+            'enterprise_slug_login_url': get_enterprise_slug_login_url()
         },
         'login_redirect_url': redirect_to,  # This gets added to the query string of the "Sign In" button in header
         'responsive': True,
@@ -231,7 +250,6 @@ def login_and_registration_form(request, initial_mode="login"):
             settings.FEATURES['ENABLE_COMBINED_LOGIN_REGISTRATION_FOOTER']
         ),
     }
-
     enterprise_customer = enterprise_customer_for_request(request)
     update_logistration_context_for_enterprise(request, context, enterprise_customer)
 

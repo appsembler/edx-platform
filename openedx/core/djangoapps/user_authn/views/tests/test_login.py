@@ -18,6 +18,7 @@ from django.http import HttpResponse
 from django.test.client import Client
 from django.test.utils import override_settings
 from django.urls import NoReverseMatch, reverse
+from freezegun import freeze_time
 from mock import patch
 from six.moves import range
 
@@ -26,14 +27,17 @@ from openedx.core.djangoapps.password_policy.compliance import (
     NonCompliantPasswordWarning
 )
 from openedx.core.djangoapps.user_api.accounts import EMAIL_MIN_LENGTH, EMAIL_MAX_LENGTH
+from openedx.core.djangoapps.user_api.accounts.toggles import REDIRECT_TO_ACCOUNT_MICROFRONTEND
 from openedx.core.djangoapps.user_authn.cookies import jwt_cookies
 from openedx.core.djangoapps.user_authn.views.login import (
     AllowedAuthUser,
-    ENABLE_LOGIN_USING_THIRDPARTY_AUTH_ONLY
+    ENABLE_LOGIN_USING_THIRDPARTY_AUTH_ONLY,
+    _check_user_auth_flow
 )
 from openedx.core.djangoapps.user_authn.tests.utils import setup_login_oauth_client
 from openedx.core.djangolib.testing.utils import CacheIsolationTestCase, skip_unless_lms
 from openedx.core.djangoapps.site_configuration.tests.mixins import SiteMixin
+from openedx.core.djangoapps.waffle_utils.testutils import override_waffle_flag
 from openedx.core.lib.api.test_utils import ApiTestCase
 from student.tests.factories import RegistrationFactory, UserFactory, UserProfileFactory
 from util.password_policy_validators import DEFAULT_MAX_PASSWORD_LENGTH
@@ -79,7 +83,7 @@ class LoginTest(SiteMixin, CacheIsolationTestCase):
         self._assert_audit_log(mock_audit_log, 'info', [u'Login success', self.user_email])
 
     FEATURES_WITH_LOGIN_MFE_ENABLED = settings.FEATURES.copy()
-    FEATURES_WITH_LOGIN_MFE_ENABLED['ENABLE_LOGIN_MICROFRONTEND'] = True
+    FEATURES_WITH_LOGIN_MFE_ENABLED['ENABLE_LOGISTRATION_MICROFRONTEND'] = True
 
     @ddt.data(
         # Default redirect is dashboard.
@@ -144,17 +148,22 @@ class LoginTest(SiteMixin, CacheIsolationTestCase):
     @override_settings(FEATURES=FEATURES_WITH_LOGIN_MFE_ENABLED)
     @skip_unless_lms
     def test_login_success_with_redirect(self, next_url, course_id, expected_redirect):
+        site_domain = 'example.org'
+        self.set_up_site(site_domain, {'ENABLE_ACCOUNT_MICROFRONTEND': True})
         post_params = {}
+
         if next_url:
             post_params['next'] = next_url
         if course_id:
             post_params['course_id'] = course_id
-        response, _ = self._login_response(
-            self.user_email,
-            self.password,
-            extra_post_params=post_params,
-            HTTP_ACCEPT='*/*',
-        )
+
+        with override_waffle_flag(REDIRECT_TO_ACCOUNT_MICROFRONTEND, active=True):
+            response, _ = self._login_response(
+                self.user_email,
+                self.password,
+                extra_post_params=post_params,
+                HTTP_ACCEPT='*/*',
+            )
         self._assert_response(response, success=True)
         self._assert_redirect_url(response, expected_redirect)
 
@@ -227,8 +236,7 @@ class LoginTest(SiteMixin, CacheIsolationTestCase):
             self.user_email,
             self.password
         )
-        self._assert_response(response, success=False,
-                              value="In order to sign in, you need to activate your account.")
+        self._assert_response(response, success=False, error_code="inactive-user")
         self._assert_audit_log(mock_audit_log, 'warning', [u'Login failed', u'Account not active for user'])
         self._assert_not_in_audit_log(mock_audit_log, 'warning', [u'test'])
 
@@ -244,7 +252,7 @@ class LoginTest(SiteMixin, CacheIsolationTestCase):
             self.user_email,
             self.password,
         )
-        self._assert_response(response, success=False, value=self.ACTIVATE_ACCOUNT_WARNING)
+        self._assert_response(response, success=False, error_code="inactive-user")
         self._assert_audit_log(mock_audit_log, 'warning', [u'Login failed', u'Account not active for user'])
 
     @patch('openedx.core.djangoapps.user_authn.views.login._log_and_raise_inactive_user_auth_error')
@@ -351,7 +359,8 @@ class LoginTest(SiteMixin, CacheIsolationTestCase):
         self._assert_audit_log(mock_audit_log, 'info', [u'Logout'])
         self._assert_not_in_audit_log(mock_audit_log, 'info', [u'test'])
 
-    def test_login_ratelimited_success(self):
+    @override_settings(RATELIMIT_ENABLE=False)
+    def test_excessive_login_attempts_success(self):
         # Try (and fail) logging in with fewer attempts than the limit of 30
         # and verify that you can still successfully log in afterwards.
         for i in range(20):
@@ -362,7 +371,8 @@ class LoginTest(SiteMixin, CacheIsolationTestCase):
         response, _audit_log = self._login_response(self.user_email, self.password)
         self._assert_response(response, success=True)
 
-    def test_login_ratelimited(self):
+    @override_settings(RATELIMIT_ENABLE=False)
+    def test_excessive_login_attempts(self):
         # try logging in 30 times, the default limit in the number of failed
         # login attempts in one 5 minute period before the rate gets limited
         for i in range(30):
@@ -371,6 +381,26 @@ class LoginTest(SiteMixin, CacheIsolationTestCase):
         # check to see if this response indicates that this was ratelimited
         response, _audit_log = self._login_response(self.user_email, 'wrong_password')
         self._assert_response(response, success=False, value='Too many failed login attempts')
+
+    def test_login_ratelimited(self):
+        """
+        Test that login endpoint is IP ratelimited and only allow 5 requests
+        per 5 minutes per IP.
+        """
+        for i in range(5):
+            password = u'test_password{0}'.format(i)
+            response, _audit_log = self._login_response(self.user_email, password)
+            self._assert_response(response, success=False)
+
+        response, _audit_log = self._login_response(self.user_email, self.password)
+        self.assertEqual(response.status_code, 403)
+
+        # now reset the time to 6 min from now in future and verify that it will
+        # allow another request from same IP and user can successfully login
+        reset_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=361)
+        with freeze_time(reset_time):
+            response, _audit_log = self._login_response(self.user_email, self.password)
+            self._assert_response(response, success=True)
 
     @patch.dict("django.conf.settings.FEATURES", {"DISABLE_SET_JWT_COOKIES_FOR_TESTS": False})
     def test_login_refresh(self):
@@ -564,7 +594,7 @@ class LoginTest(SiteMixin, CacheIsolationTestCase):
             result = self.client.post(self.url, post_params, **extra)
         return result, mock_audit_log
 
-    def _assert_response(self, response, success=None, value=None, status_code=None):
+    def _assert_response(self, response, success=None, value=None, status_code=None, error_code=None):
         """
         Assert that the response has the expected status code and returned a valid
         JSON-parseable dict.
@@ -586,6 +616,9 @@ class LoginTest(SiteMixin, CacheIsolationTestCase):
 
         if success is not None:
             self.assertEqual(response_dict['success'], success)
+
+        if error_code is not None:
+            self.assertEqual(response_dict['error_code'], error_code)
 
         if value is not None:
             msg = (u"'%s' did not contain '%s'" %
@@ -761,6 +794,28 @@ class LoginTest(SiteMixin, CacheIsolationTestCase):
                             success=success
                         )
                         self.assertFalse(mock_check_user_auth_flow.called)
+
+    def test_check_user_auth_flow_bad_email(self):
+        """Regression Exception was thrown on missing @ char in TPA."""
+        provider = 'Google'
+        provider_tpa_hint = 'saml-test'
+        username = 'batman'
+        invalid_email_user = self._create_user(username, username)
+        allowed_domain = 'edx.org'
+        default_site_configuration_values = {
+            'SITE_NAME': allowed_domain,
+            'THIRD_PARTY_AUTH_ONLY_DOMAIN': allowed_domain,
+            'THIRD_PARTY_AUTH_ONLY_PROVIDER': provider,
+            'THIRD_PARTY_AUTH_ONLY_HINT': provider_tpa_hint,
+        }
+
+        with ENABLE_LOGIN_USING_THIRDPARTY_AUTH_ONLY.override(True):
+            site = self.set_up_site(allowed_domain, default_site_configuration_values)
+
+            with self.assertLogs(level='WARN') as log:
+                _check_user_auth_flow(site, invalid_email_user)
+                assert len(log.output) == 1
+                assert "Shortcircuiting THIRD_PART_AUTH_ONLY_DOMAIN check." in log.output[0]
 
 
 @ddt.ddt

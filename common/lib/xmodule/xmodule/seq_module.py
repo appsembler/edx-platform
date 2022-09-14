@@ -253,6 +253,7 @@ class SequenceModule(SequenceFields, ProctoringFields, XModule):
                     prereq_met, prereq_meta_info = self._compute_is_prereq_met(True)
             meta = self._get_render_metadata(context, display_items, prereq_met, prereq_meta_info, banner_text, STUDENT_VIEW)
             meta['display_name'] = self.display_name_with_default
+            meta['format'] = getattr(self, 'format', '')
             return json.dumps(meta)
         raise NotFoundError('Unexpected dispatch type')
 
@@ -529,6 +530,7 @@ class SequenceModule(SequenceFields, ProctoringFields, XModule):
 
             context['show_bookmark_button'] = show_bookmark_button
             context['bookmarked'] = is_bookmarked
+            context['format'] = getattr(self, 'format', '')
 
             if render_items:
                 rendered_item = item.render(view, context)

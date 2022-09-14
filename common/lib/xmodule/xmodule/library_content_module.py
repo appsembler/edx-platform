@@ -19,6 +19,7 @@ from six import text_type
 from six.moves import zip
 from web_fragments.fragment import Fragment
 from webob import Response
+from xblock.completable import XBlockCompletionMode
 from xblock.core import XBlock
 from xblock.fields import Integer, List, Scope, String
 
@@ -65,6 +66,7 @@ class LibraryContentFields(object):
     Separated out for now because they need to be added to the module and the
     descriptor.
     """
+    completion_mode = XBlockCompletionMode.AGGREGATOR
     # Please note the display_name of each field below is used in
     # common/test/acceptance/pages/studio/library.py:StudioLibraryContentXBlockEditModal
     # to locate input elements - keep synchronized
@@ -158,37 +160,41 @@ class LibraryContentModule(LibraryContentFields, XModule, StudioEditableModule):
         """
         rand = random.Random()
 
-        selected = set(tuple(k) for k in selected)  # set of (block_type, block_id) tuples assigned to this student
+        selected_keys = set(tuple(k) for k in selected)  # set of (block_type, block_id) tuples assigned to this student
 
         # Determine which of our children we will show:
-        valid_block_keys = set([(c.block_type, c.block_id) for c in children])
+        valid_block_keys = set((c.block_type, c.block_id) for c in children)
 
         # Remove any selected blocks that are no longer valid:
-        invalid_block_keys = (selected - valid_block_keys)
+        invalid_block_keys = (selected_keys - valid_block_keys)
         if invalid_block_keys:
-            selected -= invalid_block_keys
+            selected_keys -= invalid_block_keys
 
         # If max_count has been decreased, we may have to drop some previously selected blocks:
         overlimit_block_keys = set()
-        if len(selected) > max_count:
-            num_to_remove = len(selected) - max_count
-            overlimit_block_keys = set(rand.sample(selected, num_to_remove))
-            selected -= overlimit_block_keys
+        if len(selected_keys) > max_count:
+            num_to_remove = len(selected_keys) - max_count
+            overlimit_block_keys = set(rand.sample(selected_keys, num_to_remove))
+            selected_keys -= overlimit_block_keys
 
         # Do we have enough blocks now?
-        num_to_add = max_count - len(selected)
+        num_to_add = max_count - len(selected_keys)
 
         added_block_keys = None
         if num_to_add > 0:
             # We need to select [more] blocks to display to this user:
-            pool = valid_block_keys - selected
+            pool = valid_block_keys - selected_keys
             if mode == "random":
                 num_to_add = min(len(pool), num_to_add)
                 added_block_keys = set(rand.sample(pool, num_to_add))
                 # We now have the correct n random children to show for this user.
             else:
                 raise NotImplementedError("Unsupported mode.")
-            selected |= added_block_keys
+            selected_keys |= added_block_keys
+
+        if any([invalid_block_keys, overlimit_block_keys, added_block_keys]):
+            selected = list(selected_keys)
+            random.shuffle(selected)
 
         return {
             'selected': selected,
@@ -268,19 +274,15 @@ class LibraryContentModule(LibraryContentFields, XModule, StudioEditableModule):
 
     def selected_children(self):
         """
-        Returns a set() of block_ids indicating which of the possible children
+        Returns a list() of block_ids indicating which of the possible children
         have been selected to display to the current user.
 
         This reads and updates the "selected" field, which has user_state scope.
 
-        Note: self.selected and the return value contain block_ids. To get
+        Note: the return value (self.selected) contains block_ids. To get
         actual BlockUsageLocators, it is necessary to use self.children,
         because the block_ids alone do not specify the block type.
         """
-        if hasattr(self, "_selected_set"):
-            # Already done:
-            return self._selected_set  # pylint: disable=access-member-before-definition
-
         block_keys = self.make_selection(self.selected, self.children, self.max_count, "random")  # pylint: disable=no-member
 
         # Publish events for analytics purposes:
@@ -292,13 +294,12 @@ class LibraryContentModule(LibraryContentFields, XModule, StudioEditableModule):
             self._publish_event,
         )
 
-        # Save our selections to the user state, to ensure consistency:
-        selected = block_keys['selected']
-        self.selected = list(selected)  # TODO: this doesn't save from the LMS "Progress" page.
-        # Cache the results
-        self._selected_set = selected  # pylint: disable=attribute-defined-outside-init
+        if any(block_keys[changed] for changed in ('invalid', 'overlimit', 'added')):
+            # Save our selections to the user state, to ensure consistency:
+            selected = block_keys['selected']
+            self.selected = selected  # TODO: this doesn't save from the LMS "Progress" page.
 
-        return selected
+        return self.selected
 
     def _get_selected_child_blocks(self):
         """
@@ -314,6 +315,15 @@ class LibraryContentModule(LibraryContentFields, XModule, StudioEditableModule):
         child_context = {} if not context else copy(context)
 
         for child in self._get_selected_child_blocks():
+            if child is None:
+                # TODO: Fix the underlying issue in TNL-7424
+                # This shouldn't be happening, but does for an as-of-now
+                # unknown reason. Until we address the underlying issue,
+                # let's at least log the error explicitly, ignore the
+                # exception, and prevent the page from resulting in a
+                # 500-response.
+                logger.error('Skipping display for child block that is None')
+                continue
             for displayable in child.displayable_items():
                 rendered_child = displayable.render(STUDENT_VIEW, child_context)
                 fragment.add_fragment_resources(rendered_child)
@@ -432,10 +442,9 @@ class LibraryContentDescriptor(LibraryContentFields, MakoModuleDescriptor, XmlDe
         this block is up to date or not.
         """
         user_perms = self.runtime.service(self, 'studio_user_permissions')
-        user_id = self.get_user_id()
         if not self.tools:
             return Response("Library Tools unavailable in current runtime.", status=400)
-        self.tools.update_children(self, user_id, user_perms)
+        self.tools.update_children(self, user_perms)
         return Response()
 
     # Copy over any overridden settings the course author may have applied to the blocks.
@@ -467,7 +476,7 @@ class LibraryContentDescriptor(LibraryContentFields, MakoModuleDescriptor, XmlDe
         user_perms = self.runtime.service(self, 'studio_user_permissions')
         if not self.tools:
             raise RuntimeError("Library tools unavailable, duplication will not be sane!")
-        self.tools.update_children(self, user_id, user_perms, version=self.source_library_version)
+        self.tools.update_children(self, user_perms, version=self.source_library_version)
 
         self._copy_overrides(store, user_id, source_block, self)
 

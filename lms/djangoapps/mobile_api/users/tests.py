@@ -280,15 +280,18 @@ class TestUserEnrollmentApi(UrlResetMixin, MobileAPITestCase, MobileAuthUserTest
                 user=self.user,
                 course_id=course.id
             )
+            enrollment.created = self.THREE_YEARS_AGO + datetime.timedelta(days=1)
+            enrollment.save()
+
             ScheduleFactory(
-                start_date=self.THREE_YEARS_AGO + datetime.timedelta(days=1),
                 enrollment=enrollment
             )
         else:
             course = CourseFactory.create(start=self.LAST_WEEK, mobile_available=True)
             self.enroll(course.id)
 
-        add_course_mode(course, upgrade_deadline_expired=False)
+        add_course_mode(course, mode_slug=CourseMode.AUDIT)
+        add_course_mode(course)
 
     def _get_enrollment_data(self, api_version, expired):
         self.login()
@@ -318,7 +321,7 @@ class TestUserEnrollmentApi(UrlResetMixin, MobileAPITestCase, MobileAuthUserTest
         Test that expired courses are only returned in v1 of API
         when waffle flag enabled, and un-expired courses always returned
         '''
-        CourseDurationLimitConfig.objects.create(enabled=True, enabled_as_of=datetime.datetime(2018, 1, 1))
+        CourseDurationLimitConfig.objects.create(enabled=True, enabled_as_of=datetime.datetime(2015, 1, 1))
         courses = self._get_enrollment_data(api_version, expired)
         self._assert_enrollment_results(api_version, courses, num_courses_returned, True)
 
@@ -407,10 +410,7 @@ class TestUserEnrollmentCertificates(UrlResetMixin, MobileAPITestCase, Milestone
         certificate_data = response.data[0]['certificate']
         self.assertRegex(
             certificate_data['url'],
-            r'http.*/certificates/user/{user_id}/course/{course_id}'.format(
-                user_id=self.user.id,
-                course_id=self.course.id,
-            )
+            r'http.*/certificates/[0-9a-f]{32}'
         )
 
 

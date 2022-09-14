@@ -2,6 +2,7 @@
 
 
 import logging
+import unittest
 
 import ddt
 from django.conf import settings
@@ -148,11 +149,31 @@ class TestLoginHelper(TestCase):
         assert '/dashboard' == get_next_url_for_login_page(request), 'Default should be /dashboard'
 
         with with_site_configuration_context(configuration={
-            'LOGIN_REDIRECT_URL': '/about'
+            'DEFAULT_REDIRECT_AFTER_LOGIN': 'about'
         }):
             assert '/about' == get_next_url_for_login_page(request), 'Custom redirect should be used'
 
         with with_site_configuration_context(configuration={
-            'LOGIN_REDIRECT_URL': ''  # Falsy or empty URLs should not be used
+            'DEFAULT_REDIRECT_AFTER_LOGIN': ''  # Falsy or empty URLs should not be used
         }):
             assert '/dashboard' == get_next_url_for_login_page(request), 'Falsy url should default to dashboard'
+
+    @unittest.skipUnless(settings.ROOT_URLCONF == 'lms.urls', 'Test only valid in lms')
+    @ddt.data(
+        (None, '/dashboard'),
+        ('invalid-url', '/dashboard'),
+        ('courses', '/courses'),
+    )
+    @ddt.unpack
+    def test_custom_redirect_url(self, redirect, expected_url):
+        """
+        Test custom redirect after login
+        """
+        configuration_values = {"DEFAULT_REDIRECT_AFTER_LOGIN": redirect}
+        req = self.request.get(settings.LOGIN_URL)
+        req.META["HTTP_ACCEPT"] = "text/html"
+
+        with with_site_configuration_context(configuration=configuration_values):
+            next_page = get_next_url_for_login_page(req)
+
+        self.assertEqual(next_page, expected_url)

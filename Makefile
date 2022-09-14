@@ -21,7 +21,7 @@ clean: ## archive and delete most git-ignored files
 
 SWAGGER = docs/swagger.yaml
 
-docs: api-docs guides ## build all the developer documentation for this repository
+docs: api-docs guides feature-toggles-docs ## build all the developer documentation for this repository
 
 swagger: ## generate the swagger.yaml file
 	DJANGO_SETTINGS_MODULE=docs.docs_settings python manage.py lms generate_swagger --generator-class=edx_api_doc_tools.ApiSchemaGenerator -o $(SWAGGER)
@@ -32,6 +32,9 @@ api-docs-sphinx: swagger	## generate the sphinx source files for api-docs
 
 api-docs: api-docs-sphinx	## build the REST api docs
 	cd docs/api; make html
+
+feature-toggles-docs:
+	$(MAKE) -C docs/featuretoggles html
 
 guides:	## build the developer guide docs
 	cd docs/guides; make clean html
@@ -71,23 +74,11 @@ shell: ## launch a bash shell in a Docker container with all edx-platform depend
 	-v edxapp_node_modules:/edx/app/edxapp/edx-platform/node_modules \
 	edxops/edxapp:latest /edx/app/edxapp/devstack.sh open
 
-
-DATE := $(shell date --iso-8601)
-devstack-docker-build:
-	docker build --no-cache -f Dockerfile.devstack \
-          -t appsembler/edxapp:juniper.master \
-          -t appsembler/edxapp:juniper.manual-$(DATE) .
-
-
-devstack-docker-push:
-	docker push appsembler/edxapp:juniper.master
-	docker push appsembler/edxapp:juniper.manual-$(DATE)
-
-
 # Order is very important in this list: files must appear after everything they include!
 REQ_FILES = \
 	requirements/edx/pip-tools \
 	requirements/edx/coverage \
+	requirements/edx/doc \
 	requirements/edx/paver \
 	requirements/edx-sandbox/shared \
 	requirements/edx-sandbox/py35 \
@@ -114,16 +105,25 @@ upgrade: ## update the pip requirements files to use the latest releases satisfy
 	sed '/^[dD]jango==/d' requirements/edx/testing.txt > requirements/edx/testing.tmp
 	mv requirements/edx/testing.tmp requirements/edx/testing.txt
 
-.PHONY: docker-tox
-docker-tox:
-	docker build .  -f Dockerfile.tox -t edx-platform-tox
-	docker run -it -e "NO_PYTHON_UNINSTALL=1" -e "PIP_INDEX_URL=https://pypi.python.org/simple" -e TERM \
-	-v `pwd`:/edx/app/edxapp/edx-platform:cached \
-	-v edxapp_lms_assets:/edx/var/edxapp/staticfiles/ \
-	-v edxapp_node_modules:/edx/app/edxapp/edx-platform/node_modules \
-	-v edxapp_toxenv:/root/edxapp_toxenv \
-	edx-platform-tox /edx/app/edxapp/devstack.sh /bin/bash /edx/app/edxapp/edx-platform/scripts/docker_tox.sh
+# These make targets currently only build LMS images.
+docker_build:
+	docker build . -f Dockerfile --target lms -t openedx/edx-platform
+	docker build . -f Dockerfile --target lms-newrelic -t openedx/edx-platform:latest-newrelic
+	docker build . -f Dockerfile --target lms-devstack -t openedx/edx-platform:latest-devstack
 
-.PHONY: cloudbuild
-cloudbuild:
-	gcloud builds submit --config cloudbuild.yaml .  --project=appsembler-infrastructure
+docker_tag: docker_build
+	docker tag openedx/edx-platform openedx/edx-platform:${GITHUB_SHA}
+	docker tag openedx/edx-platform:latest-newrelic openedx/edx-platform:${GITHUB_SHA}-newrelic
+	docker tag openedx/edx-platform:latest-devstack openedx/edx-platform:${GITHUB_SHA}-devstack
+
+docker_auth:
+	echo "$$DOCKERHUB_PASSWORD" | docker login -u "$$DOCKERHUB_USERNAME" --password-stdin
+
+docker_push: docker_tag docker_auth ## push to docker hub
+	docker push 'openedx/edx-platform:latest'
+	docker push "openedx/edx-platform:${GITHUB_SHA}"
+	docker push 'openedx/edx-platform:latest-newrelic'
+	docker push "openedx/edx-platform:${GITHUB_SHA}-newrelic"
+	docker push 'openedx/edx-platform:latest-devstack'
+	docker push "openedx/edx-platform:${GITHUB_SHA}-devstack"
+

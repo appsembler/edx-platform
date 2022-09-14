@@ -236,8 +236,8 @@ def get_next_url_for_login_page(request):
     /account/finish_auth/ view following login, which will take care of auto-enrollment in
     the specified course.
 
-    Otherwise, we go to the `next` param or to the dashboard if nothing else is
-    specified.
+    Otherwise, we go to the ?next= query param or the configured custom
+    redirection url (the default behaviour is to go to /dashboard).
 
     If THIRD_PARTY_AUTH_HINT is set, then `tpa_hint=<hint>` is added as a query parameter.
 
@@ -251,12 +251,25 @@ def get_next_url_for_login_page(request):
         request_is_https=request.is_secure(),
     )
     if not redirect_to:
-        try:
-            default_redirect_to = reverse('dashboard')
-            # The following works in LMS only, on CMS `NoReverseMatch` will be raised and Studio `/home` will be used.
-            site_redirect_to = configuration_helpers.get_value('LOGIN_REDIRECT_URL', reverse('dashboard'))
-            redirect_to = site_redirect_to or default_redirect_to  # Falsy site config values should not be used
-        except NoReverseMatch:
+        if settings.ROOT_URLCONF == 'lms.urls':
+            login_redirect_url = configuration_helpers.get_value('DEFAULT_REDIRECT_AFTER_LOGIN')
+
+            if login_redirect_url:
+                try:
+                    redirect_to = reverse(login_redirect_url)
+                except NoReverseMatch:
+                    log.warning(
+                        u'Default redirect after login doesn\'t exist: %(login_redirect_url)r. '
+                        u'Check the value set on DEFAULT_REDIRECT_AFTER_LOGIN configuration variable.',
+                        {"login_redirect_url": login_redirect_url}
+                    )
+
+            # If redirect url isn't set, reverse to dashboard
+            if not redirect_to:
+                # Tries reversing the LMS dashboard if the url doesn't exist
+                redirect_to = reverse('dashboard')
+
+        elif settings.ROOT_URLCONF == 'cms.urls':
             redirect_to = reverse('home')
 
     if any(param in request_params for param in POST_AUTH_PARAMS):

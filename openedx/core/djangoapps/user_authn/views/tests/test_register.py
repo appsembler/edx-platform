@@ -1,26 +1,23 @@
 # -*- coding: utf-8 -*-
 """Tests for account creation"""
-import unittest
-
 import json
-from unittest import skipIf, skipUnless
 from datetime import datetime
+from unittest import skipIf, skipUnless, expectedFailure
 
 import ddt
 import httpretty
 import mock
 import six
-from six.moves import range
-
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
+from django.core.cache import cache
 from django.test import TransactionTestCase
 from django.test.client import RequestFactory
 from django.test.utils import override_settings
 from django.urls import reverse
 from pytz import UTC
-
+from six.moves import range
 from social_django.models import Partial, UserSocialAuth
 
 from openedx.core.djangoapps.site_configuration.helpers import get_value
@@ -33,25 +30,24 @@ from openedx.core.djangoapps.user_api.accounts import (
     EMAIL_MIN_LENGTH,
     NAME_MAX_LENGTH,
     REQUIRED_FIELD_CONFIRM_EMAIL_MSG,
-    USERNAME_MAX_LENGTH,
-    USERNAME_MIN_LENGTH,
     USERNAME_BAD_LENGTH_MSG,
     USERNAME_CONFLICT_MSG,
     USERNAME_INVALID_CHARS_ASCII,
     USERNAME_INVALID_CHARS_UNICODE,
+    USERNAME_MAX_LENGTH,
+    USERNAME_MIN_LENGTH
 )
 from openedx.core.djangoapps.user_api.accounts.api import get_account_settings
 from openedx.core.djangoapps.user_api.accounts.tests import testutils
 from openedx.core.djangoapps.user_api.accounts.tests.retirement_helpers import (  # pylint: disable=unused-import
     RetirementTestCase,
     fake_requested_retirement,
-    setup_retirement_states,
+    setup_retirement_states
 )
-from openedx.core.djangoapps.user_api.tests.test_helpers import TestCaseForm
 from openedx.core.djangoapps.user_api.tests.test_constants import SORTED_COUNTRIES
+from openedx.core.djangoapps.user_api.tests.test_helpers import TestCaseForm
 from openedx.core.djangoapps.user_api.tests.test_views import UserAPITestCase
-from openedx.core.djangoapps.user_authn.views.register import RegistrationValidationThrottle, \
-    REGISTRATION_FAILURE_LOGGING_FLAG
+from openedx.core.djangoapps.user_authn.views.register import REGISTRATION_FAILURE_LOGGING_FLAG
 from openedx.core.djangoapps.waffle_utils.testutils import override_waffle_flag
 from openedx.core.djangolib.testing.utils import CacheIsolationTestCase, skip_unless_lms
 from openedx.core.lib.api import test_utils
@@ -328,7 +324,7 @@ class RegistrationViewValidationErrorTest(ThirdPartyAuthTestMixin, UserAPITestCa
 
 @ddt.ddt
 @skip_unless_lms
-class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
+class RegistrationViewTestV1(ThirdPartyAuthTestMixin, UserAPITestCase):
     """Tests for the registration end-points of the User API. """
 
     maxDiff = None
@@ -392,7 +388,7 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
     link_template = u"<a href='/honor' rel='noopener' target='_blank'>{link_label}</a>"
 
     def setUp(self):  # pylint: disable=arguments-differ
-        super(RegistrationViewTest, self).setUp()
+        super(RegistrationViewTestV1, self).setUp()
         self.url = reverse("user_api_registration")
 
     @ddt.data("get", "post")
@@ -402,17 +398,17 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
     def test_allowed_methods(self):
         self.assertAllowedMethods(self.url, ["GET", "POST", "HEAD", "OPTIONS"])
 
-    @unittest.expectedFailure  # Tahoe: Broken due to some multi-tenant related functionality
+    @expectedFailure  # Tahoe: Broken due to some multi-tenant related functionality
     def test_put_not_allowed(self):
         response = self.client.put(self.url)
         self.assertHttpMethodNotAllowed(response)
 
-    @unittest.expectedFailure  # Tahoe: Broken due to some multi-tenant related functionality
+    @expectedFailure  # Tahoe: Broken due to some multi-tenant related functionality
     def test_delete_not_allowed(self):
         response = self.client.delete(self.url)
         self.assertHttpMethodNotAllowed(response)
 
-    @unittest.expectedFailure  # Tahoe: Broken due to some multi-tenant related functionality
+    @expectedFailure  # Tahoe: Broken due to some multi-tenant related functionality
     def test_patch_not_allowed(self):
         response = self.client.patch(self.url)
         self.assertHttpMethodNotAllowed(response)
@@ -497,7 +493,7 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
             }
         )
 
-        msg = u'Your password must contain at least 2 characters, including '\
+        msg = u'Your password must contain at least 2 characters, including ' \
               u'3 uppercase letters & 1 symbol.'
         self._assert_reg_field(
             no_extra_fields_setting,
@@ -953,18 +949,7 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
         )
 
     def test_registration_form_confirm_email(self):
-        self._assert_reg_field(
-            {"confirm_email": "required"},
-            {
-                "name": "confirm_email",
-                "type": "text",
-                "required": True,
-                "label": "Confirm Email",
-                "errorMessages": {
-                    "required": "The email addresses do not match.",
-                }
-            }
-        )
+        pass
 
     @override_settings(
         MKTG_URLS={"ROOT": "https://www.test.com/", "HONOR": "honor"},
@@ -1163,7 +1148,6 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
             "password",
             "favorite_movie",
             "favorite_editor",
-            "confirm_email",
             "city",
             "state",
             "country",
@@ -1224,7 +1208,6 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
             "name",
             "username",
             "email",
-            "confirm_email",
             "password",
             "city",
             "state",
@@ -1282,7 +1265,7 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
             "password",
             "favorite_movie",
             "favorite_editor",
-            "confirm_email",
+
             "city",
             "state",
             "country",
@@ -1640,6 +1623,7 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
         """
         Test case to check user creation is forbidden when ALLOW_PUBLIC_ACCOUNT_CREATION feature flag is turned off
         """
+
         def _side_effect_for_get_value(value, default=None):
             """
             returns a side_effect with given return value for a given value
@@ -1736,6 +1720,188 @@ class RegistrationViewTest(ThirdPartyAuthTestMixin, UserAPITestCase):
             "required": False,
             "defaultValue": backend.name
         })
+
+
+class RegistrationViewTestV2(RegistrationViewTestV1):
+
+    def setUp(self):  # pylint: disable=arguments-differ
+        super(RegistrationViewTestV1, self).setUp()
+        self.url = reverse("user_api_registration_v2")
+
+    @override_settings(
+        REGISTRATION_EXTRA_FIELDS={
+            "level_of_education": "optional",
+            "gender": "optional",
+            "year_of_birth": "optional",
+            "mailing_address": "optional",
+            "goals": "optional",
+            "city": "optional",
+            "state": "optional",
+            "country": "required",
+            "honor_code": "required",
+            "confirm_email": "required",
+        },
+        REGISTRATION_EXTENSION_FORM='openedx.core.djangoapps.user_api.tests.test_helpers.TestCaseForm',
+        REGISTRATION_FIELD_ORDER=[
+            "name",
+            "confirm_email",
+            "password",
+            "first_name",
+            "last_name",
+            "gender",
+            "year_of_birth",
+            "level_of_education",
+            "company",
+            "title",
+            "mailing_address",
+            "goals",
+            "honor_code",
+            "terms_of_service",
+        ],
+    )
+    def test_field_order_invalid_override(self):
+        response = self.client.get(self.url)
+        self.assertHttpOK(response)
+
+        # Verify that all fields render in the correct order
+        form_desc = json.loads(response.content.decode('utf-8'))
+        field_names = [field["name"] for field in form_desc["fields"]]
+
+        self.assertEqual(field_names, [
+            "email",
+            "name",
+            "username",
+            "password",
+            "favorite_movie",
+            "favorite_editor",
+            "confirm_email",
+            "city",
+            "state",
+            "country",
+            "gender",
+            "year_of_birth",
+            "level_of_education",
+            "mailing_address",
+            "goals",
+            "honor_code",
+        ])
+
+    @override_settings(
+        REGISTRATION_EXTRA_FIELDS={
+            "level_of_education": "optional",
+            "gender": "optional",
+            "year_of_birth": "optional",
+            "mailing_address": "optional",
+            "goals": "optional",
+            "city": "optional",
+            "state": "optional",
+            "country": "required",
+            "honor_code": "required",
+            "confirm_email": "required",
+        },
+        REGISTRATION_FIELD_ORDER=[
+            "name",
+            "username",
+            "email",
+            "confirm_email",
+            "password",
+            "first_name",
+            "last_name",
+            "city",
+            "state",
+            "country",
+            "gender",
+            "year_of_birth",
+            "level_of_education",
+            "company",
+            "title",
+            "job_title",
+            "mailing_address",
+            "goals",
+            "honor_code",
+            "terms_of_service",
+            "specialty",
+            "profession",
+        ],
+    )
+    def test_field_order_override(self):
+        response = self.client.get(self.url)
+        self.assertHttpOK(response)
+
+        # Verify that all fields render in the correct order
+        form_desc = json.loads(response.content.decode('utf-8'))
+        field_names = [field["name"] for field in form_desc["fields"]]
+        self.assertEqual(field_names, [
+            "name",
+            "username",
+            "email",
+            "confirm_email",
+            "password",
+            "city",
+            "state",
+            "country",
+            "gender",
+            "year_of_birth",
+            "level_of_education",
+            "mailing_address",
+            "goals",
+            "honor_code",
+        ])
+
+    @override_settings(
+        REGISTRATION_EXTRA_FIELDS={
+            "level_of_education": "optional",
+            "gender": "optional",
+            "year_of_birth": "optional",
+            "mailing_address": "optional",
+            "goals": "optional",
+            "city": "optional",
+            "state": "optional",
+            "country": "required",
+            "honor_code": "required",
+            "confirm_email": "required",
+        },
+        REGISTRATION_EXTENSION_FORM='openedx.core.djangoapps.user_api.tests.test_helpers.TestCaseForm',
+    )
+    def test_field_order(self):
+        response = self.client.get(self.url)
+        self.assertHttpOK(response)
+
+        # Verify that all fields render in the correct order
+        form_desc = json.loads(response.content.decode('utf-8'))
+        field_names = [field["name"] for field in form_desc["fields"]]
+        self.assertEqual(field_names, [
+            "email",
+            "name",
+            "username",
+            "password",
+            "favorite_movie",
+            "favorite_editor",
+            "confirm_email",
+            "city",
+            "state",
+            "country",
+            "gender",
+            "year_of_birth",
+            "level_of_education",
+            "mailing_address",
+            "goals",
+            "honor_code",
+        ])
+
+    def test_registration_form_confirm_email(self):
+        self._assert_reg_field(
+            {"confirm_email": "required"},
+            {
+                "name": "confirm_email",
+                "type": "email",
+                "required": True,
+                "label": "Confirm Email",
+                "errorMessages": {
+                    "required": "The email addresses do not match.",
+                }
+            }
+        )
 
 
 @httpretty.activate
@@ -1931,6 +2097,10 @@ class RegistrationValidationViewTests(test_utils.ApiTestCase):
 
     endpoint_name = 'registration_validation'
     path = reverse(endpoint_name)
+
+    def setUp(self):
+        super(RegistrationValidationViewTests, self).setUp()
+        cache.clear()
 
     def get_validation_decision(self, data):
         response = self.client.post(self.path, data)
@@ -2131,7 +2301,8 @@ class RegistrationValidationViewTests(test_utils.ApiTestCase):
         to enforce limits; that's why this test needs a "real"
         default cache (as opposed to the usual-for-tests DummyCache)
         """
-        for _ in range(RegistrationValidationThrottle().num_requests):
-            self.request_without_auth('post', self.path)
+        for _ in range(int(settings.REGISTRATION_VALIDATION_RATELIMIT.split('/')[0])):
+            response = self.request_without_auth('post', self.path)
+            self.assertNotEqual(response.status_code, 403)
         response = self.request_without_auth('post', self.path)
-        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.status_code, 403)
