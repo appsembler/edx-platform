@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 from mock import patch, mock_open
 from io import StringIO
@@ -715,3 +716,22 @@ class DisableCustomDomainCommandTestCase(TestCase):
         assert not AlternativeDomain.objects.filter(domain=disable_domain).exists()
         # and there shouldn't be a lingering/duplicate Site for the old one either
         assert not Site.objects.filter(domain=disable_domain).exists()
+
+
+class CustomDomainsListCommandTestCase(TestCase):
+    """
+    Test ./manage.py lms custom_domains_list
+    """
+    def test_disable_custom_domain(self):
+        test_domain = "test-custom-domain.example.com"
+        altdomain = "test-custom-domain.tahoe.appsembler.com"
+
+        s = SiteFactory.create(domain=test_domain)
+        AlternativeDomainFactory.create(domain=altdomain, site=s)
+
+        out = StringIO()
+        call_command('custom_domains_list', stdout=out)
+
+        results = json.loads(out.getvalue())
+
+        assert {"domains": [test_domain]} in results
