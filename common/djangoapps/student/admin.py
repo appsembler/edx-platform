@@ -35,6 +35,7 @@ from student.models import (
     CourseAccessRole,
     CourseEnrollment,
     CourseEnrollmentAllowed,
+    CourseEnrollmentCelebration,
     DashboardConfiguration,
     LinkedInAddToProfileConfiguration,
     LoginFailures,
@@ -45,7 +46,8 @@ from student.models import (
     UserProfile,
     UserTestGroup,
     BulkUnenrollConfiguration,
-    AccountRecoveryConfiguration
+    AccountRecoveryConfiguration,
+    BulkChangeEnrollmentConfiguration
 )
 from student.roles import REGISTERED_ACCESS_ROLES
 from xmodule.modulestore.django import modulestore
@@ -82,6 +84,44 @@ class _Check(object):
                 return func(*args, **kwargs)
             return decorator
         return inner
+
+
+class DisableEnrollmentAdminMixin:
+    """ Disables admin access to an admin page that scales with enrollments, as performance is poor at that size. """
+    @_Check.is_enabled(COURSE_ENROLLMENT_ADMIN_SWITCH.is_enabled)
+    def has_view_permission(self, request, obj=None):
+        """
+        Returns True if CourseEnrollment objects can be viewed via the admin view.
+        """
+        return super().has_view_permission(request, obj)
+
+    @_Check.is_enabled(COURSE_ENROLLMENT_ADMIN_SWITCH.is_enabled)
+    def has_add_permission(self, request):
+        """
+        Returns True if CourseEnrollment objects can be added via the admin view.
+        """
+        return super().has_add_permission(request)
+
+    @_Check.is_enabled(COURSE_ENROLLMENT_ADMIN_SWITCH.is_enabled)
+    def has_change_permission(self, request, obj=None):
+        """
+        Returns True if CourseEnrollment objects can be modified via the admin view.
+        """
+        return super().has_change_permission(request, obj)
+
+    @_Check.is_enabled(COURSE_ENROLLMENT_ADMIN_SWITCH.is_enabled)
+    def has_delete_permission(self, request, obj=None):
+        """
+        Returns True if CourseEnrollment objects can be deleted via the admin view.
+        """
+        return super().has_delete_permission(request, obj)
+
+    @_Check.is_enabled(COURSE_ENROLLMENT_ADMIN_SWITCH.is_enabled)
+    def has_module_permission(self, request):
+        """
+        Returns True if links to the CourseEnrollment admin view can be displayed.
+        """
+        return super().has_module_permission(request)
 
 
 class CourseAccessRoleForm(forms.ModelForm):
@@ -242,7 +282,7 @@ class CourseEnrollmentForm(forms.ModelForm):
 
 
 @admin.register(CourseEnrollment)
-class CourseEnrollmentAdmin(admin.ModelAdmin):
+class CourseEnrollmentAdmin(DisableEnrollmentAdminMixin, admin.ModelAdmin):
     """ Admin interface for the CourseEnrollment model. """
     list_display = ('id', 'course_id', 'mode', 'user', 'is_active',)
     list_filter = ('mode', 'is_active',)
@@ -267,41 +307,6 @@ class CourseEnrollmentAdmin(admin.ModelAdmin):
 
     def queryset(self, request):
         return super(CourseEnrollmentAdmin, self).queryset(request).select_related('user')
-
-    @_Check.is_enabled(COURSE_ENROLLMENT_ADMIN_SWITCH.is_enabled)
-    def has_view_permission(self, request, obj=None):
-        """
-        Returns True if CourseEnrollment objects can be viewed via the admin view.
-        """
-        return super(CourseEnrollmentAdmin, self).has_view_permission(request, obj)
-
-    @_Check.is_enabled(COURSE_ENROLLMENT_ADMIN_SWITCH.is_enabled)
-    def has_add_permission(self, request):
-        """
-        Returns True if CourseEnrollment objects can be added via the admin view.
-        """
-        return super(CourseEnrollmentAdmin, self).has_add_permission(request)
-
-    @_Check.is_enabled(COURSE_ENROLLMENT_ADMIN_SWITCH.is_enabled)
-    def has_change_permission(self, request, obj=None):
-        """
-        Returns True if CourseEnrollment objects can be modified via the admin view.
-        """
-        return super(CourseEnrollmentAdmin, self).has_change_permission(request, obj)
-
-    @_Check.is_enabled(COURSE_ENROLLMENT_ADMIN_SWITCH.is_enabled)
-    def has_delete_permission(self, request, obj=None):
-        """
-        Returns True if CourseEnrollment objects can be deleted via the admin view.
-        """
-        return super(CourseEnrollmentAdmin, self).has_delete_permission(request, obj)
-
-    @_Check.is_enabled(COURSE_ENROLLMENT_ADMIN_SWITCH.is_enabled)
-    def has_module_permission(self, request):
-        """
-        Returns True if links to the CourseEnrollment admin view can be displayed.
-        """
-        return super(CourseEnrollmentAdmin, self).has_module_permission(request)
 
 
 class UserProfileInline(admin.StackedInline):
@@ -567,12 +572,32 @@ class RegistrationAdmin(admin.ModelAdmin):
         model = Registration
 
 
+@admin.register(CourseEnrollmentCelebration)
+class CourseEnrollmentCelebrationAdmin(DisableEnrollmentAdminMixin, admin.ModelAdmin):
+    """Admin interface for the CourseEnrollmentCelebration model. """
+    raw_id_fields = ('enrollment',)
+    list_display = ('id', 'course', 'user', 'celebrate_first_section')
+    search_fields = ('enrollment__course__id', 'enrollment__user__username')
+
+    class Meta(object):
+        model = CourseEnrollmentCelebration
+
+    def course(self, obj):
+        return obj.enrollment.course.id
+    course.short_description = 'Course'
+
+    def user(self, obj):
+        return obj.enrollment.user.username
+    user.short_description = 'User'
+
+
 admin.site.register(UserTestGroup)
 admin.site.register(PendingNameChange)
 admin.site.register(AccountRecoveryConfiguration, ConfigurationModelAdmin)
 admin.site.register(DashboardConfiguration, ConfigurationModelAdmin)
 admin.site.register(RegistrationCookieConfiguration, ConfigurationModelAdmin)
 admin.site.register(BulkUnenrollConfiguration, ConfigurationModelAdmin)
+admin.site.register(BulkChangeEnrollmentConfiguration, ConfigurationModelAdmin)
 
 
 # We must first un-register the User model since it may also be registered by the auth app.

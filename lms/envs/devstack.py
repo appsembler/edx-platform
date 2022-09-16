@@ -11,8 +11,9 @@ from corsheaders.defaults import default_headers as corsheaders_default_headers
 
 # pylint: enable=unicode-format-string
 #####################################################################
-from openedx.core.djangoapps.plugins import constants as plugin_constants
-from openedx.core.djangoapps.plugins import plugin_settings
+from edx_django_utils.plugins import add_plugins
+
+from openedx.core.djangoapps.plugins.constants import ProjectType, SettingsType
 
 from .production import *  # pylint: disable=wildcard-import, unused-wildcard-import
 
@@ -105,7 +106,8 @@ DEBUG_TOOLBAR_CONFIG = {
 
 def should_show_debug_toolbar(request):
     # We always want the toolbar on devstack unless running tests from another Docker container
-    if request.get_host().startswith('edx.devstack.lms:'):
+    hostname = request.get_host()
+    if hostname.startswith('edx.devstack.lms:') or hostname.startswith('lms.devstack.edx:'):
         return False
     return True
 
@@ -160,7 +162,7 @@ FEATURES['PREVENT_CONCURRENT_LOGINS'] = False
 ########################### Milestones #################################
 FEATURES['MILESTONES_APP'] = True
 
-########################### Milestones #################################
+########################### Organizations #################################
 FEATURES['ORGANIZATIONS_APP'] = True
 
 ########################### Entrance Exams #################################
@@ -251,6 +253,17 @@ CREDENTIALS_PUBLIC_SERVICE_URL = 'http://localhost:18150'
 ############################### BLOCKSTORE #####################################
 BLOCKSTORE_API_URL = "http://edx.devstack.blockstore:18250/api/v1/"
 
+########################## PROGRAMS LEARNER PORTAL ##############################
+LEARNER_PORTAL_URL_ROOT = 'http://localhost:8734'
+
+########################## ENTERPRISE LEARNER PORTAL ##############################
+ENTERPRISE_LEARNER_PORTAL_NETLOC = 'localhost:8734'
+ENTERPRISE_LEARNER_PORTAL_BASE_URL = 'http://' + ENTERPRISE_LEARNER_PORTAL_NETLOC
+
+########################## ENTERPRISE ADMIN PORTAL ##############################
+ENTERPRISE_ADMIN_PORTAL_NETLOC = 'localhost:1991'
+ENTERPRISE_ADMIN_PORTAL_BASE_URL = 'http://' + ENTERPRISE_ADMIN_PORTAL_NETLOC
+
 ###################### Cross-domain requests ######################
 FEATURES['ENABLE_CORS_HEADERS'] = True
 CORS_ALLOW_CREDENTIALS = True
@@ -260,7 +273,23 @@ CORS_ALLOW_HEADERS = corsheaders_default_headers + (
     'use-jwt-cookie',
 )
 
-LOGIN_REDIRECT_WHITELIST = [CMS_BASE]
+LOGIN_REDIRECT_WHITELIST = [
+    CMS_BASE,
+    # Allow redirection to all micro-frontends.
+    # Please add your MFE if is not already listed here.
+    # Note: For this to work, the MFE must set BASE_URL in its .env.development to:
+    #   BASE_URL=http://localhost:$PORT
+    # as opposed to:
+    #   BASE_URL=localhost:$PORT
+    'localhost:1976',  # frontend-app-program-console
+    'localhost:1994',  # frontend-app-gradebook
+    'localhost:2000',  # frontend-app-learning
+    'localhost:2001',  # frontend-app-course-authoring
+    'localhost:3001',  # frontend-app-library-authoring
+    'localhost:18400',  # frontend-app-publisher
+    ENTERPRISE_LEARNER_PORTAL_NETLOC,  # frontend-app-learner-portal-enterprise
+    ENTERPRISE_ADMIN_PORTAL_NETLOC,  # frontend-app-admin-portal
+]
 
 ###################### JWTs ######################
 JWT_AUTH.update({
@@ -293,7 +322,7 @@ JWT_AUTH.update({
         'y5ZLcTUomo4rZLjghVpq6KZxfS6I1Vz79ZsMVUWEdXOYePCKKsrQG20ogQEkmTf9FT_SouC6jPcHLXw"}]}'
     ),
 })
-plugin_settings.add_plugins(__name__, plugin_constants.ProjectType.LMS, plugin_constants.SettingsType.DEVSTACK)
+add_plugins(__name__, ProjectType.LMS, SettingsType.DEVSTACK)
 
 
 ######################### Django Rest Framework ########################
@@ -323,7 +352,12 @@ FEATURES.update({
     'AUTOMATIC_AUTH_FOR_TESTING': True,
     'ENABLE_DISCUSSION_SERVICE': True,
     'SHOW_HEADER_LANGUAGE_SELECTOR': True,
-    'ENABLE_ENTERPRISE_INTEGRATION': False,
+
+    # Enable enterprise integration by default.
+    # See https://github.com/edx/edx-enterprise/blob/master/docs/development.rst for
+    # more background on edx-enterprise.
+    # Toggle this off if you don't want anything to do with enterprise in devstack.
+    'ENABLE_ENTERPRISE_INTEGRATION': True,
 })
 
 ENABLE_MKTG_SITE = os.environ.get('ENABLE_MARKETING_SITE', False)
@@ -359,20 +393,18 @@ ENTERPRISE_MARKETING_FOOTER_QUERY_PARAMS = {}
 
 CREDENTIALS_SERVICE_USERNAME = 'credentials_worker'
 
-COURSE_CATALOG_API_URL = 'http://edx.devstack.discovery:18381/api/v1/'
-
-# Uncomment the lines below if you'd like to see SQL statements in your devstack LMS log.
-# LOGGING['handlers']['console']['level'] = 'DEBUG'
-# LOGGING['loggers']['django.db.backends'] = {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False}
+COURSE_CATALOG_URL_ROOT = 'http://edx.devstack.discovery:18381'
+COURSE_CATALOG_API_URL = '{}/api/v1'.format(COURSE_CATALOG_URL_ROOT)
 
 SYSTEM_WIDE_ROLE_CLASSES = os.environ.get("SYSTEM_WIDE_ROLE_CLASSES", SYSTEM_WIDE_ROLE_CLASSES)
-SYSTEM_WIDE_ROLE_CLASSES.extend(['system_wide_roles.SystemWideRoleAssignment'])
+SYSTEM_WIDE_ROLE_CLASSES.append(
+    'system_wide_roles.SystemWideRoleAssignment',
+)
 
-if FEATURES['ENABLE_ENTERPRISE_INTEGRATION']:
-    SYSTEM_WIDE_ROLE_CLASSES.extend(['enterprise.SystemWideEnterpriseUserRoleAssignment'])
-
-# List of enterprise customer uuids to exclude from transition to use of enterprise-catalog
-ENTERPRISE_CUSTOMERS_EXCLUDED_FROM_CATALOG = ()
+if FEATURES.get('ENABLE_ENTERPRISE_INTEGRATION'):
+    SYSTEM_WIDE_ROLE_CLASSES.append(
+        'enterprise.SystemWideEnterpriseUserRoleAssignment',
+    )
 
 #####################################################################
 
@@ -396,11 +428,14 @@ if os.path.isfile(join(dirname(abspath(__file__)), 'private.py')):
 # in it's path. Re-calling derive_settings doesn't work because the settings was already
 # changed from a function to a list, and it can't be derived again.
 
-from .common import _make_mako_template_dirs
-ENABLE_COMPREHENSIVE_THEMING = True
-DEFAULT_SITE_THEME = 'edx-theme-codebase'
-COMPREHENSIVE_THEME_DIRS = [
-    "/edx/var/edxapp/themes",
-]
-TEMPLATES[1]["DIRS"] = _make_mako_template_dirs
-derive_settings(__name__)
+# from .common import _make_mako_template_dirs
+# ENABLE_COMPREHENSIVE_THEMING = True
+# COMPREHENSIVE_THEME_DIRS = [
+#     "/edx/app/edxapp/edx-platform/themes/"
+# ]
+# TEMPLATES[1]["DIRS"] = _make_mako_template_dirs
+# derive_settings(__name__)
+
+# Uncomment the lines below if you'd like to see SQL statements in your devstack LMS log.
+# LOGGING['handlers']['console']['level'] = 'DEBUG'
+# LOGGING['loggers']['django.db.backends'] = {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False}

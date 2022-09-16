@@ -12,9 +12,9 @@
 # Alexander L. <alexander.lohberg@ufo-style.de>, 2013-2014
 # Alexander L. <alexander.lohberg@ufo-style.de>, 2016-2017
 # andreas.frey <andreas.frey@liip.ch>, 2014
-# dabang <inactive+dabang@transifex.com>, 2014
+# 2b2d35a2693e2be4fb9cc6718ad20b07_8542ebf <37324aa543125a600265fedaa47d04f3_158329>, 2014
 # c377c1a4a254197c7969440fac89353f, 2014
-# berit.braun, 2014
+# 9309a68e5ef70fb98095fd18e848e998_2d7fe4e, 2014
 # Bert Krohn <bert.krohn@tum.de>, 2017
 # Christian Layr <Christian.Layr@unisg.ch>, 2015
 # Donna Kl <donna@polarstern-education.com>, 2019
@@ -64,7 +64,7 @@
 # Ron Lucke <ronlucke@googlemail.com>, 2014
 # Ron Lucke <ronlucke@googlemail.com>, 2014
 # Shan <shanmathuran.sritharan@paluno.uni-due.de>, 2013
-# Stefania Trabucchi <stefania.trabucchi@abstract-technology.de>, 2018-2019
+# Stefania Trabucchi <stefania.trabucchi@abstract-technology.de>, 2018-2020
 # #-#-#-#-#  djangojs-account-settings-view.po (0.1a)  #-#-#-#-#
 # edX community translations have been downloaded from German (Germany) (https://www.transifex.com/open-edx/teams/6205/de_DE/).
 # Copyright (C) 2020 EdX
@@ -129,16 +129,24 @@ msgid ""
 msgstr ""
 "Project-Id-Version: edx-platform\n"
 "Report-Msgid-Bugs-To: openedx-translation@googlegroups.com\n"
-"POT-Creation-Date: 2020-04-27 09:11+0000\n"
-"PO-Revision-Date: 2020-04-27 09:13+0000\n"
-"Last-Translator: edx_transifex_bot <i18n-working-group+edx-transifex-bot@edx.org>\n"
+"POT-Creation-Date: 2020-08-30 20:42+0000\n"
+"PO-Revision-Date: 2020-07-20 16:32+0000\n"
+"Last-Translator: Stefania Trabucchi <stefania.trabucchi@abstract-technology.de>\n"
 "Language-Team: German (Germany) (http://www.transifex.com/open-edx/edx-platform/language/de_DE/)\n"
 "Language: de_DE\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"Generated-By: Babel 1.3\n"
+"Generated-By: Babel 2.8.0\n"
+
+#: cms/static/cms/js/main.js cms/static/js/views/active_video_upload_list.js
+#: cms/static/js/views/video_transcripts.js
+#: common/lib/xmodule/xmodule/assets/library_source_block/public/js/library_source_block.js
+msgid ""
+"This may be happening because of an error with our server or your internet "
+"connection. Try refreshing the page or making sure you are online."
+msgstr ""
 
 #: cms/static/cms/js/xblock/cms.runtime.v1.js
 #: cms/static/js/certificates/views/signatory_details.js
@@ -149,8 +157,9 @@ msgstr ""
 #: cms/static/js/views/edit_textbook.js
 #: cms/static/js/views/list_item_editor.js
 #: cms/static/js/views/modals/edit_xblock.js cms/static/js/views/tabs.js
-#: cms/static/js/views/utils/xblock_utils.js lms/static/js/ccx/schedule.js
-#: lms/static/js/views/fields.js
+#: cms/static/js/views/utils/xblock_utils.js
+#: common/lib/xmodule/xmodule/assets/library_source_block/public/js/library_source_block.js
+#: lms/static/js/ccx/schedule.js lms/static/js/views/fields.js
 msgid "Saving"
 msgstr "Speichert"
 
@@ -159,6 +168,22 @@ msgstr "Speichert"
 #: cms/static/js/views/manage_users_and_roles.js
 #: cms/static/js/views/show_textbook.js
 #: lms/djangoapps/teams/static/teams/js/views/instructor_tools.js
+#: cms/templates/js/certificate-details.underscore
+#: cms/templates/js/certificate-editor.underscore
+#: cms/templates/js/content-group-editor.underscore
+#: cms/templates/js/course-instructor-details.underscore
+#: cms/templates/js/course-outline.underscore
+#: cms/templates/js/course-settings-learning-fields.underscore
+#: cms/templates/js/course_grade_policy.underscore
+#: cms/templates/js/course_info_update.underscore
+#: cms/templates/js/group-configuration-details.underscore
+#: cms/templates/js/group-configuration-editor.underscore
+#: cms/templates/js/partition-group-details.underscore
+#: cms/templates/js/show-textbook.underscore
+#: cms/templates/js/signatory-editor.underscore
+#: cms/templates/js/video-transcripts.underscore
+#: cms/templates/js/xblock-outline.underscore
+#: common/static/common/templates/discussion/templates.underscore
 msgid "Delete"
 msgstr "Löschen"
 
@@ -210,8 +235,8 @@ msgstr "Hochladen"
 #: common/lib/xmodule/xmodule/js/src/html/edit.js
 #: lms/static/js/student_account/tos_modal.js
 #: cms/templates/js/course-video-settings.underscore
-#: common/static/common/templates/image-modal.underscore
 #: common/static/common/templates/discussion/templates.underscore
+#: common/static/common/templates/image-modal.underscore
 #: openedx/features/learner_profile/static/learner_profile/templates/share_modal.underscore
 msgid "Close"
 msgstr "Schließen"
@@ -346,6 +371,7 @@ msgstr "Warnung"
 #: common/static/common/js/discussion/views/discussion_thread_list_view.js
 #: common/static/common/js/discussion/views/discussion_thread_view.js
 #: common/static/common/js/discussion/views/response_comment_view.js
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/components/ReportStatus/ReportStatus.jsx
 #: lms/static/js/student_account/views/FinishAuthView.js
 #: lms/static/js/verify_student/views/payment_confirmation_step_view.js
 #: lms/static/js/verify_student/views/step_view.js
@@ -357,6 +383,10 @@ msgstr "Fehler"
 #: common/lib/xmodule/xmodule/js/public/js/library_content_edit.js
 msgid "Updating with latest library content"
 msgstr "Aktualisiere mit den neuesten Bibliotheken"
+
+#: common/lib/xmodule/xmodule/assets/library_source_block/public/js/library_source_block.js
+msgid "Unable to update settings"
+msgstr ""
 
 #: common/lib/xmodule/xmodule/assets/split_test/public/js/split_test_author_view.js
 #: common/lib/xmodule/xmodule/js/public/js/split_test_author_view.js
@@ -834,7 +864,6 @@ msgstr "Lösche Tabelle"
 #: common/lib/xmodule/xmodule/js/src/html/edit.js
 #: cms/templates/js/certificate-editor.underscore
 #: cms/templates/js/group-configuration-editor.underscore
-#: lms/templates/commerce/receipt.underscore
 #: lms/templates/verify_student/payment_confirmation_step.underscore
 msgid "Description"
 msgstr "Beschreibung"
@@ -869,9 +898,19 @@ msgstr "Dokumenteneigenschaften"
 msgid "Edit HTML"
 msgstr "Bearbeite HTML"
 
+#. #-#-#-#-#  djangojs-partial.po (edx-platform)  #-#-#-#-#
 #. Translators: this is a message from the raw HTML editor displayed in the
 #. browser when a user needs to edit HTML
 #: common/lib/xmodule/xmodule/js/src/html/edit.js
+#: cms/templates/js/certificate-details.underscore
+#: cms/templates/js/course_info_handouts.underscore
+#: cms/templates/js/course_info_update.underscore
+#: cms/templates/js/group-configuration-details.underscore
+#: cms/templates/js/partition-group-details.underscore
+#: cms/templates/js/show-textbook.underscore
+#: cms/templates/js/signatory-details.underscore
+#: cms/templates/js/xblock-string-field-editor.underscore
+#: common/static/common/templates/discussion/templates.underscore
 msgid "Edit"
 msgstr "Bearbeiten"
 
@@ -1618,9 +1657,13 @@ msgstr ""
 "Die URL, die du eingegeben hast scheint ein externer Link zu sein. Möchtest "
 "du das benötigte Prefix http:// hinzufügen?"
 
+#. #-#-#-#-#  djangojs-partial.po (edx-platform)  #-#-#-#-#
 #. Translators: this is a message from the raw HTML editor displayed in the
 #. browser when a user needs to edit HTML
 #: common/lib/xmodule/xmodule/js/src/html/edit.js
+#: cms/templates/js/course-instructor-details.underscore
+#: cms/templates/js/signatory-details.underscore
+#: common/static/common/templates/discussion/templates.underscore
 msgid "Title"
 msgstr "Titel, Namenszusatz"
 
@@ -2103,6 +2146,7 @@ msgid "Your request could not be processed. Refresh the page and try again."
 msgstr "Ihre Anfrage konnte nicht bearbeitet werden. Laden Sie die Seite neu."
 
 #: common/static/common/js/discussion/utils.js
+#: common/static/common/templates/discussion/templates.underscore
 msgid "…"
 msgstr "..."
 
@@ -2323,6 +2367,7 @@ msgid "Your post will be discarded."
 msgstr "Ihr Beitrag wird entfernt."
 
 #: common/static/common/js/discussion/views/response_comment_show_view.js
+#: common/static/common/templates/discussion/templates.underscore
 msgid "anonymous"
 msgstr "Anonym"
 
@@ -2451,6 +2496,34 @@ msgstr[1] "%d Jahre"
 msgid "Select a section or problem"
 msgstr "Wählen Sie einen Abschnitt oder eine Aufgabe"
 
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/components/Main/Main.jsx
+msgid "Create a report of problem responses"
+msgstr ""
+
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/components/ReportStatus/ReportStatus.jsx
+msgid "Your report is being generated..."
+msgstr ""
+
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/components/ReportStatus/ReportStatus.jsx
+msgid "Your report has being successfully generated."
+msgstr ""
+
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/components/ReportStatus/ReportStatus.jsx
+msgid "View Report"
+msgstr ""
+
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/data/actions/problemResponses.js
+msgid "There was an error generating your report."
+msgstr ""
+
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/data/actions/problemResponses.js
+msgid "Unable to get report generation status."
+msgstr ""
+
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/data/actions/problemResponses.js
+msgid "Unable to submit request to generate report."
+msgstr ""
+
 #: lms/djangoapps/support/static/support/js/views/certificates.js
 msgid "An unexpected error occurred.  Please try again."
 msgstr ""
@@ -2528,9 +2601,9 @@ msgid "Not specific to a course"
 msgstr "Nicht kursbezogen"
 
 #: lms/djangoapps/support/static/support/jsx/logged_in_user.jsx
-#: lms/djangoapps/teams/static/teams/js/views/topic_card.js
-msgid "Topic"
-msgstr "Thema"
+#: lms/static/js/instructor_dashboard/util.js
+msgid "Subject"
+msgstr "Betreff"
 
 #: lms/djangoapps/support/static/support/jsx/logged_in_user.jsx
 #: lms/templates/student_account/account_settings.underscore
@@ -2591,22 +2664,38 @@ msgid "Other"
 msgstr "Anderer Abschluss"
 
 #: lms/djangoapps/support/static/support/jsx/logged_in_user.jsx
-msgid "What can we help you with, {username}?"
-msgstr "Wie können wir Ihnen helfen, {username}?"
+msgid "Course Discussion Forum"
+msgstr "Kursdiskussionsforum"
+
+#: lms/djangoapps/support/static/support/jsx/logged_in_user.jsx
+msgid ""
+"While our support team is happy to assist with the edX platform, the course "
+"staff has the expertise for specific assignment questions, grading or the "
+"proper procedures in each course. Please post all course related questions "
+"within the Discussion Forum where the Course Staff can directly respond."
+msgstr ""
+"Während unser Support-Team gerne mit der edX-Plattform behilflich ist, "
+"verfügt das Autoren- und Dozententeam über das Fachwissen für spezifische "
+"inhaltliche Fragen hinsichtlich Aufgabenstellungen, Benotungen oder zu den "
+"richtigen Verfahren in jedem Kurs. Bitte stellen Sie alle kursbezogenen "
+"Fragen in dem jeweiligen Diskussionsforum, wo das Autoren- und Dozententeam "
+"direkt antworten kann."
 
 #: lms/djangoapps/support/static/support/jsx/logged_in_user.jsx
 msgid "Details"
 msgstr "Details"
 
 #: lms/djangoapps/support/static/support/jsx/logged_in_user.jsx
-msgid "The more you tell us, the more quickly and helpfully we can respond!"
-msgstr ""
-"Je mehr Sie uns von Ihrem Anliegen berichten, desto genauer und schneller "
-"können wir Ihnen helfen!"
+msgid "the more quickly and helpfully we can respond!"
+msgstr "desto schneller und gezielter können wir Ihnen antworten!"
 
 #: lms/djangoapps/support/static/support/jsx/logged_in_user.jsx
 msgid "Create Support Ticket"
-msgstr ""
+msgstr "Erstellen Sie ein Supportticket"
+
+#: lms/djangoapps/support/static/support/jsx/logged_in_user.jsx
+msgid "What can we help you with, {username}?"
+msgstr "Wie können wir Ihnen helfen, {username}?"
 
 #: lms/djangoapps/support/static/support/jsx/logged_out_user.jsx
 msgid "Sign in to {platform} so we can help you better."
@@ -2615,11 +2704,8 @@ msgstr ""
 "helfen können."
 
 #: lms/djangoapps/support/static/support/jsx/logged_out_user.jsx
-msgid ""
-"If you are unable to access your account contact us via email using {email}."
-msgstr ""
-"Wenn Sie keinen Zugang zu Ihrem Account haben, kontaktieren Sie uns via "
-"E-Mail {email}."
+msgid "Need help logging in?"
+msgstr "Brauchen Sie Hilfe beim einloggen?"
 
 #: lms/djangoapps/support/static/support/jsx/single_support_form.jsx
 msgid ""
@@ -2630,12 +2716,28 @@ msgstr ""
 "Supportanfrage."
 
 #: lms/djangoapps/support/static/support/jsx/single_support_form.jsx
-msgid "Select a topic for your support request."
-msgstr ""
+msgid "Select a subject for your support request."
+msgstr "Wählen Sie ein Betreff für Ihre Supportanfrage."
 
 #: lms/djangoapps/support/static/support/jsx/single_support_form.jsx
 msgid "Enter some details for your support request."
 msgstr "Geben Sie bitte genaue Details in Ihrer Support Anfrage an."
+
+#: lms/djangoapps/support/static/support/jsx/single_support_form.jsx
+msgid ""
+"Due to the recent increase in interest in online education and edX, we are "
+"currently experiencing an unusually high volume of support requests. We "
+"appreciate your patience as we work to review each request. Please check the"
+" "
+msgstr ""
+"Aufgrund des in letzter Zeit gestiegenen Interesses an Online-Schulungen und"
+" an edX erleben wir derzeit ein ungewöhnlich hohes Volumen an Support-"
+"Anfragen. Wir wissen Ihre Geduld zu schätzen, während wir jede Anfrage "
+"prüfen. Bitte prüfen Sie die "
+
+#: lms/djangoapps/support/static/support/jsx/single_support_form.jsx
+msgid " as many questions may have already been answered."
+msgstr " so viele Fragen sind vielleicht schon beantwortet worden."
 
 #: lms/djangoapps/support/static/support/jsx/single_support_form.jsx
 #: lms/djangoapps/support/static/support/jsx/success.jsx
@@ -2663,6 +2765,8 @@ msgid ""
 "Thank you for submitting a request! We appreciate your patience while we "
 "work to review your request."
 msgstr ""
+"Vielen Dank für Ihre Anfrage! Bitte haben Sie etwas Geduld, damit wir die "
+"Anfrage prüfen können."
 
 #: lms/djangoapps/support/static/support/jsx/upload_progress.jsx
 msgid "Cancel upload"
@@ -2854,6 +2958,10 @@ msgid "An error occurred. Try again."
 msgstr "Ein Fehler ist aufgetreten. Bitte versuchen Sie es noch einmal."
 
 #: lms/djangoapps/teams/static/teams/js/views/team_profile.js
+msgid "No assignments for team"
+msgstr "Keine Zuweisungen für das Team"
+
+#: lms/djangoapps/teams/static/teams/js/views/team_profile.js
 msgid "Leave this team?"
 msgstr "Dieses Team verlassen?"
 
@@ -2931,10 +3039,6 @@ msgid "Team Search"
 msgstr "Teamsuche"
 
 #: lms/djangoapps/teams/static/teams/js/views/teams_tab.js
-msgid "Showing results for \"{searchString}\""
-msgstr "Suchergebnisse für: \"{searchString}\""
-
-#: lms/djangoapps/teams/static/teams/js/views/teams_tab.js
 msgid "Create a New Team"
 msgstr "Ein neues Team erstellen"
 
@@ -2970,6 +3074,10 @@ msgid ""
 msgstr ""
 "Du kannst Mitglieder aus diesem Team entfernen, insbesondere wenn sie nicht "
 "an der Aktivität des Teams teilgenommen haben."
+
+#: lms/djangoapps/teams/static/teams/js/views/teams_tab.js
+msgid "Showing results for \"{searchString}\""
+msgstr "Suchergebnisse für: \"{searchString}\""
 
 #: lms/djangoapps/teams/static/teams/js/views/teams_tab.js
 msgid "Search teams"
@@ -3022,6 +3130,10 @@ msgstr[0] "{team_count} Team"
 msgstr[1] "{team_count} Teams"
 
 #: lms/djangoapps/teams/static/teams/js/views/topic_card.js
+msgid "Topic"
+msgstr "Thema"
+
+#: lms/djangoapps/teams/static/teams/js/views/topic_card.js
 msgid "View Teams in the {topic_name} Topic"
 msgstr "Teams im {topic_name}  ansehen."
 
@@ -3036,6 +3148,13 @@ msgstr ""
 "{search_span_start}suche Teams{span_end} zu diesem Thema. Wenn Du trotzdem "
 "kein Team zum Beitreten finden kannst, {create_span_start}erstelle ein neues"
 " Team für dieses Thema{span_end}."
+
+#: lms/djangoapps/teams/static/teams/js/views/topic_teams.js
+msgid ""
+"An error occurred while looking up team membership. Try refreshing the page."
+msgstr ""
+"Beim Prüfen der Teammitgliedschaft ist ein Fehler aufgetreten. Versuchen "
+"Sie, die Seite zu aktualisieren."
 
 #: lms/djangoapps/teams/static/teams/js/views/topics.js
 msgid "All topics"
@@ -3420,6 +3539,7 @@ msgid "HTML preview of post"
 msgstr "HTML Vorschau des Beitrags"
 
 #: lms/static/js/customwmd.js
+#: common/static/common/templates/discussion/templates.underscore
 msgid "Your question or idea (required)"
 msgstr "Ihre Frage oder Idee (*)"
 
@@ -4565,10 +4685,6 @@ msgstr ""
 "Problem weiterhin besteht."
 
 #: lms/static/js/instructor_dashboard/util.js
-msgid "Subject"
-msgstr "Betreff"
-
-#: lms/static/js/instructor_dashboard/util.js
 msgid "Sent By"
 msgstr "Absender"
 
@@ -5218,12 +5334,14 @@ msgstr ""
 "entsprechenden Social-Media Icon an."
 
 #: lms/static/js/student_account/views/account_settings_factory.js
-msgid " Link"
-msgstr " Link"
+msgid "{platform_display_name} Link"
+msgstr ""
 
 #: lms/static/js/student_account/views/account_settings_factory.js
-msgid "Enter your "
-msgstr "Angeben Ihrer"
+msgid ""
+"Enter your {platform_display_name} username or the URL to your "
+"{platform_display_name} page. Delete the URL to remove the link."
+msgstr ""
 
 #: lms/static/js/student_account/views/account_settings_factory.js
 #: lms/static/js/student_account/views/account_settings_view.js
@@ -5584,13 +5702,15 @@ msgstr "Alles erweitern"
 msgid "Collapse All"
 msgstr "Alles verbergen"
 
+#: openedx/features/course_experience/static/course_experience/js/WelcomeMessage.js
 #: lms/templates/courseware/proctored-exam-status.underscore
 msgid "Show More"
-msgstr "Mehr zeigen"
+msgstr "Mehr anzeigen"
 
+#: openedx/features/course_experience/static/course_experience/js/WelcomeMessage.js
 #: lms/templates/courseware/proctored-exam-status.underscore
 msgid "Show Less"
-msgstr "Weniger zeigen"
+msgstr "Weniger anzeigen"
 
 #: openedx/features/course_search/static/course_search/js/views/search_results_view.js
 msgid "{total_results} result"
@@ -5689,16 +5809,6 @@ msgstr "Leistungen"
 msgid "Profile"
 msgstr "Profil"
 
-#: cms/static/cms/js/main.js cms/static/js/views/active_video_upload_list.js
-#: cms/static/js/views/video_transcripts.js
-msgid ""
-"This may be happening because of an error with our server or your internet "
-"connection. Try refreshing the page or making sure you are online."
-msgstr ""
-"Dieses Problem wurde durch einen Fehler auf unserem Server oder mit Ihrer "
-"Internetverbindung verursacht. Versuchen Sie die Seite neu zu laden und/oder"
-" prüfen sie ihre Internetverbindung"
-
 #: cms/static/cms/js/main.js
 msgid "Studio's having trouble saving your work"
 msgstr "Studio hat Probleme beim Speichern Ihrer Arbeit"
@@ -5746,6 +5856,10 @@ msgstr "Ja, erlaube das Editieren von aktiven Zertifikaten"
 msgid "certificate"
 msgstr "Zertifikat"
 
+#: cms/static/js/certificates/views/certificate_preview.js
+msgid "Deactivating"
+msgstr "Deaktivieren"
+
 #: cms/static/js/certificates/views/certificates_list.js
 msgid "Set up your certificate"
 msgstr "Richten Sie sich Ihr Zertifikat ein"
@@ -5757,8 +5871,8 @@ msgid "You have not created any certificates yet."
 msgstr "Du hast bislang keine Zertifikate erhalten."
 
 #: cms/static/js/certificates/views/signatory_editor.js
-msgid "Delete \"<%= signatoryName %>\" from the list of signatories?"
-msgstr "Lösche \"<%= signatoryName %>\" von der Liste der Unterzeichner?"
+msgid "Delete \"<%- signatoryName %>\" from the list of signatories?"
+msgstr "\"<%- signatoryName %>\" von der Liste der Unterzeichner löschen?"
 
 #: cms/static/js/certificates/views/signatory_editor.js
 #: cms/static/js/views/course_info_update.js
@@ -5810,6 +5924,7 @@ msgstr ""
 
 #: cms/static/js/factories/manage_users.js
 #: cms/static/js/factories/manage_users_lib.js
+#: common/static/common/templates/discussion/templates.underscore
 msgid "Staff"
 msgstr "Lehrender"
 
@@ -6085,11 +6200,11 @@ msgstr "Alle Kapitel benötigen einen Namen und Inhalte"
 
 #: cms/static/js/models/uploads.js
 msgid ""
-"Only <%= fileTypes %> files can be uploaded. Please select a file ending in "
-"<%= fileExtensions %> to upload."
+"Only <%- fileTypes %> files can be uploaded. Please select a file ending in "
+"<%- (fileExtensions) %> to upload."
 msgstr ""
-"Nur <%= fileTypes %> Dateien können hochgeladen werden. Bitte wählen Sie "
-"eine Datei mit der Dateiendung <%= fileExtensions %> zum hochladen aus."
+"Es können nur  <%- fileTypes %> Dateien hochgeladen werden. Bitte wählen Sie"
+" eine Datei mit der Endung <%- (fileExtensions) %> zum Hochladen aus."
 
 #: cms/static/js/models/uploads.js
 #: lms/templates/student_account/hinted_login.underscore
@@ -6275,8 +6390,8 @@ msgid "{selectedProvider} credentials saved"
 msgstr "{selectedProvider} Anmeldeinformationen gespeichert"
 
 #: cms/static/js/views/edit_chapter.js
-msgid "Upload a new PDF to “<%= name %>”"
-msgstr "Neues PDf unter “<%= name %>” hochgeladen"
+msgid "Upload a new PDF to “<%- name %>”"
+msgstr "Eine neue PDF zu “<%- name %>” hochladen "
 
 #: cms/static/js/views/edit_chapter.js
 msgid "Please select a PDF file to upload."
@@ -6901,18 +7016,18 @@ msgstr "Wir bitten um Entschuldigung, ein Fehler ist aufgetreten"
 #: cms/static/js/views/utils/create_course_utils.js
 msgid ""
 "The combined length of the organization, course number, and course run "
-"fields cannot be more than <%=limit%> characters."
+"fields cannot be more than <%- limit %> characters."
 msgstr ""
-"Die Gesamtlänge der Felder Organisation, Kursnummer und Kursablauf darf "
-"nicht mehr als <%=limit%> Zeichen betragen."
+"Die Gesamtlänge der Felder \"Organisation\", \"Kursnummer\" und \"Kurslauf\""
+" darf nicht mehr als <%- limit %> Zeichen enthalten."
 
 #: cms/static/js/views/utils/create_library_utils.js
 msgid ""
 "The combined length of the organization and library code fields cannot be "
-"more than <%=limit%> characters."
+"more than <%- limit %> characters."
 msgstr ""
-"Die Gesamtlänge der Codefelder Organisation und Bibliothek darf nicht mehr "
-"als <%=limit%> Zeichen betragen."
+"Die Gesamtlänge der Organisations- und Bibliothekscodefelder darf nicht mehr"
+" als <%- limit %> Zeichen enthalten."
 
 #: cms/static/js/views/utils/move_xblock_utils.js
 msgid "Success! \"{displayName}\" has been moved."
@@ -7281,7 +7396,6 @@ msgid "Unscheduled"
 msgstr "Nicht terminiert"
 
 #: cms/templates/js/course_info_update.underscore
-#: lms/templates/commerce/receipt.underscore
 #: lms/templates/verify_student/payment_confirmation_step.underscore
 msgid "Date"
 msgstr "Datum"
@@ -7339,15 +7453,15 @@ msgstr "Suchen"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Add a Response"
-msgstr ""
+msgstr "Fügen Sie eine Antwort hinzu"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "This thread is closed."
-msgstr ""
+msgstr "Dieses Thema ist geschlossen."
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Add a response:"
-msgstr ""
+msgstr "Eine Antwort hinzufügen:"
 
 #: common/static/common/templates/discussion/templates.underscore
 #: lms/templates/verify_student/incourse_reverify.underscore
@@ -7357,131 +7471,133 @@ msgstr "Absenden"
 #: common/static/common/templates/discussion/templates.underscore
 #, python-format
 msgid "discussion posted %(time_ago)s by %(author)s"
-msgstr ""
+msgstr "Diskussion wurde vor %(time_ago)s eröffnet durch  %(author)s"
 
 #: common/static/common/templates/discussion/templates.underscore
 #, python-format
 msgid "question posted %(time_ago)s by %(author)s"
-msgstr ""
+msgstr "Frage wurde vor %(time_ago)s gestellt von %(author)s"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Pinned"
-msgstr ""
+msgstr "Festgeheftet"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Reported"
-msgstr ""
+msgstr "Gemeldet"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Closed"
-msgstr ""
+msgstr "Geschlossen"
 
 #: common/static/common/templates/discussion/templates.underscore
 #, python-format
 msgid "Related to: %(courseware_title_linked)s"
-msgstr ""
+msgstr "Verwandt mit: %(courseware_title_linked)s"
 
 #: common/static/common/templates/discussion/templates.underscore
 #, python-format
 msgid "This post is visible only to %(group_name)s."
-msgstr ""
+msgstr "Dieser Beitrag ist nur für %(group_name)s sichtbar."
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "This post is visible to everyone."
-msgstr ""
+msgstr "Dieser Beitrag ist für jeden sichtbar."
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Editing post"
-msgstr ""
+msgstr "Post bearbeiten"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid ""
 "Add a clear and descriptive title to encourage participation. (Required)"
 msgstr ""
+"Um zur Teilnahme zu motivieren, fügen Sie bitte einen klaren und "
+"beschreibenden Titel hinzu (wird benötigt). "
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Edit your post below."
-msgstr ""
+msgstr "Ihren Beitrag unten bearbeiten."
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Update post"
-msgstr ""
+msgstr "Eintrag aktualisieren"
 
 #: common/static/common/templates/discussion/templates.underscore
 #, python-format
 msgid "Show Comment (%(num_comments)s)"
 msgid_plural "Show Comments (%(num_comments)s)"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Kommentar anzeigen (%(num_comments)s)"
+msgstr[1] "Kommentare anzeigen (%(num_comments)s)"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Add a comment"
-msgstr ""
+msgstr "Einen Kommentar hinzufügen"
 
 #: common/static/common/templates/discussion/templates.underscore
 #, python-format
 msgid "marked as answer %(time_ago)s by %(user)s"
-msgstr ""
+msgstr "als Antwort markiert, %(time_ago)s von %(user)s"
 
 #: common/static/common/templates/discussion/templates.underscore
 #, python-format
 msgid "marked as answer %(time_ago)s"
-msgstr ""
+msgstr "als Antwort markiert, %(time_ago)s"
 
 #: common/static/common/templates/discussion/templates.underscore
 #, python-format
 msgid "endorsed %(time_ago)s by %(user)s"
-msgstr ""
+msgstr "befürwortet %(time_ago)s von %(user)s"
 
 #: common/static/common/templates/discussion/templates.underscore
 #, python-format
 msgid "endorsed %(time_ago)s"
-msgstr ""
+msgstr "befürwortet %(time_ago)s"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Editing response"
-msgstr ""
+msgstr "Antwort bearbeiten"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Update response"
-msgstr ""
+msgstr "Antwort aktualisieren"
 
 #: common/static/common/templates/discussion/templates.underscore
 #, python-format
 msgid "posted %(time_ago)s by %(author)s"
-msgstr ""
+msgstr "geschickt, %(time_ago)s von %(author)s"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Editing comment"
-msgstr ""
+msgstr "Kommentar bearbeiten"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Update comment"
-msgstr ""
+msgstr "Kommentar aktualisieren"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "discussion"
-msgstr ""
+msgstr "Diskussion"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "answered question"
-msgstr ""
+msgstr "beantwortete Frage"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "unanswered question"
-msgstr ""
+msgstr "unbeantwortete Frage"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Following"
-msgstr ""
+msgstr "Folge"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Community TA"
-msgstr ""
+msgstr "Gemeinschaftslehrkraft"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "{unread_comments_count} new"
-msgstr ""
+msgstr "{unread_comments_count} neu"
 
 #: common/static/common/templates/discussion/templates.underscore
 #, python-format
@@ -7489,70 +7605,76 @@ msgid ""
 "%(comments_count)s %(span_sr_open)scomments (%(unread_comments_count)s "
 "unread comments)%(span_close)s"
 msgstr ""
+"%(comments_count)s %(span_sr_open)s Kommentare (%(unread_comments_count)s "
+"ungelesene Kommentare)%(span_close)s"
 
 #: common/static/common/templates/discussion/templates.underscore
 #, python-format
 msgid "%(comments_count)s %(span_sr_open)scomments %(span_close)s"
-msgstr ""
+msgstr "%(comments_count)s %(span_sr_open)s Kommentare %(span_close)s"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Add a Post"
-msgstr ""
+msgstr "Beitrag hinzufügen"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Visible to"
-msgstr ""
+msgstr "Sichtbar für"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid ""
 "Discussion admins, moderators, and TAs can make their posts visible to all "
 "students or specify a single group."
 msgstr ""
+"Diskussions-Admins, Moderatoren und Lehrkräfte können ihre Beiträge für alle"
+" Teilnehmer sichtbar machen oder eine einzelne Gruppe festlegen."
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "All Groups"
-msgstr ""
+msgstr "Alle Gruppen"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "follow this post"
-msgstr ""
+msgstr "Beitrag folgen"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "post anonymously"
-msgstr ""
+msgstr "Eintrag anonym erstellen"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "post anonymously to classmates"
-msgstr ""
+msgstr "Anonym an Klassenkameraden posten"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Error posting your message."
-msgstr ""
+msgstr "Fehler beim Senden Ihrer Nachricht."
 
 #: common/static/common/templates/discussion/templates.underscore
 #, python-format
 msgid "This post will be visible only to %(group_name)s."
-msgstr ""
+msgstr "Dieser Beitrag wird nur für  %(group_name)s sichtbar sein."
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "This post will be visible to everyone."
-msgstr ""
+msgstr "Dieser Beitrag wird für alle sichtbar sein."
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Topic area"
-msgstr ""
+msgstr "Themenbereich"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Add your post to a relevant topic to help others find it. (Required)"
 msgstr ""
+"Geben Sie Ihrem Beitrag einen aussagekräftigen Titel, damit andere "
+"Teilnehmer diesen besser finden können. (erforderlich)"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "(Community TA)"
-msgstr ""
+msgstr "(Gemeinschaftslehrkraft)"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "(Staff)"
-msgstr ""
+msgstr "(Mitarbeiter)"
 
 #: common/static/common/templates/discussion/templates.underscore
 #: lms/djangoapps/discussion/static/discussion/templates/user-profile.underscore
@@ -7561,85 +7683,87 @@ msgstr "Alle Beiträge"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Return to all posts"
-msgstr ""
+msgstr "Zu allen Beiträgen"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "View discussion"
-msgstr ""
+msgstr "Diskussion betrachten"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Load more"
-msgstr ""
+msgstr "Lade weiteres"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Post type"
-msgstr ""
+msgstr "Beitragsart"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid ""
 "Questions raise issues that need answers. Discussions share ideas and start "
 "conversations. (Required)"
 msgstr ""
+"Fragen benötigen Antworten. Diskussionen lösen eine Konversation aus. "
+"(Erforderlich)"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Question"
-msgstr ""
+msgstr "Frage"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Discussion"
-msgstr ""
+msgstr "Diskussion"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Endorse"
-msgstr ""
+msgstr "Befürworten"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Unendorse"
-msgstr ""
+msgstr "Nicht Befürworten"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Mark as Answer"
-msgstr ""
+msgstr "Als Antwort markieren"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Unmark as Answer"
-msgstr ""
+msgstr "Antwortsmarkierung aufheben"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Follow"
-msgstr ""
+msgstr "Folgen"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Unfollow"
-msgstr ""
+msgstr "Verlassen"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Vote for this post,"
-msgstr ""
+msgstr "Stimme für diesen Eintrag,"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Report abuse"
-msgstr ""
+msgstr "Missbrauch melden"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Report"
-msgstr ""
+msgstr "Melden"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Unreport"
-msgstr ""
+msgstr "Meldung aufheben"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Pin"
-msgstr ""
+msgstr "Festheften"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Unpin"
-msgstr ""
+msgstr "Ablösen"
 
 #: common/static/common/templates/discussion/templates.underscore
 msgid "Open"
-msgstr ""
+msgstr "Öffnen"
 
 #: lms/djangoapps/discussion/static/discussion/templates/discussion-home.underscore
 msgid "Discussion Home"
@@ -7940,6 +8064,10 @@ msgid "Join Team"
 msgstr "Trete Team bei"
 
 #: lms/djangoapps/teams/static/teams/templates/team-profile.underscore
+msgid "Team Assignments"
+msgstr "Teamaufgaben"
+
+#: lms/djangoapps/teams/static/teams/templates/team-profile.underscore
 msgid "Team Details"
 msgstr "Team Details"
 
@@ -8025,105 +8153,6 @@ msgstr "Untereinheit %(subsectionDisplayName)s entfernen"
 #, python-format
 msgid "Remove unit %(unitName)s"
 msgstr "%(unitName)s Lerneinheit entfernen"
-
-#: lms/templates/commerce/provider.underscore
-#, python-format
-msgid ""
-"You still need to visit the %(display_name)s website to complete the credit "
-"process."
-msgstr ""
-"Sie müssen noch die Website %(display_name)s besuchen, um den Credit-Prozess"
-" abzuschließen."
-
-#: lms/templates/commerce/provider.underscore
-#, python-format
-msgid ""
-"To finalize course credit, %(display_name)s requires %(platform_name)s "
-"learners to submit a credit request."
-msgstr ""
-"Um den Credit-Prozess abzuschließen, %(display_name)s müssen die Lernenden "
-"von %(platform_name)s einen Kreditantrag stellen."
-
-#: lms/templates/commerce/provider.underscore
-msgid "Get Credit"
-msgstr "Credit bekommen"
-
-#: lms/templates/commerce/receipt.underscore
-#, python-format
-msgid ""
-"Thank you %(full_name)s! We have received your payment for %(course_name)s."
-msgstr ""
-"Viele Dank %(full_name)s! Wir haben Ihre Zahlung für %(course_name)s "
-"erhalten."
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid ""
-"Please print this page for your records; it serves as your receipt. You will"
-" also receive an email with the same information."
-msgstr ""
-"Bitte drucken Sie diese Seite für Ihre Unterlagen aus, sie dient als Ihre "
-"Quittung. Sie erhalten außerdem eine E-Mail mit den gleichen Informationen."
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Order No."
-msgstr "Bestellnummer"
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Amount"
-msgstr "Summe"
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/make_payment_step_ab_testing.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Total"
-msgstr "Gesamt"
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Please Note"
-msgstr "Bitte beachten Sie"
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Crossed out items have been refunded."
-msgstr "Gekreuzte Einzelteile wurden erstattet."
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Billed to"
-msgstr "Rechnung an"
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "No receipt available"
-msgstr "Keine Quittung verfügbar"
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/financial-assistance/financial_assessment_submitted.underscore
-msgid "Go to Dashboard"
-msgstr "Zu \"Meine Kurse\""
-
-#: lms/templates/commerce/receipt.underscore
-msgid ""
-"If you don't verify your identity now, you can still explore your course "
-"from your dashboard. You will receive periodic reminders from {platformName}"
-" to verify your identity."
-msgstr ""
-"Wenn Sie Ihre Identität jetzt nicht verifizieren, können Sie Ihren Kurs "
-"trotzdem über 'Meine Kurse' erkunden. Sie erhalten von {platformName} "
-"regelmäßig Erinnerungen, um Ihre Identität zu überprüfen."
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Want to confirm your identity later?"
-msgstr "Wollen Sie ihre Identität später bestätigen?"
-
-#: lms/templates/commerce/receipt.underscore
-msgid "Verify Now"
-msgstr "Verifiziere Jetzt"
 
 #: lms/templates/courseware/proctored-exam-controls.underscore
 msgid "Mark Exam As Completed"
@@ -8289,6 +8318,10 @@ msgstr ""
 "Vielen Dank, dass Sie Ihren Antrag auf finanzielle Unterstützung für "
 "{course_name} gestellt haben! Sie können mit einer Antwort in 2-4 Werktagen "
 "rechnen."
+
+#: lms/templates/financial-assistance/financial_assessment_submitted.underscore
+msgid "Go to Dashboard"
+msgstr "Zu \"Meine Kurse\""
 
 #: lms/templates/instructor/instructor_dashboard_2/certificate-bulk-white-list.underscore
 msgid "Bulk Exceptions"
@@ -8664,14 +8697,6 @@ msgid "You can change sessions until {expiration_date}."
 msgstr "Sie können Sitzungen bis zum {expiration_date} ändern."
 
 #: lms/templates/learner_dashboard/course_enroll.underscore
-msgid "Final Grade"
-msgstr "Finale Auswertung"
-
-#: lms/templates/learner_dashboard/course_enroll.underscore
-msgid "for {courseName}"
-msgstr "für {courseName}"
-
-#: lms/templates/learner_dashboard/course_enroll.underscore
 msgid "View Archived Course"
 msgstr "Archivierte Kurse anzeigen"
 
@@ -8899,8 +8924,28 @@ msgid "An error occurred. Please reload the page."
 msgstr "Ein Fehler ist aufgetreten. Bitte lade die Seite erneut."
 
 #: lms/templates/student_account/form_field.underscore
-msgid "Need help logging in?"
-msgstr "Brauchen Sie Hilfe beim anmelden?"
+msgid "Need help signing in?"
+msgstr "Brauchen Sie Hilfe bei der Anmeldung?"
+
+#: lms/templates/student_account/form_field.underscore
+msgid "Forgot my password"
+msgstr "Passwort vergessen"
+
+#: lms/templates/student_account/form_field.underscore
+msgid "Other sign-in issues"
+msgstr "Andere Probleme beim Anmelden"
+
+#: lms/templates/student_account/form_field.underscore
+msgid "Sign in with your company or school"
+msgstr "Über Ihr Unternehmen oder Schule anmelden"
+
+#: lms/templates/student_account/form_field.underscore
+msgid "Need other help signing in?"
+msgstr "Brauchen Sie weitere Hilfe bei der Anmeldung?"
+
+#: lms/templates/student_account/form_field.underscore
+msgid "Create an account"
+msgstr "Neues Konto erstellen"
 
 #: lms/templates/student_account/hinted_login.underscore
 #: lms/templates/student_account/login.underscore
@@ -9120,7 +9165,7 @@ msgstr "Was du zur Verifizierung benötigst"
 
 #: lms/templates/verify_student/face_photo_step.underscore
 msgid "Device with Camera"
-msgstr ""
+msgstr "Gerät mit Kamera"
 
 #: lms/templates/verify_student/face_photo_step.underscore
 msgid ""
@@ -9135,6 +9180,8 @@ msgstr "Fotoidentifikation"
 #: lms/templates/verify_student/face_photo_step.underscore
 msgid "You need a valid ID that contains your full name and photo."
 msgstr ""
+"Sie benötigen eine gültige ID, welche Ihren vollständigen Namen und ein Foto"
+" zeigt."
 
 #: lms/templates/verify_student/face_photo_step.underscore
 #: lms/templates/verify_student/incourse_reverify.underscore
@@ -9274,7 +9321,7 @@ msgstr "Nehmen Sie ein Foto von ihr Ausweis"
 
 #: lms/templates/verify_student/id_photo_step.underscore
 msgid "Use your webcam to take a photo of your ID."
-msgstr ""
+msgstr "Nutzen Sie Ihre Webcam, um ein Foto Ihrer ID zu machen."
 
 #: lms/templates/verify_student/id_photo_step.underscore
 msgid ""
@@ -9547,6 +9594,11 @@ msgid "Check your email for an activation message."
 msgstr "Überprüfen Sie Ihre E-Mail auf eine Aktivierungsnachricht."
 
 #: lms/templates/verify_student/make_payment_step_ab_testing.underscore
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Total"
+msgstr "Gesamt"
+
+#: lms/templates/verify_student/make_payment_step_ab_testing.underscore
 msgid "Professional Certificate for {courseName}"
 msgstr "Professionelles Zertifikat für {courseName}"
 
@@ -9593,6 +9645,38 @@ msgid "Thank you! We have received your payment for {courseName}."
 msgstr "Dankeschön! Wir haben Ihre Zahlung für {courseName} bekommen"
 
 #: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid ""
+"Please print this page for your records; it serves as your receipt. You will"
+" also receive an email with the same information."
+msgstr ""
+"Bitte drucken Sie diese Seite für Ihre Unterlagen aus, sie dient als Ihre "
+"Quittung. Sie erhalten außerdem eine E-Mail mit den gleichen Informationen."
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Order No."
+msgstr "Bestellnummer"
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Amount"
+msgstr "Summe"
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Please Note"
+msgstr "Bitte beachten Sie"
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Crossed out items have been refunded."
+msgstr "Gekreuzte Einzelteile wurden erstattet."
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Billed to"
+msgstr "Rechnung an"
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "No receipt available"
+msgstr "Keine Quittung verfügbar"
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
 msgid "Next Step: Confirm your identity"
 msgstr "Als nächstes: Bestätigen Sie ihre Identität"
 
@@ -9627,6 +9711,10 @@ msgstr ""
 "Kurs erkunden von Ihrem Armaturenbrett. Sie werden regelmäßigen Erinnerungen"
 " von %(platformName)s erhalten um Ihre Identität zu überprüfen."
 
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Want to confirm your identity later?"
+msgstr "Wollen Sie ihre Identität später bestätigen?"
+
 #: lms/templates/verify_student/reverify_success_step.underscore
 msgid "Identity Verification In Progress"
 msgstr "Verifikation Ihrer Identität in Bearbeitung"
@@ -9635,14 +9723,9 @@ msgstr "Verifikation Ihrer Identität in Bearbeitung"
 msgid ""
 "We have received your information and are verifying your identity. You will "
 "see a message on your dashboard when the verification process is complete "
-"(usually within 1-2 days). In the meantime, you can still access all "
+"(usually within 5-7 days). In the meantime, you can still access all "
 "available course content."
 msgstr ""
-"Wir haben Ihre Informationen erhalten und verifizieren Ihre Identität. Sie "
-"werden eine Meldung auf Ihrer 'Meine Kurse' Übersicht sehen, wenn der "
-"Verifikationsprozess abgeschlossen ist (normalerweise innerhalb von 1-2 "
-"Tagen). In der Zwischenzeit können Sie noch auf alle verfügbaren Kursinhalte"
-" zugreifen."
 
 #: lms/templates/verify_student/reverify_success_step.underscore
 msgid "Return to Your Dashboard"
@@ -11220,6 +11303,30 @@ msgid "Exam Types"
 msgstr "Prüfungsarten"
 
 #: cms/templates/js/timed-examination-preference-editor.underscore
+msgid ""
+"This subsection was released to learners as a special exam, but was reverted"
+" back to a basic exam. You may not configure it as a special exam now. "
+"Contact edX Support for assistance."
+msgstr ""
+"Dieser Unterabschnitt wurde für die Teilnehmer als Sonderprüfung "
+"veröffentlicht, anschließend aber wieder zu einer Grundprüfung "
+"zurückgewandelt. Die Prüfung kann jetzt nicht mehr als Sonderprüfung "
+"konfiguriert werden. Wenden Sie sich zur Unterstützung an den edX-Support."
+
+#: cms/templates/js/timed-examination-preference-editor.underscore
+msgid ""
+"This special exam has been released to learners. You may not convert it to "
+"another type of special exam. You may revert this subsection back to being a"
+" basic exam by selecting 'None', but you will NOT be able to configure it as"
+" a special exam in the future."
+msgstr ""
+"Diese Sonderprüfung wurde für die Teilnehmer veröffentlicht und kann nicht "
+"in eine andere Art von Sonderprüfung umgewandelt werden. Dieser "
+"Unterabschnitt kann jedoch wieder in eine Basisprüfung umgewandelt werden, "
+"indem Sie \"None\" wählen. Sie können die Prüfung in Zukunft NICHT mehr als "
+"Sonderprüfung konfigurieren."
+
+#: cms/templates/js/timed-examination-preference-editor.underscore
 msgid "Timed"
 msgstr "Terminiert"
 
@@ -11428,12 +11535,12 @@ msgid "Read more"
 msgstr "Mehr erfahren"
 
 #: cms/templates/js/video-transcripts.underscore
-msgid "Show transcripts ({totalTranscripts})"
-msgstr "Transkripte anzeigen ({totalTranscripts})"
-
-#: cms/templates/js/video-transcripts.underscore
 msgid "No transcript uploaded."
 msgstr "Kein Transkript hochgeladen."
+
+#: cms/templates/js/video-transcripts.underscore
+msgid "Show transcripts ({totalTranscripts})"
+msgstr "Transkripte anzeigen ({totalTranscripts})"
 
 #: cms/templates/js/xblock-access-editor.underscore
 msgid "Set Access"

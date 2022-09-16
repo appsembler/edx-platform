@@ -1,16 +1,17 @@
 """Signal handlers for writing course dates into edx_when."""
-from __future__ import absolute_import, unicode_literals
+
 
 import logging
 
 from django.dispatch import receiver
+from edx_when.api import FIELDS_TO_EXTRACT, set_dates_for_course
 from six import text_type
 from xblock.fields import Scope
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.django import SignalHandler, modulestore
+
 from .models import SelfPacedRelativeDatesConfig
 from .utils import spaced_out_sections
-from edx_when.api import FIELDS_TO_EXTRACT, set_dates_for_course
 
 log = logging.getLogger(__name__)
 
@@ -53,13 +54,25 @@ def extract_dates_from_course(course):
             # unless that item already has a relative date set
             for _, section, weeks_to_complete in spaced_out_sections(course):
                 items = [section]
+                has_non_ora_scored_content = False
+                section_date_items = []
                 while items:
                     next_item = items.pop()
+                    # TODO: This is pretty gross, and should maybe be configurable in the future,
+                    # especially if we find ourselves needing more exceptions.
                     if next_item.graded:
                         # TODO: Once studio can manually set relative dates,
                         # we would need to manually check for them here
-                        date_items.append((next_item.location, {'due': weeks_to_complete}))
+                        section_date_items.append((next_item.location, {'due': weeks_to_complete}))
+                        has_non_ora_scored_content = (
+                            has_non_ora_scored_content or
+                            (next_item.has_score and next_item.category != 'openassessment')
+                        )
+
                     items.extend(next_item.get_children())
+
+                if has_non_ora_scored_content:
+                    date_items.extend(section_date_items)
     else:
         date_items = []
         store = modulestore()

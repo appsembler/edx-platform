@@ -447,6 +447,25 @@ class SingleThreadTestCase(ForumsEnableMixin, ModuleStoreTestCase):
             )
 
 
+class AllowPlusOrMinusOneInt(int):
+    """
+    A workaround for the fact that assertNumQueries doesn't let you
+    specify a range or any tolerance. An 'int' that is 'equal to' its value,
+    but also its value +/- 1
+    """
+
+    def __init__(self, value):
+        super().__init__()
+        self.value = value
+        self.values = (value, value - 1, value + 1)
+
+    def __eq__(self, other):
+        return other in self.values
+
+    def __repr__(self):
+        return "({} +/- 1)".format(self.value)
+
+
 @ddt.ddt
 @patch('requests.request', autospec=True)
 class SingleThreadQueryCountTestCase(ForumsEnableMixin, ModuleStoreTestCase):
@@ -463,18 +482,18 @@ class SingleThreadQueryCountTestCase(ForumsEnableMixin, ModuleStoreTestCase):
         # course is outside the context manager that is verifying the number of queries,
         # and with split mongo, that method ends up querying disabled_xblocks (which is then
         # cached and hence not queried as part of call_single_thread).
-        (ModuleStoreEnum.Type.mongo, False, 1, 5, 2, 23, 7),
-        (ModuleStoreEnum.Type.mongo, False, 50, 5, 2, 23, 7),
+        (ModuleStoreEnum.Type.mongo, False, 1, 5, 2, 21, 7),
+        (ModuleStoreEnum.Type.mongo, False, 50, 5, 2, 21, 7),
         # split mongo: 3 queries, regardless of thread response size.
-        (ModuleStoreEnum.Type.split, False, 1, 3, 3, 23, 7),
-        (ModuleStoreEnum.Type.split, False, 50, 3, 3, 23, 7),
+        (ModuleStoreEnum.Type.split, False, 1, 3, 3, 21, 8),
+        (ModuleStoreEnum.Type.split, False, 50, 3, 3, 21, 8),
 
         # Enabling Enterprise integration should have no effect on the number of mongo queries made.
-        (ModuleStoreEnum.Type.mongo, True, 1, 5, 2, 23, 7),
-        (ModuleStoreEnum.Type.mongo, True, 50, 5, 2, 23, 7),
+        (ModuleStoreEnum.Type.mongo, True, 1, 5, 2, 21, 7),
+        (ModuleStoreEnum.Type.mongo, True, 50, 5, 2, 21, 7),
         # split mongo: 3 queries, regardless of thread response size.
-        (ModuleStoreEnum.Type.split, True, 1, 3, 3, 23, 7),
-        (ModuleStoreEnum.Type.split, True, 50, 3, 3, 23, 7),
+        (ModuleStoreEnum.Type.split, True, 1, 3, 3, 21, 8),
+        (ModuleStoreEnum.Type.split, True, 50, 3, 3, 21, 8),
     )
     @ddt.unpack
     def test_number_of_mongo_queries(
@@ -525,7 +544,10 @@ class SingleThreadQueryCountTestCase(ForumsEnableMixin, ModuleStoreTestCase):
         # Test uncached first, then cached now that the cache is warm.
         cached_calls = [
             [num_uncached_mongo_calls, num_uncached_sql_queries],
-            [num_cached_mongo_calls, num_cached_sql_queries],
+            # Sometimes there will be one more or fewer sql call than expected, because the call to
+            # CourseMode.modes_for_course sometimes does / doesn't get cached and does / doesn't hit the DB.
+            # EDUCATOR-5167
+            [num_cached_mongo_calls, AllowPlusOrMinusOneInt(num_cached_sql_queries)],
         ]
         for expected_mongo_calls, expected_sql_queries in cached_calls:
             with self.assertNumQueries(expected_sql_queries, table_blacklist=QUERY_COUNT_TABLE_BLACKLIST):

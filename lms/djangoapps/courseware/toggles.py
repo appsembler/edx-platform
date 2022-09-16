@@ -21,7 +21,9 @@ WAFFLE_FLAG_NAMESPACE = WaffleFlagNamespace(name='courseware')
 # .. toggle_warnings: Also set settings.LEARNING_MICROFRONTEND_URL and ENABLE_COURSEWARE_MICROFRONTEND.
 # .. toggle_tickets: TNL-7000
 # .. toggle_status: supported
-REDIRECT_TO_COURSEWARE_MICROFRONTEND = ExperimentWaffleFlag(WAFFLE_FLAG_NAMESPACE, 'courseware_mfe')
+REDIRECT_TO_COURSEWARE_MICROFRONTEND = ExperimentWaffleFlag(
+    WAFFLE_FLAG_NAMESPACE, 'courseware_mfe', use_course_aware_bucketing=False
+)
 
 # Waffle flag to display a link for the new learner experience to course teams without redirecting students.
 #
@@ -37,11 +39,3 @@ REDIRECT_TO_COURSEWARE_MICROFRONTEND = ExperimentWaffleFlag(WAFFLE_FLAG_NAMESPAC
 # .. toggle_tickets: TNL-6982
 # .. toggle_status: supported
 COURSEWARE_MICROFRONTEND_COURSE_TEAM_PREVIEW = CourseWaffleFlag(WAFFLE_FLAG_NAMESPACE, 'microfrontend_course_team_preview')
-
-
-def should_redirect_to_courseware_microfrontend(course_key):
-    return (
-        settings.FEATURES.get('ENABLE_COURSEWARE_MICROFRONTEND') and
-        (not course_key.deprecated) and  # Old Mongo courses not supported
-        REDIRECT_TO_COURSEWARE_MICROFRONTEND.is_enabled(course_key)
-    )

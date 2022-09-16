@@ -25,6 +25,7 @@ from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 from edx_django_utils.monitoring import set_custom_metric
 from eventtracking import tracker
+from ratelimit.decorators import ratelimit
 from ratelimitbackend.exceptions import RateLimitException
 from rest_framework.views import APIView
 from tahoe_sites.api import get_organization_user_by_email
@@ -32,6 +33,7 @@ from tahoe_sites.api import get_organization_user_by_email
 from edxmako.shortcuts import render_to_response
 from openedx.core.djangoapps.password_policy import compliance as password_policy_compliance
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
+from openedx.core.djangoapps.user_api.accounts.toggles import should_redirect_to_logistration_mircrofrontend
 from openedx.core.djangoapps.user_authn.views.login_form import get_login_session_form
 from openedx.core.djangoapps.user_authn.cookies import refresh_jwt_cookies, set_logged_in_cookies
 from openedx.core.djangoapps.user_authn.exceptions import AuthFailedError
@@ -76,23 +78,20 @@ def _do_third_party_auth(request):
             u"with backend_name {backend_name}".format(
                 username=username, backend_name=backend_name)
         )
-        message = Text(_(
+        message = _(
             u"You've successfully signed in to your {provider_name} account, "
-            u"but this account isn't linked with your {platform_name} account yet. {blank_lines}"
+            u"but this account isn't linked with your {platform_name} account yet."
             u"Use your {platform_name} username and password to sign in to {platform_name} below, "
-            u"and then link your {platform_name} account with {provider_name} from your dashboard. {blank_lines}"
+            u"and then link your {platform_name} account with {provider_name} from your dashboard."
             u"If you don't have an account on {platform_name} yet, "
             u"click {register_label_strong} at the top of the page."
-        )).format(
-            blank_lines=HTML('<br/><br/>'),
+        ).format(
             platform_name=platform_name,
             provider_name=requested_provider.name,
-            register_label_strong=HTML('<strong>{register_text}</strong>').format(
-                register_text=_('Register')
-            )
+            register_label_strong='Register'
         )
 
-        raise AuthFailedError(message)
+        raise AuthFailedError(message, error_code='third-party-auth-with-no-linked-account')
 
 
 def _log_failed_get_user_by_email(email):
@@ -146,8 +145,21 @@ def _check_excessive_login_attempts(user):
     """
     if user and LoginFailures.is_feature_enabled():
         if LoginFailures.is_user_locked_out(user):
-            raise AuthFailedError(_('This account has been temporarily locked due '
-                                    'to excessive login failures. Try again later.'))
+            _generate_locked_out_error_message()
+
+
+def _generate_locked_out_error_message():
+
+    locked_out_period_in_sec = settings.MAX_FAILED_LOGIN_ATTEMPTS_LOCKOUT_PERIOD_SECS
+    raise AuthFailedError(Text(_('To protect your account, it’s been temporarily '
+                                 'locked. Try again in {locked_out_period} minutes.'
+                                 '{li_start}To be on the safe side, you can reset your '
+                                 'password {link_start}here{link_end} before you try again.')).format(
+        link_start=HTML('<a "#login" class="form-toggle" data-type="password-reset">'),
+        link_end=HTML('</a>'),
+        li_start=HTML('<li>'),
+        li_end=HTML('</li>'),
+        locked_out_period=int(locked_out_period_in_sec / 60)))
 
 
 def _enforce_password_policy_compliance(request, user):
@@ -160,39 +172,6 @@ def _enforce_password_policy_compliance(request, user):
         send_password_reset_email_for_user(user, request)
         # Prevent the login attempt.
         raise AuthFailedError(HTML(six.text_type(e)))
-
-
-def _generate_not_activated_message(user):
-    """
-    Generates the message displayed on the sign-in screen when a learner attempts to access the
-    system with an inactive account.
-    """
-
-    support_url = configuration_helpers.get_value(
-        'SUPPORT_SITE_LINK',
-        settings.SUPPORT_SITE_LINK
-    )
-
-    platform_name = configuration_helpers.get_value(
-        'PLATFORM_NAME',
-        settings.PLATFORM_NAME
-    )
-    not_activated_message = Text(_(
-        u'In order to sign in, you need to activate your account.{blank_lines}'
-        u'We just sent an activation link to {email_strong}. If '
-        u'you do not receive an email, check your spam folders or '
-        u'{link_start}contact {platform_name} Support{link_end}.'
-    )).format(
-        platform_name=platform_name,
-        blank_lines=HTML('<br/><br/>'),
-        email_strong=HTML('<strong>{email}</strong>').format(email=user.email),
-        link_start=HTML(u'<a href="{support_url}">').format(
-            support_url=support_url,
-        ),
-        link_end=HTML("</a>"),
-    )
-
-    return not_activated_message
 
 
 def _log_and_raise_inactive_user_auth_error(unauthenticated_user):
@@ -213,7 +192,7 @@ def _log_and_raise_inactive_user_auth_error(unauthenticated_user):
     profile = UserProfile.objects.get(user=unauthenticated_user)
     compose_and_send_activation_email(unauthenticated_user, profile)
 
-    raise AuthFailedError(_generate_not_activated_message(unauthenticated_user))
+    raise AuthFailedError(error_code='inactive-user')
 
 
 def _authenticate_first_party(request, unauthenticated_user, third_party_auth_requested):
@@ -262,6 +241,27 @@ def _handle_failed_authentication(user, authenticated_user):
             AUDIT_LOG.warning(u"Login failed - password for user.id: {0} is invalid".format(loggable_id))
         else:
             AUDIT_LOG.warning(u"Login failed - password for {0} is invalid".format(user.email))
+
+    if user and LoginFailures.is_feature_enabled():
+        blocked_threshold, failure_count = LoginFailures.check_user_reset_password_threshold(user)
+        if blocked_threshold:
+            if not LoginFailures.is_user_locked_out(user):
+                max_failures_allowed = settings.MAX_FAILED_LOGIN_ATTEMPTS_ALLOWED
+                remaining_attempts = max_failures_allowed - failure_count
+                raise AuthFailedError(Text(_('Email or password is incorrect.'
+                                             '{li_start}You have {remaining_attempts} more sign-in '
+                                             'attempts before your account is temporarily locked.{li_end}'
+                                             '{li_start}If you\'ve forgotten your password, click '
+                                             '{link_start}here{link_end} to reset.{li_end}'
+                                             ))
+                                      .format(
+                    link_start=HTML('<a http="#login" class="form-toggle" data-type="password-reset">'),
+                    link_end=HTML('</a>'),
+                    li_start=HTML('<li>'),
+                    li_end=HTML('</li>'),
+                    remaining_attempts=remaining_attempts))
+            else:
+                _generate_locked_out_error_message()
 
     raise AuthFailedError(_('Email or password is incorrect.'))
 
@@ -340,7 +340,15 @@ def _check_user_auth_flow(site, user):
     """
     if user and ENABLE_LOGIN_USING_THIRDPARTY_AUTH_ONLY.is_enabled():
         allowed_domain = site.configuration.get_value('THIRD_PARTY_AUTH_ONLY_DOMAIN', '').lower()
-        user_domain = user.email.split('@')[1].strip().lower()
+        email_parts = user.email.split('@')
+        if len(email_parts) != 2:
+            # User has a nonstandard email so we record their id.
+            # we don't record their e-mail in case there is sensitive info accidentally
+            # in there.
+            set_custom_metric('login_tpa_domain_shortcircuit_user_id', user.id)
+            log.warn("User %s has nonstandard e-mail. Shortcircuiting THIRD_PART_AUTH_ONLY_DOMAIN check.", user.id)
+            return
+        user_domain = email_parts[1].strip().lower()
 
         # If user belongs to allowed domain and not whitelisted then user must login through allowed domain SSO
         if user_domain == allowed_domain and not AllowedAuthUser.objects.filter(site=site, email=user.email).exists():
@@ -363,7 +371,7 @@ def _check_user_auth_flow(site, user):
 
 @login_required
 @require_http_methods(['GET'])
-def finish_auth(request):  # pylint: disable=unused-argument
+def finish_auth(request):
     """ Following logistration (1st or 3rd party), handle any special query string params.
 
     See FinishAuthView.js for details on the query string params.
@@ -397,6 +405,12 @@ def finish_auth(request):  # pylint: disable=unused-argument
 
 @ensure_csrf_cookie
 @require_http_methods(['POST'])
+@ratelimit(
+    key='openedx.core.djangoapps.util.ratelimit.real_ip',
+    rate=settings.LOGISTRATION_RATELIMIT_RATE,
+    method='POST',
+    block=True
+)
 def login_user(request):
     """
     AJAX request to log in the user.
@@ -455,7 +469,6 @@ def login_user(request):
 
                 # user successfully authenticated with a third party provider, but has no linked Open edX account
                 response_content = e.get_response()
-                response_content['error_code'] = 'third-party-auth-with-no-linked-account'
                 return JsonResponse(response_content, status=403)
         else:
             # Appsembler: _get_user_by_email makes sure to return the correct user object, from the right organization.
@@ -480,7 +493,7 @@ def login_user(request):
         if is_user_third_party_authenticated:
             running_pipeline = pipeline.get(request)
             redirect_url = pipeline.get_complete_url(backend_name=running_pipeline['backend'])
-        elif settings.FEATURES.get('ENABLE_LOGIN_MICROFRONTEND'):
+        elif should_redirect_to_logistration_mircrofrontend():
             redirect_url = get_next_url_for_login_page(request)
 
         response = JsonResponse({
@@ -496,8 +509,12 @@ def login_user(request):
         set_custom_metric('login_user_redirect_url', redirect_url)
         return response
     except AuthFailedError as error:
-        log.exception(error.get_response())
-        response = JsonResponse(error.get_response(), status=400)
+        response_content = error.get_response()
+        log.exception(response_content)
+        if response_content.get('error_code') == 'inactive-user':
+            response_content['email'] = user.email
+
+        response = JsonResponse(response_content, status=400)
         set_custom_metric('login_user_auth_failed_error', True)
         set_custom_metric('login_user_response_status', response.status_code)
         return response

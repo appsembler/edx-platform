@@ -43,6 +43,7 @@ from contentstore.tasks import rerun_course as rerun_course_task
 from contentstore.utils import (
     add_instructor,
     get_lms_link_for_item,
+    get_proctored_exam_settings_url,
     initialize_permissions,
     remove_all_instructors,
     reverse_course_url,
@@ -101,7 +102,12 @@ from xmodule.tabs import CourseTab, CourseTabList, InvalidTabsException
 
 from .component import ADVANCED_COMPONENT_TYPES
 from .item import create_xblock_info
-from .library import LIBRARIES_ENABLED, get_library_creator_status
+from .library import (
+    LIBRARY_AUTHORING_MICROFRONTEND_URL,
+    LIBRARIES_ENABLED,
+    get_library_creator_status,
+    should_redirect_to_library_authoring_mfe,
+)
 
 log = logging.getLogger(__name__)
 
@@ -558,8 +564,10 @@ def course_listing(request):
         u'archived_courses': archived_courses,
         u'in_process_course_actions': in_process_course_actions,
         u'libraries_enabled': LIBRARIES_ENABLED,
+        u'redirect_to_library_authoring_mfe': should_redirect_to_library_authoring_mfe(),
+        u'library_authoring_mfe_url': LIBRARY_AUTHORING_MICROFRONTEND_URL,
         u'libraries': [format_library_for_view(lib) for lib in libraries],
-        u'show_new_library_button': get_library_creator_status(user),
+        u'show_new_library_button': get_library_creator_status(user) and not should_redirect_to_library_authoring_mfe(),
         u'user': user,
         u'request_course_creator_url': reverse('request_course_creator'),
         u'course_creator_status': _get_course_creator_status(user),
@@ -660,6 +668,8 @@ def course_index(request, course_key):
             settings.FEATURES.get('FRONTEND_APP_PUBLISHER_URL', False)
         )
 
+        course_authoring_microfrontend_url = get_proctored_exam_settings_url(course_module)
+
         return render_to_response('course_outline.html', {
             'language_code': request.LANGUAGE_CODE,
             'context_course': course_module,
@@ -680,6 +690,7 @@ def course_index(request, course_key):
                 },
             ) if current_action else None,
             'frontend_app_publisher_url': frontend_app_publisher_url,
+            'course_authoring_microfrontend_url': course_authoring_microfrontend_url,
         })
 
 
@@ -1089,6 +1100,8 @@ def settings_handler(request, course_key_string):
             upgrade_deadline = (verified_mode and verified_mode.expiration_datetime and
                                 verified_mode.expiration_datetime.isoformat())
 
+            course_authoring_microfrontend_url = get_proctored_exam_settings_url(course_module)
+
             settings_context = {
                 'context_course': course_module,
                 'course_locator': course_key,
@@ -1112,6 +1125,7 @@ def settings_handler(request, course_key_string):
                 'is_entrance_exams_enabled': is_entrance_exams_enabled(),
                 'enable_extended_course_details': enable_extended_course_details,
                 'upgrade_deadline': upgrade_deadline,
+                'course_authoring_microfrontend_url': course_authoring_microfrontend_url,
             }
             if is_prerequisite_courses_enabled():
                 courses, in_process_course_actions = get_courses_accessible_to_user(request)
@@ -1231,12 +1245,15 @@ def grading_handler(request, course_key_string, grader_index=None):
         if 'text/html' in request.META.get('HTTP_ACCEPT', '') and request.method == 'GET':
             course_details = CourseGradingModel.fetch(course_key)
 
+            course_authoring_microfrontend_url = get_proctored_exam_settings_url(course_module)
+
             return render_to_response('settings_graders.html', {
                 'context_course': course_module,
                 'course_locator': course_key,
                 'course_details': course_details,
                 'grading_url': reverse_course_url('grading_handler', course_key),
                 'is_credit_course': is_credit_course(course_key),
+                'course_authoring_microfrontend_url': course_authoring_microfrontend_url,
             })
         elif 'application/json' in request.META.get('HTTP_ACCEPT', ''):
             if request.method == 'GET':
@@ -1334,11 +1351,14 @@ def advanced_settings_handler(request, course_key_string):
                 settings.FEATURES.get('ENABLE_PUBLISHER', False)
             )
 
+            course_authoring_microfrontend_url = get_proctored_exam_settings_url(course_module)
+
             return render_to_response('settings_advanced.html', {
                 'context_course': course_module,
                 'advanced_dict': advanced_dict,
                 'advanced_settings_url': reverse_course_url('advanced_settings_handler', course_key),
                 'publisher_enabled': publisher_enabled,
+                'course_authoring_microfrontend_url': course_authoring_microfrontend_url,
 
             })
         elif 'application/json' in request.META.get('HTTP_ACCEPT', ''):
@@ -1683,6 +1703,8 @@ def group_configurations_list_handler(request, course_key_string):
             if not has_content_groups:
                 displayable_partitions.append(GroupConfiguration.get_or_create_content_group(store, course))
 
+            course_authoring_microfrontend_url = get_proctored_exam_settings_url(course)
+
             return render_to_response('group_configurations.html', {
                 'context_course': course,
                 'group_configuration_url': group_configuration_url,
@@ -1690,7 +1712,8 @@ def group_configurations_list_handler(request, course_key_string):
                 'experiment_group_configurations': experiment_group_configurations,
                 'should_show_experiment_groups': should_show_experiment_groups,
                 'all_group_configurations': displayable_partitions,
-                'should_show_enrollment_track': should_show_enrollment_track
+                'should_show_enrollment_track': should_show_enrollment_track,
+                'course_authoring_microfrontend_url': course_authoring_microfrontend_url,
             })
         elif "application/json" in request.META.get('HTTP_ACCEPT'):
             if request.method == 'POST':

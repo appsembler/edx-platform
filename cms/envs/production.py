@@ -12,14 +12,16 @@ import copy
 import os
 import yaml
 
+from corsheaders.defaults import default_headers as corsheaders_default_headers
 from django.core.exceptions import ImproperlyConfigured
 from django.urls import reverse_lazy
+from edx_django_utils.plugins import add_plugins
 from path import Path as path
+
+from openedx.core.djangoapps.plugins.constants import ProjectType, SettingsType
 
 from .common import *
 
-from openedx.core.djangoapps.plugins import constants as plugin_constants
-from openedx.core.djangoapps.plugins import plugin_settings
 from openedx.core.lib.derived import derive_settings
 from openedx.core.lib.logsettings import get_logger_config
 from xmodule.modulestore.modulestore_settings import convert_module_store_setting_if_needed
@@ -79,10 +81,10 @@ with codecs.open(CONFIG_FILE, encoding='utf-8') as f:
     vars().update(__config_copy__)
 
 
-# A file path to a YAML file from which to load all the code revisions currently deployed
-REVISION_CONFIG_FILE = get_env_setting('REVISION_CFG')
-
 try:
+    # A file path to a YAML file from which to load all the code revisions currently deployed
+    REVISION_CONFIG_FILE = get_env_setting('REVISION_CFG')
+
     with codecs.open(REVISION_CONFIG_FILE, encoding='utf-8') as f:
         REVISION_CONFIG = yaml.safe_load(f)
 except Exception:  # pylint: disable=broad-except
@@ -94,11 +96,6 @@ EDX_PLATFORM_REVISION = REVISION_CONFIG.get('EDX_PLATFORM_REVISION', EDX_PLATFOR
 # SERVICE_VARIANT specifies name of the variant used, which decides what JSON
 # configuration files are read during startup.
 SERVICE_VARIANT = os.environ.get('SERVICE_VARIANT', None)
-
-# CONFIG_ROOT specifies the directory where the JSON configuration
-# files are expected to be found. If not specified, use the project
-# directory.
-CONFIG_ROOT = path(os.environ.get('CONFIG_ROOT', ENV_ROOT))
 
 # CONFIG_PREFIX specifies the prefix of the JSON configuration files,
 # based on the service variant. If no variant is use, don't use a
@@ -266,6 +263,11 @@ COMPREHENSIVE_THEME_LOCALE_PATHS = ENV_TOKENS.get('COMPREHENSIVE_THEME_LOCALE_PA
 #Timezone overrides
 TIME_ZONE = ENV_TOKENS.get('CELERY_TIMEZONE', CELERY_TIMEZONE)
 
+##### REGISTRATION RATE LIMIT SETTINGS #####
+REGISTRATION_VALIDATION_RATELIMIT = ENV_TOKENS.get(
+    'REGISTRATION_VALIDATION_RATELIMIT', REGISTRATION_VALIDATION_RATELIMIT
+)
+
 # Push to LMS overrides
 GIT_REPO_EXPORT_DIR = ENV_TOKENS.get('GIT_REPO_EXPORT_DIR', '/edx/var/edxapp/export_course_repos')
 
@@ -405,6 +407,11 @@ BROKER_URL = "{0}://{1}:{2}@{3}/{4}".format(CELERY_BROKER_TRANSPORT,
                                             CELERY_BROKER_VHOST)
 BROKER_USE_SSL = ENV_TOKENS.get('CELERY_BROKER_USE_SSL', False)
 
+BROKER_TRANSPORT_OPTIONS = {
+    'fanout_patterns': True,
+    'fanout_prefix': True,
+}
+
 # Message expiry time in seconds
 CELERY_EVENT_QUEUE_TTL = ENV_TOKENS.get('CELERY_EVENT_QUEUE_TTL', None)
 
@@ -465,7 +472,7 @@ PARSE_KEYS = AUTH_TOKENS.get("PARSE_KEYS", {})
 # Example: {'CN': 'http://api.xuetangx.com/edx/video?s3_url='}
 VIDEO_CDN_URL = ENV_TOKENS.get('VIDEO_CDN_URL', {})
 
-if FEATURES['ENABLE_COURSEWARE_INDEX'] or FEATURES['ENABLE_LIBRARY_INDEX']:
+if FEATURES['ENABLE_COURSEWARE_INDEX'] or FEATURES['ENABLE_LIBRARY_INDEX'] or FEATURES['ENABLE_CONTENT_LIBRARY_INDEX']:
     # Use ElasticSearch for the search engine
     SEARCH_ENGINE = "search.elastic.ElasticSearchEngine"
 
@@ -522,6 +529,10 @@ ENTERPRISE_CATALOG_INTERNAL_ROOT_URL = ENV_TOKENS.get(
     'ENTERPRISE_CATALOG_INTERNAL_ROOT_URL',
     ENTERPRISE_CATALOG_INTERNAL_ROOT_URL
 )
+INTEGRATED_CHANNELS_API_CHUNK_TRANSMISSION_LIMIT = ENV_TOKENS.get(
+    'INTEGRATED_CHANNELS_API_CHUNK_TRANSMISSION_LIMIT',
+    INTEGRATED_CHANNELS_API_CHUNK_TRANSMISSION_LIMIT
+)
 
 ############### Settings for Retirement #####################
 RETIREMENT_SERVICE_WORKER_USERNAME = ENV_TOKENS.get(
@@ -532,7 +543,6 @@ RETIREMENT_SERVICE_WORKER_USERNAME = ENV_TOKENS.get(
 ############### Settings for edx-rbac  ###############
 SYSTEM_WIDE_ROLE_CLASSES = ENV_TOKENS.get('SYSTEM_WIDE_ROLE_CLASSES') or SYSTEM_WIDE_ROLE_CLASSES
 
-
 ### Appsembler customization - Studio local login ###
 if FEATURES.get('TAHOE_STUDIO_LOCAL_LOGIN'):
     LOGIN_URL = reverse_lazy('login')
@@ -542,12 +552,25 @@ if FEATURES.get('TAHOE_STUDIO_LOCAL_LOGIN'):
     derived('FRONTEND_LOGOUT_URL')
     LOGOUT_REDIRECT_URL = reverse_lazy('home')
 
+######################## Setting for content libraries ########################
+MAX_BLOCKS_PER_CONTENT_LIBRARY = ENV_TOKENS.get('MAX_BLOCKS_PER_CONTENT_LIBRARY', MAX_BLOCKS_PER_CONTENT_LIBRARY)
+
 ####################### Plugin Settings ##########################
 
 # This is at the bottom because it is going to load more settings after base settings are loaded
 
-plugin_settings.add_plugins(__name__, plugin_constants.ProjectType.CMS, plugin_constants.SettingsType.PRODUCTION)
+add_plugins(__name__, ProjectType.CMS, SettingsType.PRODUCTION)
 
 ########################## Derive Any Derived Settings  #######################
 
 derive_settings(__name__)
+
+############# CORS headers for cross-domain requests #################
+if FEATURES.get('ENABLE_CORS_HEADERS'):
+    CORS_ALLOW_CREDENTIALS = True
+    CORS_ORIGIN_WHITELIST = ENV_TOKENS.get('CORS_ORIGIN_WHITELIST', ())
+    CORS_ORIGIN_ALLOW_ALL = ENV_TOKENS.get('CORS_ORIGIN_ALLOW_ALL', False)
+    CORS_ALLOW_INSECURE = ENV_TOKENS.get('CORS_ALLOW_INSECURE', False)
+    CORS_ALLOW_HEADERS = corsheaders_default_headers + (
+        'use-jwt-cookie',
+    )

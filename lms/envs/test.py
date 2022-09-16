@@ -23,10 +23,11 @@ from uuid import uuid4
 
 import openid.oidutil
 from django.utils.translation import ugettext_lazy
+from edx_django_utils.plugins import add_plugins
 from path import Path as path
 from six.moves import range
 
-from openedx.core.djangoapps.plugins import plugin_settings, constants as plugin_constants
+from openedx.core.djangoapps.plugins.constants import ProjectType, SettingsType
 from openedx.core.lib.derived import derive_settings
 from openedx.core.lib.tempdir import mkdtemp_clean
 
@@ -486,7 +487,13 @@ FEATURES['ORGANIZATIONS_APP'] = True
 # Financial assistance page
 FEATURES['ENABLE_FINANCIAL_ASSISTANCE_FORM'] = True
 
-COURSE_CATALOG_API_URL = 'https://catalog.example.com/api/v1'
+COURSE_BLOCKS_API_EXTRA_FIELDS = [
+    ('course', 'course_visibility'),
+    ('course', 'other_course_settings'),
+]
+
+COURSE_CATALOG_URL_ROOT = 'https://catalog.example.com'
+COURSE_CATALOG_API_URL = '{}/api/v1'.format(COURSE_CATALOG_URL_ROOT)
 
 COMPREHENSIVE_THEME_DIRS = [REPO_ROOT / "common/test/appsembler", REPO_ROOT / "themes", REPO_ROOT / "common/test"]
 COMPREHENSIVE_THEME_LOCALE_PATHS = [REPO_ROOT / "themes/conf/locale", ]
@@ -505,6 +512,9 @@ FRONTEND_LOGIN_URL = '/login'
 FRONTEND_LOGOUT_URL = '/logout'
 FRONTEND_REGISTER_URL = '/register'
 
+# Programs Learner Portal URL
+LEARNER_PORTAL_URL_ROOT = 'http://localhost:8734'
+
 ECOMMERCE_API_URL = 'https://ecommerce.example.com/api/v2/'
 ECOMMERCE_PUBLIC_URL_ROOT = None
 ENTERPRISE_API_URL = 'http://enterprise.example.com/enterprise/api/v1/'
@@ -513,11 +523,6 @@ ENTERPRISE_CONSENT_API_URL = 'http://enterprise.example.com/consent/api/v1/'
 ACTIVATION_EMAIL_FROM_ADDRESS = 'test_activate@edx.org'
 
 TEMPLATES[0]['OPTIONS']['debug'] = True
-
-########################### DRF default throttle rates ############################
-# Increasing rates to enable test cases hitting registration view succesfully.
-# Lower rate is causing view to get blocked, causing test case failure.
-REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['registration_validation'] = '100/minute'
 
 ########################## VIDEO TRANSCRIPTS STORAGE ############################
 VIDEO_TRANSCRIPTS_SETTINGS = dict(
@@ -554,7 +559,7 @@ JWT_AUTH.update({
 # pylint: enable=unicode-format-string
 ####################### Plugin Settings ##########################
 
-plugin_settings.add_plugins(__name__, plugin_constants.ProjectType.LMS, plugin_constants.SettingsType.TEST)
+add_plugins(__name__, ProjectType.LMS, SettingsType.TEST)
 
 ########################## Derive Any Derived Settings  #######################
 
@@ -596,3 +601,8 @@ PROCTORING_SETTINGS = {}
 ############### Settings for Django Rate limit #####################
 
 RATELIMIT_RATE = '2/m'
+
+##### LOGISTRATION RATE LIMIT SETTINGS #####
+LOGISTRATION_RATELIMIT_RATE = '5/5m'
+
+REGISTRATION_VALIDATION_RATELIMIT = '5/minute'

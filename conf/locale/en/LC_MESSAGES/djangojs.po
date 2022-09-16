@@ -32,8 +32,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1a\n"
 "Report-Msgid-Bugs-To: openedx-translation@googlegroups.com\n"
-"POT-Creation-Date: 2020-06-02 20:40+0000\n"
-"PO-Revision-Date: 2020-06-02 20:41:03.366043\n"
+"POT-Creation-Date: 2020-09-06 20:49+0000\n"
+"PO-Revision-Date: 2020-09-06 20:50:06.021014\n"
 "Last-Translator: \n"
 "Language-Team: openedx-translation <openedx-translation@googlegroups.com>\n"
 "Language: en\n"
@@ -42,6 +42,14 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "Generated-By: Babel 2.8.0\n"
+
+#: cms/static/cms/js/main.js cms/static/js/views/active_video_upload_list.js
+#: cms/static/js/views/video_transcripts.js
+#: common/lib/xmodule/xmodule/assets/library_source_block/public/js/library_source_block.js
+msgid ""
+"This may be happening because of an error with our server or your internet "
+"connection. Try refreshing the page or making sure you are online."
+msgstr ""
 
 #: cms/static/cms/js/xblock/cms.runtime.v1.js
 #: cms/static/js/certificates/views/signatory_details.js
@@ -52,8 +60,9 @@ msgstr ""
 #: cms/static/js/views/edit_textbook.js
 #: cms/static/js/views/list_item_editor.js
 #: cms/static/js/views/modals/edit_xblock.js cms/static/js/views/tabs.js
-#: cms/static/js/views/utils/xblock_utils.js lms/static/js/ccx/schedule.js
-#: lms/static/js/views/fields.js
+#: cms/static/js/views/utils/xblock_utils.js
+#: common/lib/xmodule/xmodule/assets/library_source_block/public/js/library_source_block.js
+#: lms/static/js/ccx/schedule.js lms/static/js/views/fields.js
 msgid "Saving"
 msgstr ""
 
@@ -265,6 +274,7 @@ msgstr ""
 #: common/static/common/js/discussion/views/discussion_thread_list_view.js
 #: common/static/common/js/discussion/views/discussion_thread_view.js
 #: common/static/common/js/discussion/views/response_comment_view.js
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/components/ReportStatus/ReportStatus.jsx
 #: lms/static/js/student_account/views/FinishAuthView.js
 #: lms/static/js/verify_student/views/payment_confirmation_step_view.js
 #: lms/static/js/verify_student/views/step_view.js
@@ -275,6 +285,10 @@ msgstr ""
 #: common/lib/xmodule/xmodule/assets/library_content/public/js/library_content_edit.js
 #: common/lib/xmodule/xmodule/js/public/js/library_content_edit.js
 msgid "Updating with latest library content"
+msgstr ""
+
+#: common/lib/xmodule/xmodule/assets/library_source_block/public/js/library_source_block.js
+msgid "Unable to update settings"
 msgstr ""
 
 #: common/lib/xmodule/xmodule/assets/split_test/public/js/split_test_author_view.js
@@ -745,7 +759,6 @@ msgstr ""
 #: common/lib/xmodule/xmodule/js/src/html/edit.js
 #: cms/templates/js/certificate-editor.underscore
 #: cms/templates/js/group-configuration-editor.underscore
-#: lms/templates/commerce/receipt.underscore
 #: lms/templates/verify_student/payment_confirmation_step.underscore
 msgid "Description"
 msgstr ""
@@ -2296,6 +2309,34 @@ msgstr[1] ""
 msgid "Select a section or problem"
 msgstr ""
 
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/components/Main/Main.jsx
+msgid "Create a report of problem responses"
+msgstr ""
+
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/components/ReportStatus/ReportStatus.jsx
+msgid "Your report is being generated..."
+msgstr ""
+
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/components/ReportStatus/ReportStatus.jsx
+msgid "Your report has being successfully generated."
+msgstr ""
+
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/components/ReportStatus/ReportStatus.jsx
+msgid "View Report"
+msgstr ""
+
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/data/actions/problemResponses.js
+msgid "There was an error generating your report."
+msgstr ""
+
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/data/actions/problemResponses.js
+msgid "Unable to get report generation status."
+msgstr ""
+
+#: lms/djangoapps/instructor/static/instructor/ProblemBrowser/data/actions/problemResponses.js
+msgid "Unable to submit request to generate report."
+msgstr ""
+
 #: lms/djangoapps/support/static/support/js/views/certificates.js
 msgid "An unexpected error occurred.  Please try again."
 msgstr ""
@@ -2461,7 +2502,6 @@ msgid "Sign in to {platform} so we can help you better."
 msgstr ""
 
 #: lms/djangoapps/support/static/support/jsx/logged_out_user.jsx
-#: lms/templates/student_account/form_field.underscore
 msgid "Need help logging in?"
 msgstr ""
 
@@ -2696,6 +2736,10 @@ msgid "An error occurred. Try again."
 msgstr ""
 
 #: lms/djangoapps/teams/static/teams/js/views/team_profile.js
+msgid "No assignments for team"
+msgstr ""
+
+#: lms/djangoapps/teams/static/teams/js/views/team_profile.js
 msgid "Leave this team?"
 msgstr ""
 
@@ -2766,10 +2810,6 @@ msgid "Team Search"
 msgstr ""
 
 #: lms/djangoapps/teams/static/teams/js/views/teams_tab.js
-msgid "Showing results for \"{searchString}\""
-msgstr ""
-
-#: lms/djangoapps/teams/static/teams/js/views/teams_tab.js
 msgid "Create a New Team"
 msgstr ""
 
@@ -2798,6 +2838,10 @@ msgstr ""
 msgid ""
 "You can remove members from this team, especially if they have not "
 "participated in the team's activity."
+msgstr ""
+
+#: lms/djangoapps/teams/static/teams/js/views/teams_tab.js
+msgid "Showing results for \"{searchString}\""
 msgstr ""
 
 #: lms/djangoapps/teams/static/teams/js/views/teams_tab.js
@@ -2858,6 +2902,11 @@ msgid ""
 "{search_span_start}search teams{span_end} in this topic. If you still can't "
 "find a team to join, {create_span_start}create a new team in this "
 "topic{span_end}."
+msgstr ""
+
+#: lms/djangoapps/teams/static/teams/js/views/topic_teams.js
+msgid ""
+"An error occurred while looking up team membership. Try refreshing the page."
 msgstr ""
 
 #: lms/djangoapps/teams/static/teams/js/views/topics.js
@@ -3666,14 +3715,11 @@ msgstr ""
 #: cms/templates/js/transcript-organization-credentials.underscore
 #: lms/djangoapps/support/static/support/templates/manage_user.underscore
 #: lms/templates/financial-assistance/financial_assessment_form.underscore
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/course_allowances.underscore
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/student-proctored-exam-attempts.underscore
 msgid "Username"
 msgstr ""
 
 #: lms/static/js/instructor_dashboard/membership.js
 #: lms/djangoapps/support/static/support/templates/manage_user.underscore
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/course_allowances.underscore
 msgid "Email"
 msgstr ""
 
@@ -4724,11 +4770,13 @@ msgid ""
 msgstr ""
 
 #: lms/static/js/student_account/views/account_settings_factory.js
-msgid " Link"
+msgid "{platform_display_name} Link"
 msgstr ""
 
 #: lms/static/js/student_account/views/account_settings_factory.js
-msgid "Enter your "
+msgid ""
+"Enter your {platform_display_name} username or the URL to your "
+"{platform_display_name} page. Delete the URL to remove the link."
 msgstr ""
 
 #: lms/static/js/student_account/views/account_settings_factory.js
@@ -5155,13 +5203,6 @@ msgstr ""
 msgid "Profile"
 msgstr ""
 
-#: cms/static/cms/js/main.js cms/static/js/views/active_video_upload_list.js
-#: cms/static/js/views/video_transcripts.js
-msgid ""
-"This may be happening because of an error with our server or your internet "
-"connection. Try refreshing the page or making sure you are online."
-msgstr ""
-
 #: cms/static/cms/js/main.js
 msgid "Studio's having trouble saving your work"
 msgstr ""
@@ -5207,6 +5248,10 @@ msgstr ""
 msgid "certificate"
 msgstr ""
 
+#: cms/static/js/certificates/views/certificate_preview.js
+msgid "Deactivating"
+msgstr ""
+
 #: cms/static/js/certificates/views/certificates_list.js
 msgid "Set up your certificate"
 msgstr ""
@@ -5218,7 +5263,7 @@ msgid "You have not created any certificates yet."
 msgstr ""
 
 #: cms/static/js/certificates/views/signatory_editor.js
-msgid "Delete \"<%= signatoryName %>\" from the list of signatories?"
+msgid "Delete \"<%- signatoryName %>\" from the list of signatories?"
 msgstr ""
 
 #: cms/static/js/certificates/views/signatory_editor.js
@@ -5612,7 +5657,6 @@ msgstr ""
 
 #: cms/static/js/views/assets.js cms/templates/js/asset-library.underscore
 #: lms/djangoapps/support/static/support/templates/certificates_results.underscore
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/student-proctored-exam-attempts.underscore
 msgid "Type"
 msgstr ""
 
@@ -6459,7 +6503,6 @@ msgid "Video duration is {humanizeDuration}"
 msgstr ""
 
 #: cms/static/js/views/video_thumbnail.js
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/add-new-allowance.underscore
 msgid "minutes"
 msgstr ""
 
@@ -6592,14 +6635,7 @@ msgstr ""
 #: cms/templates/js/asset-library.underscore
 #: cms/templates/js/basic-modal.underscore
 #: lms/templates/instructor/instructor_dashboard_2/enrollment-code-lookup-links.underscore
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/course_allowances.underscore
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/student-proctored-exam-attempts.underscore
 msgid "Actions"
-msgstr ""
-
-#: cms/templates/js/course-outline.underscore
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/add-new-allowance.underscore
-msgid "Timed Exam"
 msgstr ""
 
 #: cms/templates/js/course-outline.underscore
@@ -6609,7 +6645,6 @@ msgid "Unscheduled"
 msgstr ""
 
 #: cms/templates/js/course_info_update.underscore
-#: lms/templates/commerce/receipt.underscore
 #: lms/templates/verify_student/payment_confirmation_step.underscore
 msgid "Date"
 msgstr ""
@@ -7043,7 +7078,6 @@ msgid "Course Key"
 msgstr ""
 
 #: lms/djangoapps/support/static/support/templates/certificates_results.underscore
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/student-proctored-exam-attempts.underscore
 msgid "Status"
 msgstr ""
 
@@ -7259,6 +7293,10 @@ msgid "Join Team"
 msgstr ""
 
 #: lms/djangoapps/teams/static/teams/templates/team-profile.underscore
+msgid "Team Assignments"
+msgstr ""
+
+#: lms/djangoapps/teams/static/teams/templates/team-profile.underscore
 msgid "Team Details"
 msgstr ""
 
@@ -7342,93 +7380,20 @@ msgstr ""
 msgid "Remove unit %(unitName)s"
 msgstr ""
 
-#: lms/templates/commerce/provider.underscore
-msgid ""
-"You still need to visit the {display_name} website to complete the credit "
-"process."
-msgstr ""
-
-#: lms/templates/commerce/provider.underscore
-msgid ""
-"To finalize course credit, {display_name} requires {platform_name} learners "
-"to submit a credit request."
-msgstr ""
-
-#: lms/templates/commerce/provider.underscore
-msgid "Get Credit"
-msgstr ""
-
-#: lms/templates/commerce/receipt.underscore
-msgid ""
-"Thank you {full_name}! We have received your payment for {course_name}."
-msgstr ""
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid ""
-"Please print this page for your records; it serves as your receipt. You will"
-" also receive an email with the same information."
-msgstr ""
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Order No."
-msgstr ""
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Amount"
-msgstr ""
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/make_payment_step_ab_testing.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Total"
-msgstr ""
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Please Note"
-msgstr ""
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Crossed out items have been refunded."
-msgstr ""
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Billed to"
-msgstr ""
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "No receipt available"
-msgstr ""
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/financial-assistance/financial_assessment_submitted.underscore
-msgid "Go to Dashboard"
-msgstr ""
-
-#: lms/templates/commerce/receipt.underscore
-msgid ""
-"If you don't verify your identity now, you can still explore your course "
-"from your dashboard. You will receive periodic reminders from {platformName}"
-" to verify your identity."
-msgstr ""
-
-#: lms/templates/commerce/receipt.underscore
-#: lms/templates/verify_student/payment_confirmation_step.underscore
-msgid "Want to confirm your identity later?"
-msgstr ""
-
-#: lms/templates/commerce/receipt.underscore
-msgid "Verify Now"
-msgstr ""
-
 #: lms/templates/courseware/proctored-exam-controls.underscore
 msgid "Mark Exam As Completed"
+msgstr ""
+
+#: lms/templates/courseware/proctored-exam-status.underscore
+msgid "Exam timer and end exam button"
+msgstr ""
+
+#: lms/templates/courseware/proctored-exam-status.underscore
+msgid "End My Exam"
+msgstr ""
+
+#: lms/templates/courseware/proctored-exam-status.underscore
+msgid "Hide Timer"
 msgstr ""
 
 #: lms/templates/courseware/proctored-exam-status.underscore
@@ -7447,18 +7412,6 @@ msgstr ""
 msgid ""
 "To receive credit for problems, you must select \"Submit\" for each problem "
 "before you select \"End My Exam\"."
-msgstr ""
-
-#: lms/templates/courseware/proctored-exam-status.underscore
-msgid "Exam timer and end exam button"
-msgstr ""
-
-#: lms/templates/courseware/proctored-exam-status.underscore
-msgid "End My Exam"
-msgstr ""
-
-#: lms/templates/courseware/proctored-exam-status.underscore
-msgid "Hide Timer"
 msgstr ""
 
 #: lms/templates/discovery/course_card.underscore
@@ -7581,6 +7534,10 @@ msgstr ""
 msgid ""
 "Thank you for submitting your financial assistance application for "
 "{course_name}! You can expect a response in 2-4 business days."
+msgstr ""
+
+#: lms/templates/financial-assistance/financial_assessment_submitted.underscore
+msgid "Go to Dashboard"
 msgstr ""
 
 #: lms/templates/instructor/instructor_dashboard_2/certificate-bulk-white-list.underscore
@@ -8131,6 +8088,30 @@ msgstr ""
 
 #: lms/templates/student_account/account_settings_section.underscore
 msgid "An error occurred. Please reload the page."
+msgstr ""
+
+#: lms/templates/student_account/form_field.underscore
+msgid "Need help signing in?"
+msgstr ""
+
+#: lms/templates/student_account/form_field.underscore
+msgid "Forgot my password"
+msgstr ""
+
+#: lms/templates/student_account/form_field.underscore
+msgid "Other sign-in issues"
+msgstr ""
+
+#: lms/templates/student_account/form_field.underscore
+msgid "Sign in with your company or school"
+msgstr ""
+
+#: lms/templates/student_account/form_field.underscore
+msgid "Need other help signing in?"
+msgstr ""
+
+#: lms/templates/student_account/form_field.underscore
+msgid "Create an account"
 msgstr ""
 
 #: lms/templates/student_account/hinted_login.underscore
@@ -8689,6 +8670,11 @@ msgid "Check your email for an activation message."
 msgstr ""
 
 #: lms/templates/verify_student/make_payment_step_ab_testing.underscore
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Total"
+msgstr ""
+
+#: lms/templates/verify_student/make_payment_step_ab_testing.underscore
 msgid "Professional Certificate for {courseName}"
 msgstr ""
 
@@ -8726,6 +8712,36 @@ msgid "Thank you! We have received your payment for {courseName}."
 msgstr ""
 
 #: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid ""
+"Please print this page for your records; it serves as your receipt. You will"
+" also receive an email with the same information."
+msgstr ""
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Order No."
+msgstr ""
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Amount"
+msgstr ""
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Please Note"
+msgstr ""
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Crossed out items have been refunded."
+msgstr ""
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Billed to"
+msgstr ""
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "No receipt available"
+msgstr ""
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
 msgid "Next Step: Confirm your identity"
 msgstr ""
 
@@ -8751,6 +8767,10 @@ msgid ""
 "If you don't verify your identity now, you can still explore your course "
 "from your dashboard. You will receive periodic reminders from "
 "%(platformName)s to verify your identity."
+msgstr ""
+
+#: lms/templates/verify_student/payment_confirmation_step.underscore
+msgid "Want to confirm your identity later?"
 msgstr ""
 
 #: lms/templates/verify_student/reverify_success_step.underscore
@@ -8843,75 +8863,6 @@ msgstr ""
 
 #: lms/templates/verify_student/webcam_photo.underscore
 msgid "Take Photo"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/add-new-allowance.underscore
-msgid "Add a New Allowance"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/add-new-allowance.underscore
-msgid "Special Exam"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/add-new-allowance.underscore
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/student-proctored-exam-attempts.underscore
-#, python-format
-msgid " %(exam_display_name)s "
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/add-new-allowance.underscore
-msgid "Exam Type"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/add-new-allowance.underscore
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/course_allowances.underscore
-msgid "Allowance Type"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/add-new-allowance.underscore
-msgid "Additional Time (minutes)"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/add-new-allowance.underscore
-msgid "Value"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/add-new-allowance.underscore
-msgid "Username or Email"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/course_allowances.underscore
-msgid "Allowances"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/course_allowances.underscore
-msgid "Add Allowance"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/course_allowances.underscore
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/student-proctored-exam-attempts.underscore
-msgid "Exam Name"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/course_allowances.underscore
-msgid "Allowance Value"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/student-proctored-exam-attempts.underscore
-msgid "Time Limit"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/student-proctored-exam-attempts.underscore
-msgid "Started At"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/student-proctored-exam-attempts.underscore
-msgid "Completed At"
-msgstr ""
-
-#: node_modules/@edx/edx-proctoring/edx_proctoring/static/proctoring/templates/student-proctored-exam-attempts.underscore
-#, python-format
-msgid " %(username)s "
 msgstr ""
 
 #: openedx/features/course_bookmarks/static/course_bookmarks/templates/bookmarks-list.underscore
@@ -9456,6 +9407,10 @@ msgstr ""
 
 #: cms/templates/js/course-outline.underscore
 msgid "Proctored Exam"
+msgstr ""
+
+#: cms/templates/js/course-outline.underscore
+msgid "Timed Exam"
 msgstr ""
 
 #: cms/templates/js/course-outline.underscore
@@ -10268,6 +10223,21 @@ msgstr ""
 
 #: cms/templates/js/timed-examination-preference-editor.underscore
 msgid "Exam Types"
+msgstr ""
+
+#: cms/templates/js/timed-examination-preference-editor.underscore
+msgid ""
+"This subsection was released to learners as a special exam, but was reverted"
+" back to a basic exam. You may not configure it as a special exam now. "
+"Contact edX Support for assistance."
+msgstr ""
+
+#: cms/templates/js/timed-examination-preference-editor.underscore
+msgid ""
+"This special exam has been released to learners. You may not convert it to "
+"another type of special exam. You may revert this subsection back to being a"
+" basic exam by selecting 'None', but you will NOT be able to configure it as"
+" a special exam in the future."
 msgstr ""
 
 #: cms/templates/js/timed-examination-preference-editor.underscore

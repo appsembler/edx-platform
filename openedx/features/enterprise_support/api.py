@@ -23,6 +23,7 @@ from slumber.exceptions import HttpClientError, HttpNotFoundError, HttpServerErr
 
 from openedx.core.djangoapps.oauth_dispatch.jwt import create_jwt_for_user
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
+from openedx.core.djangolib.markup import HTML, Text
 from openedx.features.enterprise_support.utils import get_data_consent_share_cache_key
 from third_party_auth.pipeline import get as get_partial_pipeline
 from third_party_auth.provider import Registry
@@ -34,6 +35,7 @@ try:
         EnterpriseCustomerUser,
         PendingEnterpriseCustomerUser
     )
+    from enterprise.api.v1.serializers import EnterpriseCustomerUserReadOnlySerializer
     from consent.models import DataSharingConsent, DataSharingConsentTextOverrides
 except ImportError:
     pass
@@ -437,7 +439,7 @@ def enterprise_customer_uuid_for_request(request):
     if not enterprise_customer_uuid and request.user.is_authenticated:
         # If there's no way to get an Enterprise UUID for the request, check to see
         # if there's already an Enterprise attached to the requesting user on the backend.
-        learner_data = get_enterprise_learner_data(request.user)
+        learner_data = get_enterprise_learner_data_from_db(request.user)
         if learner_data:
             enterprise_customer_uuid = learner_data[0]['enterprise_customer']['uuid']
 
@@ -450,7 +452,7 @@ def enterprise_customer_for_request(request):
     Check all the context clues of the request to determine if
     the request being made is tied to a particular EnterpriseCustomer.
     """
-    if 'enterprise_customer' in request.session:
+    if 'enterprise_customer' in request.session and request.session['enterprise_customer']:
         return enterprise_customer_from_cache(request=request)
     else:
         enterprise_customer = enterprise_customer_from_api(request)
@@ -469,17 +471,19 @@ def consent_needed_for_course(request, user, course_id, enrollment_exists=False)
     if data_sharing_consent_needed_cache.is_found and data_sharing_consent_needed_cache.value == 0:
         return False
 
-    enterprise_learner_details = get_enterprise_learner_data(user)
+    enterprise_learner_details = get_enterprise_learner_data_from_db(user)
     if not enterprise_learner_details:
         consent_needed = False
     else:
         client = ConsentApiClient(user=request.user)
+        current_enterprise_uuid = enterprise_customer_uuid_for_request(request)
         consent_needed = any(
-            Site.objects.get(domain=learner['enterprise_customer']['site']['domain']) == request.site
+            current_enterprise_uuid == learner['enterprise_customer']['uuid']
+            and Site.objects.get(domain=learner['enterprise_customer']['site']['domain']) == request.site
             and client.consent_required(
                 username=user.username,
                 course_id=course_id,
-                enterprise_customer_uuid=learner['enterprise_customer']['uuid'],
+                enterprise_customer_uuid=current_enterprise_uuid,
                 enrollment_exists=enrollment_exists,
             )
             for learner in enterprise_learner_details
@@ -557,7 +561,7 @@ def get_enterprise_consent_url(request, course_id, user=None, return_to=None, en
 
 
 @enterprise_is_enabled()
-def get_enterprise_learner_data(user):
+def get_enterprise_learner_data_from_api(user):
     """
     Client API operation adapter/wrapper
     """
@@ -565,6 +569,56 @@ def get_enterprise_learner_data(user):
         enterprise_learner_data = EnterpriseApiClient(user=user).fetch_enterprise_learner_data(user)
         if enterprise_learner_data:
             return enterprise_learner_data['results']
+
+
+@enterprise_is_enabled()
+def get_enterprise_learner_data_from_db(user):
+    """
+    Query the database directly and use the same serializer that the api call would use to return the same results.
+    """
+    if user.is_authenticated:
+        queryset = EnterpriseCustomerUser.objects.filter(user_id=user.id)
+        serializer = EnterpriseCustomerUserReadOnlySerializer(queryset, many=True)
+        return serializer.data
+
+
+@enterprise_is_enabled()
+def get_enterprise_learner_portal_enabled_message(request):
+    """
+    Returns message to be displayed in dashboard if the user is linked to an Enterprise with the Learner Portal enabled.
+
+    Note: request.session['enterprise_customer'] will be used in case the user is linked to
+        multiple Enterprises. Otherwise, it won't exist and the Enterprise Learner data
+        will be used. If that doesn't exist return None.
+
+    Args:
+        request: request made to the LMS dashboard
+    """
+    if 'enterprise_customer' in request.session and request.session['enterprise_customer']:
+        enterprise_customer = request.session['enterprise_customer']
+    else:
+        learner_data = get_enterprise_learner_data_from_db(request.user)
+        if learner_data:
+            enterprise_customer = learner_data[0]['enterprise_customer']
+        else:
+            return None
+
+    if enterprise_customer['enable_learner_portal']:
+        learner_portal_url = settings.ENTERPRISE_LEARNER_PORTAL_BASE_URL + '/' + enterprise_customer['slug']
+        return Text(_(
+            "Your organization {bold_start}{enterprise_customer_name}{bold_end} uses a custom dashboard for learning. "
+            "{link_start}Click here{link_end} to continue in that experience."
+        )).format(
+            enterprise_customer_name=enterprise_customer['name'],
+            link_start=HTML("<a href='{learner_portal_url}'>").format(
+                learner_portal_url=learner_portal_url,
+            ),
+            link_end=HTML("</a>"),
+            bold_start=HTML("<b>"),
+            bold_end=HTML("</b>"),
+        )
+    else:
+        return None
 
 
 def get_consent_notification_data(enterprise_customer):

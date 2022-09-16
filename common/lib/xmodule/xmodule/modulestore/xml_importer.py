@@ -460,15 +460,19 @@ class ImportManager(object):
                     if self.verbose:
                         log.debug('importing module location %s', child.location)
 
-                    _update_and_import_module(
-                        child,
-                        self.store,
-                        self.user_id,
-                        courselike_key,
-                        dest_id,
-                        do_import_static=self.do_import_static,
-                        runtime=courselike.runtime,
-                    )
+                    try:
+                        _update_and_import_module(
+                            child,
+                            self.store,
+                            self.user_id,
+                            courselike_key,
+                            dest_id,
+                            do_import_static=self.do_import_static,
+                            runtime=courselike.runtime,
+                        )
+                    except Exception:
+                        log.error('failed to import module location %s', child.location)
+                        raise
 
                     depth_first(child)
 
@@ -478,15 +482,19 @@ class ImportManager(object):
             if self.verbose:
                 log.debug('importing module location %s', leftover)
 
-            _update_and_import_module(
-                self.xml_module_store.get_item(leftover),
-                self.store,
-                self.user_id,
-                courselike_key,
-                dest_id,
-                do_import_static=self.do_import_static,
-                runtime=courselike.runtime,
-            )
+            try:
+                _update_and_import_module(
+                    self.xml_module_store.get_item(leftover),
+                    self.store,
+                    self.user_id,
+                    courselike_key,
+                    dest_id,
+                    do_import_static=self.do_import_static,
+                    runtime=courselike.runtime,
+                )
+            except Exception:
+                log.error('failed to import module location %s', leftover)
+                raise
 
     def run_imports(self):
         """
@@ -814,22 +822,26 @@ def _update_and_import_module(
     # Get to the point where XML import is happening inside the
     # modulestore that is eventually going to store the data.
     # Ticket: https://openedx.atlassian.net/browse/PLAT-1046
-    if block.location.block_type == 'library_content':
-        # if library exists, update source_library_version and children
-        # according to this existing library and library content block.
-        if store.get_library(block.source_library_key):
 
-            # Update library content block's children on draft branch
-            with store.branch_setting(branch_setting=ModuleStoreEnum.Branch.draft_preferred):
-                LibraryToolsService(store).update_children(
-                    block,
-                    user_id,
-                    version=block.source_library_version
-                )
+    ## Disabling library content children update during import as we saw it cause
+    ## an issue where the children were recalculated causing learner's to lose their
+    ## current state.
+    ## If this is brought back in, also uncomment the tests in
+    ## cms/djangoapps/contentstore/views/tests/test_import_export.py
+    # if block.location.block_type == 'library_content':
+    #     # if library exists, update source_library_version and children
+    #     # according to this existing library and library content block.
+    #     if store.get_library(block.source_library_key):
+    #         # Update library content block's children on draft branch
+    #         with store.branch_setting(branch_setting=ModuleStoreEnum.Branch.draft_preferred):
+    #             LibraryToolsService(store, user_id).update_children(
+    #                 block,
+    #                 version=block.source_library_version,
+    #             )
 
-            # Publish it if importing the course for branch setting published_only.
-            if store.get_branch_setting() == ModuleStoreEnum.Branch.published_only:
-                store.publish(block.location, user_id)
+    #         # Publish it if importing the course for branch setting published_only.
+    #         if store.get_branch_setting() == ModuleStoreEnum.Branch.published_only:
+    #             store.publish(block.location, user_id)
 
     return block
 

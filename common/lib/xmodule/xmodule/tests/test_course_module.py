@@ -390,17 +390,6 @@ class SelfPacedTestCase(unittest.TestCase):
         self.assertFalse(self.course.self_paced)
 
 
-class BypassHomeTestCase(unittest.TestCase):
-    """Tests for setting which allows course home to be bypassed."""
-
-    def setUp(self):
-        super(BypassHomeTestCase, self).setUp()
-        self.course = get_dummy_course('2012-12-02T12:00')
-
-    def test_default(self):
-        self.assertFalse(self.course.bypass_home)
-
-
 class CourseDescriptorTestCase(unittest.TestCase):
     """
     Tests for a select few functions from CourseDescriptor.
@@ -485,14 +474,14 @@ class ProctoringProviderTestCase(unittest.TestCase):
         throws a ValueError with the correct error message.
         """
         provider = 'invalid-provider'
-        proctoring_provider_whitelist = [u'mock', u'mock_proctoring_without_rules']
+        allowed_proctoring_providers = [u'mock', u'mock_proctoring_without_rules']
 
         with self.assertRaises(ValueError) as context_manager:
             self.proctoring_provider.from_json(provider)
         self.assertEqual(
             context_manager.exception.args[0],
             ['The selected proctoring provider, {}, is not a valid provider. Please select from one of {}.'
-                .format(provider, proctoring_provider_whitelist)]
+                .format(provider, allowed_proctoring_providers)]
         )
 
     @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'Broken upstream test for unkown reasons.')

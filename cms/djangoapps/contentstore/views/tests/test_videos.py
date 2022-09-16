@@ -48,8 +48,10 @@ from openedx.core.djangoapps.profile_images.tests.helpers import make_image_file
 from openedx.core.djangoapps.video_pipeline.config.waffle import (
     DEPRECATE_YOUTUBE,
     ENABLE_DEVSTACK_VIDEO_UPLOADS,
+    ENABLE_VEM_PIPELINE,
     waffle_flags
 )
+from openedx.core.djangoapps.video_pipeline.models import VEMPipelineIntegration
 from openedx.core.djangoapps.waffle_utils.models import WaffleFlagCourseOverrideModel
 from openedx.core.djangoapps.waffle_utils.testutils import override_waffle_flag
 from xmodule.modulestore.tests.factories import CourseFactory
@@ -224,7 +226,9 @@ class VideoUploadTestMixin(VideoUploadTestBase):
 
 @ddt.ddt
 @patch.dict("django.conf.settings.FEATURES", {"ENABLE_VIDEO_UPLOAD_PIPELINE": True})
-@override_settings(VIDEO_UPLOAD_PIPELINE={"BUCKET": "test_bucket", "ROOT_PATH": "test_root"})
+@override_settings(VIDEO_UPLOAD_PIPELINE={
+    "VEM_S3_BUCKET": "vem_test_bucket", "BUCKET": "test_bucket", "ROOT_PATH": "test_root"
+})
 class VideosHandlerTestCase(VideoUploadTestMixin, CourseTestCase):
     """Test cases for the main video upload endpoint"""
 
@@ -470,9 +474,6 @@ class VideosHandlerTestCase(VideoUploadTestMixin, CourseTestCase):
             'secret_key': 'test_secret',
             'session_token': 'test_session_token'
         }
-
-        bucket = Mock()
-        mock_conn.return_value = Mock(get_bucket=Mock(return_value=bucket))
         mock_key_instances = [
             Mock(
                 generate_url=Mock(
@@ -481,7 +482,7 @@ class VideosHandlerTestCase(VideoUploadTestMixin, CourseTestCase):
             )
             for file_info in files
         ]
-        mock_key.side_effect = mock_key_instances + [Mock()]
+        mock_key.side_effect = mock_key_instances
 
         with patch.object(AssumeRole, 'get_instance') as assume_role:
             assume_role.return_value.credentials = credentials
@@ -498,6 +499,81 @@ class VideosHandlerTestCase(VideoUploadTestMixin, CourseTestCase):
                 aws_secret_access_key=credentials['secret_key'],
                 security_token=credentials['session_token']
             )
+
+    @patch('boto.s3.key.Key')
+    @patch('boto.s3.connection.S3Connection')
+    def test_send_course_to_vem_pipeline(self, mock_conn, mock_key):
+        """
+        Test that if VEM integration pipeline is present and enabled, the upload
+        goes to VEM pipeline.
+        """
+        vem_pipeline_integration_defaults = {
+            'enabled': True,
+            'api_url': 'https://video-encode-manager.example.com/api/v1/',
+            'service_username': 'vem_pipeline_service_user',
+            'client_name': 'vem_pipeline',
+        }
+        VEMPipelineIntegration.objects.create(**vem_pipeline_integration_defaults)
+
+        files = [{'file_name': 'first.mp4', 'content_type': 'video/mp4'}]
+        mock_key_instances = [
+            Mock(
+                generate_url=Mock(
+                    return_value='http://example.com/url_{}'.format(file_info['file_name'])
+                )
+            )
+            for file_info in files
+        ]
+        mock_key.side_effect = mock_key_instances
+
+        response = self.client.post(
+            self.url,
+            json.dumps({'files': files}),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mock_conn.return_value.get_bucket.assert_called_once_with(
+            settings.VIDEO_UPLOAD_PIPELINE['VEM_S3_BUCKET'], validate=False  # pylint: disable=unsubscriptable-object
+        )
+
+    @patch('contentstore.views.videos.LOGGER')
+    @patch('boto.s3.key.Key')
+    @patch('boto.s3.connection.S3Connection')
+    def test_vem_pipeline_integration_not_enabled(self, mock_conn, mock_key, mock_logger):
+        """
+        Test that if VEMPipelineIntegration is not enabled and course override waffle flag is not
+        set to True, the video goes to VEDA bucket.
+        """
+        vem_pipeline_integration_defaults = {
+            'enabled': False,
+        }
+        VEMPipelineIntegration.objects.create(**vem_pipeline_integration_defaults)
+
+        files = [{'file_name': 'first.mp4', 'content_type': 'video/mp4'}]
+        mock_key_instances = [
+            Mock(
+                generate_url=Mock(
+                    return_value='http://example.com/url_{}'.format(file_info['file_name'])
+                )
+            )
+            for file_info in files
+        ]
+        mock_key.side_effect = mock_key_instances
+
+        response = self.client.post(
+            self.url,
+            json.dumps({'files': files}),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mock_conn.return_value.get_bucket.assert_called_once_with(
+            settings.VIDEO_UPLOAD_PIPELINE['BUCKET'], validate=False  # pylint: disable=unsubscriptable-object
+        )
+        mock_logger.info.assert_called_with(
+            'Uploading course: {} to VEDA bucket.'.format(self.course.id)
+        )
 
     @override_settings(AWS_ACCESS_KEY_ID='test_key_id', AWS_SECRET_ACCESS_KEY='test_secret')
     @patch('boto.s3.key.Key')
@@ -1465,9 +1541,10 @@ class VideoUrlsCsvTestCase(VideoUploadTestMixin, CourseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response["Content-Disposition"],
-            u"attachment; filename={course}_video_urls.csv".format(course=self.course.id.course)
+            u"attachment; filename=\"{course}_video_urls.csv\"".format(course=self.course.id.course)
         )
-        response_reader = StringIO(response.content.decode('utf-8') if six.PY3 else response.content)
+        response_content = b"".join(response.streaming_content)
+        response_reader = StringIO(response_content.decode('utf-8') if six.PY3 else response_content)
         reader = csv.DictReader(response_reader, dialect=csv.excel)
         self.assertEqual(
             reader.fieldnames,
@@ -1529,5 +1606,5 @@ class VideoUrlsCsvTestCase(VideoUploadTestMixin, CourseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response["Content-Disposition"],
-            u"attachment; filename=video_urls.csv; filename*=utf-8''n%C3%B3n-%C3%A4scii_video_urls.csv"
+            u"attachment; filename*=utf-8''n%C3%B3n-%C3%A4scii_video_urls.csv"
         )

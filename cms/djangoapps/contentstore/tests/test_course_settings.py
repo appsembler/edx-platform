@@ -20,12 +20,12 @@ from milestones.tests.utils import MilestonesTestCaseMixin
 from mock import Mock, patch
 from pytz import UTC
 
-from contentstore.config.waffle import ENABLE_PROCTORING_PROVIDER_OVERRIDES
 from contentstore.utils import reverse_course_url, reverse_usage_url
 from course_modes.models import CourseMode
 from models.settings.course_grading import GRADING_POLICY_CHANGED_EVENT_TYPE, CourseGradingModel, hash_grading_policy
 from models.settings.course_metadata import CourseMetadata
 from models.settings.encoder import CourseSettingsEncoder
+from models.settings.waffle import MATERIAL_RECOMPUTE_ONLY_FLAG
 from openedx.core.djangoapps.models.course_details import CourseDetails
 from openedx.core.djangoapps.waffle_utils.testutils import override_waffle_flag
 from student.roles import CourseInstructorRole, CourseStaffRole
@@ -36,7 +36,6 @@ from xmodule.fields import Date
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.tests.factories import CourseFactory
-from xmodule.tabs import InvalidTabsException
 
 from .utils import AjaxEnabledTestClient, CourseTestCase
 
@@ -593,9 +592,9 @@ class CourseGradingTest(CourseTestCase):
         uuid.return_value = "mockUUID"
         self.course = CourseFactory.create(default_store=store)
         test_grader = CourseGradingModel.fetch(self.course.id)
+        # there should be no event raised after this call, since nothing got modified
         altered_grader = CourseGradingModel.update_from_json(self.course.id, test_grader.__dict__, self.user)
         self.assertDictEqual(test_grader.__dict__, altered_grader.__dict__, "Noop update")
-        grading_policy_1 = self._grading_policy_hash_for_course()
         test_grader.graders[0]['weight'] = test_grader.graders[0].get('weight') * 2
         altered_grader = CourseGradingModel.update_from_json(self.course.id, test_grader.__dict__, self.user)
         self.assertDictEqual(test_grader.__dict__, altered_grader.__dict__, "Weight[0] * 2")
@@ -623,10 +622,8 @@ class CourseGradingTest(CourseTestCase):
         # one for each of the calls to update_from_json()
         send_signal.assert_has_calls([
             # pylint: disable=line-too-long
-            mock.call(sender=CourseGradingModel, user_id=self.user.id, course_key=self.course.id, grading_policy_hash=grading_policy_1),
             mock.call(sender=CourseGradingModel, user_id=self.user.id, course_key=self.course.id, grading_policy_hash=grading_policy_2),
             mock.call(sender=CourseGradingModel, user_id=self.user.id, course_key=self.course.id, grading_policy_hash=grading_policy_3),
-            mock.call(sender=CourseGradingModel, user_id=self.user.id, course_key=self.course.id, grading_policy_hash=grading_policy_4),
             mock.call(sender=CourseGradingModel, user_id=self.user.id, course_key=self.course.id, grading_policy_hash=grading_policy_4),
             # pylint: enable=line-too-long
         ])
@@ -644,9 +641,85 @@ class CourseGradingTest(CourseTestCase):
                     'event_transaction_id': 'mockUUID',
                 }
             ) for policy_hash in (
-                grading_policy_1, grading_policy_2, grading_policy_3, grading_policy_4, grading_policy_4
+                grading_policy_2, grading_policy_3, grading_policy_4
             )
         ])
+
+    @ddt.data(ModuleStoreEnum.Type.mongo, ModuleStoreEnum.Type.split)
+    def test_must_fire_grading_event_and_signal_multiple_type(self, store):
+        """
+        Verifies that 'must_fire_grading_event_and_signal' ignores (returns False) if we modify
+        short_label and or name
+        use test_must_fire_grading_event_and_signal_multiple_type_2_split to run this test only
+        """
+        self.course = CourseFactory.create(default_store=store)
+        # .raw_grader approximates what our UI sends down. It uses decimal representation of percent
+        # without it, the  weights would be percentages
+        raw_grader_list = modulestore().get_course(self.course.id).raw_grader
+        course_grading_model = CourseGradingModel.fetch(self.course.id)
+        raw_grader_list[0]['type'] += '_foo'
+        raw_grader_list[0]['short_label'] += '_foo'
+        raw_grader_list[2]['type'] += '_foo'
+        raw_grader_list[3]['type'] += '_foo'
+
+        result = CourseGradingModel.must_fire_grading_event_and_signal(
+            self.course.id,
+            raw_grader_list,
+            modulestore().get_course(self.course.id),
+            course_grading_model.__dict__
+        )
+        self.assertTrue(result)
+
+    @override_waffle_flag(MATERIAL_RECOMPUTE_ONLY_FLAG, True)
+    @ddt.data(ModuleStoreEnum.Type.mongo, ModuleStoreEnum.Type.split)
+    def test_must_fire_grading_event_and_signal_multiple_type_waffle_on(self, store):
+        """
+        Verifies that 'must_fire_grading_event_and_signal' ignores (returns False) if we modify
+        short_label and or name
+        use test_must_fire_grading_event_and_signal_multiple_type_2_split to run this test only
+        """
+        self.course = CourseFactory.create(default_store=store)
+        # .raw_grader approximates what our UI sends down. It uses decimal representation of percent
+        # without it, the  weights would be percentages
+        raw_grader_list = modulestore().get_course(self.course.id).raw_grader
+        course_grading_model = CourseGradingModel.fetch(self.course.id)
+        raw_grader_list[0]['type'] += '_foo'
+        raw_grader_list[0]['short_label'] += '_foo'
+        raw_grader_list[2]['type'] += '_foo'
+        raw_grader_list[3]['type'] += '_foo'
+
+        result = CourseGradingModel.must_fire_grading_event_and_signal(
+            self.course.id,
+            raw_grader_list,
+            modulestore().get_course(self.course.id),
+            course_grading_model.__dict__
+        )
+        self.assertFalse(result)
+
+    @ddt.data(ModuleStoreEnum.Type.mongo, ModuleStoreEnum.Type.split)
+    def test_must_fire_grading_event_and_signal_return_true(self, store):
+        """
+        Verifies that 'must_fire_grading_event_and_signal' ignores (returns False) if we modify
+        short_label and or name
+        use _2_split suffix to run this test only
+        """
+        self.course = CourseFactory.create(default_store=store)
+        # .raw_grader approximates what our UI sends down. It uses decimal representation of percent
+        # without it, the  weights would be percentages
+        raw_grader_list = modulestore().get_course(self.course.id).raw_grader
+        course_grading_model = CourseGradingModel.fetch(self.course.id)
+        raw_grader_list[0]['weight'] *= 2
+        raw_grader_list[0]['short_label'] += '_foo'
+        raw_grader_list[2]['type'] += '_foo'
+        raw_grader_list[3]['type'] += '_foo'
+
+        result = CourseGradingModel.must_fire_grading_event_and_signal(
+            self.course.id,
+            raw_grader_list,
+            modulestore().get_course(self.course.id),
+            course_grading_model.__dict__
+        )
+        self.assertTrue(result)
 
     @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'fails in open-release/juniper.master as well')
     @mock.patch('track.event_transaction_utils.uuid4')
@@ -659,7 +732,6 @@ class CourseGradingTest(CourseTestCase):
             self.course.id, test_grader.graders[1], self.user
         )
         self.assertDictEqual(test_grader.graders[1], altered_grader, "Noop update")
-        grading_policy_1 = self._grading_policy_hash_for_course()
 
         test_grader.graders[1]['min_count'] = test_grader.graders[1].get('min_count') + 2
         altered_grader = CourseGradingModel.update_grader_from_json(
@@ -676,7 +748,6 @@ class CourseGradingTest(CourseTestCase):
         # one for each of the calls to update_grader_from_json()
         send_signal.assert_has_calls([
             # pylint: disable=line-too-long
-            mock.call(sender=CourseGradingModel, user_id=self.user.id, course_key=self.course.id, grading_policy_hash=grading_policy_1),
             mock.call(sender=CourseGradingModel, user_id=self.user.id, course_key=self.course.id, grading_policy_hash=grading_policy_2),
             mock.call(sender=CourseGradingModel, user_id=self.user.id, course_key=self.course.id, grading_policy_hash=grading_policy_3),
             # pylint: enable=line-too-long
@@ -688,13 +759,13 @@ class CourseGradingTest(CourseTestCase):
                 GRADING_POLICY_CHANGED_EVENT_TYPE,
                 {
                     'course_id': six.text_type(self.course.id),
-                    'event_transaction_type': 'edx.grades.grading_policy_changed',
-                    'grading_policy_hash': policy_hash,
                     'user_id': six.text_type(self.user.id),
+                    'grading_policy_hash': policy_hash,
                     'event_transaction_id': 'mockUUID',
+                    'event_transaction_type': 'edx.grades.grading_policy_changed',
                 }
-            ) for policy_hash in {grading_policy_1, grading_policy_2, grading_policy_3}
-        ])
+            ) for policy_hash in {grading_policy_2, grading_policy_3}
+        ], any_order=True)
 
     @mock.patch('track.event_transaction_utils.uuid4')
     @mock.patch('models.settings.course_grading.tracker')
@@ -955,6 +1026,32 @@ class CourseMetadataEditingTest(CourseTestCase):
         """
         test_model = CourseMetadata.fetch(self.fullcourse)
         self.assertNotIn('giturl', test_model)
+
+    @override_settings(
+        PROCTORING_BACKENDS={
+            'DEFAULT': 'test_proctoring_provider',
+            'proctortrack': {}
+        },
+    )
+    def test_fetch_proctoring_escalation_email_present(self):
+        """
+        If 'proctortrack' is an available provider, show the escalation email setting
+        """
+        test_model = CourseMetadata.fetch(self.fullcourse)
+        self.assertIn('proctoring_escalation_email', test_model)
+
+    @override_settings(
+        PROCTORING_BACKENDS={
+            'DEFAULT': 'test_proctoring_provider',
+            'alternate_provider': {}
+        },
+    )
+    def test_fetch_proctoring_escalation_email_not_present(self):
+        """
+        If 'proctortrack' is not an available provider, don't show the escalation email setting
+        """
+        test_model = CourseMetadata.fetch(self.fullcourse)
+        self.assertNotIn('proctoring_escalation_email', test_model)
 
     @patch.dict(settings.FEATURES, {'ENABLE_EXPORT_GIT': False})
     def test_validate_update_filtered_off(self):
@@ -1267,100 +1364,163 @@ class CourseMetadataEditingTest(CourseTestCase):
         })
         self.assertEqual(response.status_code, 200)
 
-    @override_waffle_flag(ENABLE_PROCTORING_PROVIDER_OVERRIDES, True)
-    def test_proctoring_provider_present_when_waffle_flag_enabled(self):
+    @ddt.data(True, False)
+    @override_settings(
+        PROCTORING_BACKENDS={
+            'DEFAULT': 'test_proctoring_provider',
+            'valid_provider': {}
+        },
+        PARTNER_SUPPORT_EMAIL='support@foobar.com'
+    )
+    def test_validate_update_does_not_allow_proctoring_provider_changes_after_course_start(self, staff_user):
         """
-        Tests that proctoring provider field is not filtered out when the waffle flag is enabled.
+        Course staff cannot modify proctoring provider after the course start date.
+        Only admin users may update the provider if the course has started.
         """
-        test_model = CourseMetadata.fetch(self.fullcourse)
+        field_name = "proctoring_provider"
+        course = CourseFactory.create(start=datetime.datetime.now(UTC) - datetime.timedelta(days=1))
+        user = UserFactory.create(is_staff=staff_user)
+
+        did_validate, errors, test_model = CourseMetadata.validate_and_update_from_json(
+            course,
+            {
+                field_name: {"value": 'valid_provider'},
+            },
+            user=user
+        )
+
+        if staff_user:
+            self.assertTrue(did_validate)
+            self.assertEqual(len(errors), 0)
+            self.assertIn(field_name, test_model)
+        else:
+            self.assertFalse(did_validate)
+            self.assertEqual(len(errors), 1)
+            self.assertEqual(
+                errors[0].get('message'),
+                (
+                    'The proctoring provider cannot be modified after a course has started.'
+                    ' Contact support@foobar.com for assistance'
+                )
+            )
+            self.assertIsNone(test_model)
+
+    @ddt.data(True, False)
+    @override_settings(
+        PROCTORING_BACKENDS={
+            'DEFAULT': 'test_proctoring_provider',
+            'test_proctoring_provider': {},
+            'proctortrack': {}
+        },
+        FEATURES={'ENABLE_EXAM_SETTINGS_HTML_VIEW': True},
+    )
+    def test_validate_update_requires_escalation_email_for_proctortrack(self, include_blank_email):
+        json_data = {
+            "proctoring_provider": {"value": 'proctortrack'},
+        }
+        if include_blank_email:
+            json_data["proctoring_escalation_email"] = {"value": ""}
+
+        did_validate, errors, test_model = CourseMetadata.validate_and_update_from_json(
+            self.course,
+            json_data,
+            user=self.user
+        )
+        self.assertFalse(did_validate)
+        self.assertEqual(len(errors), 1)
+        self.assertIsNone(test_model)
+        self.assertEqual(
+            errors[0].get('message'),
+            'Provider \'proctortrack\' requires an exam escalation contact.'
+        )
+
+    @override_settings(
+        PROCTORING_BACKENDS={
+            'DEFAULT': 'test_proctoring_provider',
+            'test_proctoring_provider': {},
+            'proctortrack': {}
+        }
+    )
+    def test_validate_update_does_not_require_escalation_email_by_default(self):
+        did_validate, errors, test_model = CourseMetadata.validate_and_update_from_json(
+            self.course,
+            {
+                "proctoring_provider": {"value": "test_proctoring_provider"},
+            },
+            user=self.user
+        )
+        self.assertTrue(did_validate)
+        self.assertEqual(len(errors), 0)
         self.assertIn('proctoring_provider', test_model)
 
     @override_settings(
         PROCTORING_BACKENDS={
-            'DEFAULT': 'test_proctoring_provider',
-            'test_proctoring_provider': {}
-        }
+            'DEFAULT': 'proctortrack',
+            'proctortrack': {}
+        },
+        FEATURES={'ENABLE_EXAM_SETTINGS_HTML_VIEW': True},
     )
-    @override_waffle_flag(ENABLE_PROCTORING_PROVIDER_OVERRIDES, True)
-    def test_validate_update_does_not_filter_out_proctoring_provider_when_waffle_flag_enabled(self):
-        """
-        Tests that proctoring provider field is returned by validate_and_update_from_json method when
-        waffle flag is enabled.
-        """
-        field_name = "proctoring_provider"
-
-        _, _, test_model = CourseMetadata.validate_and_update_from_json(
-            self.course,
+    def test_validate_update_cannot_unset_escalation_email_when_proctortrack_is_provider(self):
+        course = CourseFactory.create()
+        CourseMetadata.update_from_dict({"proctoring_provider": 'proctortrack'}, course, self.user)
+        did_validate, errors, test_model = CourseMetadata.validate_and_update_from_json(
+            course,
             {
-                field_name: {"value": 'test_proctoring_provider'},
+                "proctoring_escalation_email": {"value": ""},
             },
             user=self.user
         )
-        self.assertIn(field_name, test_model)
+        self.assertFalse(did_validate)
+        self.assertEqual(len(errors), 1)
+        self.assertIsNone(test_model)
+        self.assertEqual(
+            errors[0].get('message'),
+            'Provider \'proctortrack\' requires an exam escalation contact.'
+        )
+
+    @override_settings(
+        PROCTORING_BACKENDS={
+            'DEFAULT': 'proctortrack',
+            'proctortrack': {}
+        }
+    )
+    def test_validate_update_set_proctortrack_provider_with_valid_escalation_email(self):
+        did_validate, errors, test_model = CourseMetadata.validate_and_update_from_json(
+            self.course,
+            {
+                "proctoring_provider": {"value": "proctortrack"},
+                "proctoring_escalation_email": {"value": "foo@bar.com"},
+            },
+            user=self.user
+        )
+        self.assertTrue(did_validate)
+        self.assertEqual(len(errors), 0)
+        self.assertIn('proctoring_provider', test_model)
+        self.assertIn('proctoring_escalation_email', test_model)
 
     @override_settings(
         PROCTORING_BACKENDS={
             'DEFAULT': 'test_proctoring_provider',
-            'test_proctoring_provider': {}
+            'proctortrack': {}
         }
     )
-    @override_waffle_flag(ENABLE_PROCTORING_PROVIDER_OVERRIDES, True)
-    def test_update_from_json_does_not_filter_out_proctoring_provider_when_waffle_flag_enabled(self):
+    def test_validate_update_escalation_email_not_requirement_disabled(self):
         """
-        Tests that proctoring provider field is returned by update_from_json method when
-        waffle flag is enabled.
+        Tests the escalation email is not required if 'ENABLED_EXAM_SETTINGS_HTML_VIEW'
+        setting is not set to True
         """
-        field_name = "proctoring_provider"
-        test_model = CourseMetadata.update_from_json(
+        json_data = {
+            "proctoring_provider": {"value": 'proctortrack'},
+        }
+        did_validate, errors, test_model = CourseMetadata.validate_and_update_from_json(
             self.course,
-            {
-                field_name: {"value": 'test_proctoring_provider'},
-            },
+            json_data,
             user=self.user
         )
-        self.assertIn(field_name, test_model)
-
-    @override_waffle_flag(ENABLE_PROCTORING_PROVIDER_OVERRIDES, False)
-    def test_proctoring_provider_not_present_when_waffle_flag_not_enabled(self):
-        """
-        Tests that proctoring provider field is filtered out when the waffle flag is not enabled.
-        """
-        test_model = CourseMetadata.fetch(self.fullcourse)
-        self.assertNotIn('proctoring_provider', test_model)
-
-    @override_waffle_flag(ENABLE_PROCTORING_PROVIDER_OVERRIDES, False)
-    def test_validate_update_does_filter_out_proctoring_provider_when_waffle_flag_not_enabled(self):
-        """
-        Tests that proctoring provider field is not returned by validate_and_update_from_json method when
-        waffle flag is not enabled.
-        """
-        field_name = "proctoring_provider"
-
-        _, _, test_model = CourseMetadata.validate_and_update_from_json(
-            self.course,
-            {
-                field_name: {"value": 'test_proctoring_provider'},
-            },
-            user=self.user
-        )
-        self.assertNotIn(field_name, test_model)
-
-    @override_waffle_flag(ENABLE_PROCTORING_PROVIDER_OVERRIDES, False)
-    def test_update_from_json_does_filter_out_proctoring_provider_when_waffle_flag_not_enabled(self):
-        """
-        Tests that proctoring provider field is not returned by update_from_json method when
-        waffle flag is not enabled.
-        """
-        field_name = "proctoring_provider"
-
-        test_model = CourseMetadata.update_from_json(
-            self.course,
-            {
-                field_name: {"value": 'test_proctoring_provider'},
-            },
-            user=self.user
-        )
-        self.assertNotIn(field_name, test_model)
+        self.assertTrue(did_validate)
+        self.assertEqual(len(errors), 0)
+        self.assertIn('proctoring_provider', test_model)
+        self.assertIn('proctoring_escalation_email', test_model)
 
     def test_create_zendesk_tickets_present_for_edx_staff(self):
         """

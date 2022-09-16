@@ -6,36 +6,36 @@ Includes namespacing, caching, and course overrides for waffle flags.
 Usage:
 
 For Waffle Flags, first set up the namespace, and then create flags using the
-namespace.  For example:
+namespace.  For example::
 
-   WAFFLE_FLAG_NAMESPACE = WaffleFlagNamespace(name='course_experience')
+   WAFFLE_FLAG_NAMESPACE = WaffleFlagNamespace(name='my_namespace')
 
    # Use CourseWaffleFlag when you are in the context of a course.
-   UNIFIED_COURSE_TAB_FLAG = CourseWaffleFlag(WAFFLE_FLAG_NAMESPACE, 'unified_course_tab')
+   SOME_COURSE_FLAG = CourseWaffleFlag(WAFFLE_FLAG_NAMESPACE, 'some_course_feature')
    # Use WaffleFlag when outside the context of a course.
-   HIDE_SEARCH_FLAG = WaffleFlag(WAFFLE_FLAG_NAMESPACE, 'hide_search')
+   SOME_FLAG = WaffleFlag(WAFFLE_FLAG_NAMESPACE, 'some_feature')
 
-You can check these flags in code using the following:
+You can check these flags in code using the following::
 
-    HIDE_SEARCH_FLAG.is_enabled()
-    UNIFIED_COURSE_TAB_FLAG.is_enabled(course_key)
+    SOME_FLAG.is_enabled()
+    SOME_COURSE_FLAG.is_enabled(course_key)
 
 To test these WaffleFlags, see testutils.py.
 
 In the above examples, you will use Django Admin "waffle" section to configure
-for a flag named: course_experience.unified_course_tab
+for a flag named: my_namespace.some_course_feature
 
 You could also use the Django Admin "waffle_utils" section to configure a course
-override for this same flag (e.g. course_experience.unified_course_tab).
+override for this same flag (e.g. my_namespace.some_course_feature).
 
 For Waffle Switches, first set up the namespace, and then create the flag name.
-For example:
+For example::
 
     WAFFLE_SWITCHES = WaffleSwitchNamespace(name=WAFFLE_NAMESPACE)
 
     ESTIMATE_FIRST_ATTEMPTED = 'estimate_first_attempted'
 
-You can then use the switch as follows:
+You can then use the switch as follows::
 
     WAFFLE_SWITCHES.is_enabled(waffle.ESTIMATE_FIRST_ATTEMPTED)
 
@@ -44,29 +44,26 @@ To test WaffleSwitchNamespace, use the provided context managers.  For example:
     with WAFFLE_SWITCHES.override(waffle.ESTIMATE_FIRST_ATTEMPTED, active=True):
         ...
 
-For long-lived flags, you may want to change the default for the flag from "off"
-to "on", so that it is "on" by default in devstack, sandboxes, or new Open edX
-releases, more closely matching what is in Production. This is for flags that
-can't yet be deleted, for example if there are straggling course overrides.
+For long-lived flags, you may want to change the default for devstack, sandboxes,
+or new Open edX releases. For help with this, see:
+openedx/core/djangoapps/waffle_utils/docs/decisions/0001-refactor-waffle-flag-default.rst
 
-    * WaffleFlag has a DEPRECATED argument flag_undefined_default that we don't
-    recommend you use any more. Although this can work, it is proven not ideal to
-    have a value that isn't immediately obvious via Django admin.
-
-    * At this time, the proper alternative has not been fully designed. The
-    following food-for-thought could provide ideas for this design when needed:
-    using migrations, using app-level configuration, using management commands,
-    and/or creating records up front so all toggle defaults are explicit rather
-    than implicit.
+Also see ``WAFFLE_FLAG_CUSTOM_METRICS`` and docstring for _set_waffle_flag_metric
+for temporarily instrumenting/monitoring waffle flag usage.
 
 """
 
 import logging
+import re
+import traceback
 from abc import ABCMeta
 from contextlib import contextmanager
+from weakref import WeakSet
 
 import crum
 import six
+from django.conf import settings
+from edx_django_utils.monitoring import set_custom_metric
 from opaque_keys.edx.keys import CourseKey
 from waffle import flag_is_active, switch_is_active
 
@@ -188,6 +185,9 @@ class WaffleSwitch(object):
     """
     Represents a single waffle switch, using a cached namespace.
     """
+    # use a WeakSet so these instances can be garbage collected if need be
+    _class_instances = WeakSet()
+
     def __init__(self, waffle_namespace, switch_name):
         """
         Arguments:
@@ -199,6 +199,24 @@ class WaffleSwitch(object):
 
         self.waffle_namespace = waffle_namespace
         self.switch_name = switch_name
+        self._module_name = _get_instance_module_name(self)
+        self._class_instances.add(self)
+
+    @classmethod
+    def get_instances(cls):
+        """ Returns a WeakSet of the instantiated instances of WaffleFlag. """
+        return cls._class_instances
+
+    @property
+    def module_name(self):
+        """
+        Returns the module name. This is cached to work with the WeakSet instances.
+        """
+        return self._module_name
+
+    @module_name.setter
+    def module_name(self, value):
+        self._module_name = value
 
     @property
     def namespaced_switch_name(self):
@@ -231,7 +249,7 @@ class WaffleFlagNamespace(six.with_metaclass(ABCMeta, WaffleNamespace)):
         """
         return self._get_request_cache().setdefault('flags', {})
 
-    def is_flag_active(self, flag_name, check_before_waffle_callback=None, flag_undefined_default=None):
+    def is_flag_active(self, flag_name, check_before_waffle_callback=None):
         """
         Returns and caches whether the provided flag is active.
 
@@ -244,6 +262,10 @@ class WaffleFlagNamespace(six.with_metaclass(ABCMeta, WaffleNamespace)):
         Important: Caching for the check_before_waffle_callback must be handled
             by the callback itself.
 
+        Note: A waffle flag's default is False if not defined. If you think you
+            need the default to be True, see the module docstring for
+            alternatives.
+
         Arguments:
             flag_name (String): The name of the flag to check.
             check_before_waffle_callback (function): (Optional) A function that
@@ -251,63 +273,141 @@ class WaffleFlagNamespace(six.with_metaclass(ABCMeta, WaffleNamespace)):
                 check_before_waffle_callback(namespaced_flag_name) returns True
                 or False, it is returned. If it returns None, then waffle is
                 used.
-            DEPRECATED flag_undefined_default (Boolean): A default value to be
-                returned if the waffle flag is to be checked, but doesn't exist.
-                See docs for alternatives.
+
+        """
+        # validate arguments
+        namespaced_flag_name = self._namespaced_name(flag_name)
+
+        if check_before_waffle_callback:
+            value = check_before_waffle_callback(namespaced_flag_name)
+            if value is not None:
+                # Do not cache value for the callback, because the key might be different.
+                # The callback needs to handle its own caching if it wants it.
+                self._set_waffle_flag_metric(namespaced_flag_name, value)
+                return value
+
+        value = self._cached_flags.get(namespaced_flag_name)
+        if value is not None:
+            self._set_waffle_flag_metric(namespaced_flag_name, value)
+            return value
+
+        request = crum.get_current_request()
+        if not request:
+            log.warning(u"%sFlag '%s' accessed without a request", self.log_prefix, namespaced_flag_name)
+            # Return the Flag's Everyone value if not in a request context.
+            # Note: this skips the cache as the value might be different
+            # in a normal request context. This case seems to occur when
+            # a page redirects to a 404, or for celery workers.
+            value = self._is_flag_active_for_everyone(namespaced_flag_name)
+            self._set_waffle_flag_metric(namespaced_flag_name, value)
+            set_custom_metric('warn_flag_no_request_return_value', value)
+            return value
+
+        value = flag_is_active(request, namespaced_flag_name)
+        self._cached_flags[namespaced_flag_name] = value
+
+        self._set_waffle_flag_metric(namespaced_flag_name, value)
+        return value
+
+    def _is_flag_active_for_everyone(self, namespaced_flag_name):
+        """
+        Returns True if the waffle flag is configured as active for Everyone,
+        False otherwise.
         """
         # Import is placed here to avoid model import at project startup.
         from waffle.models import Flag
 
-        # validate arguments
-        namespaced_flag_name = self._namespaced_name(flag_name)
-        value = None
-        if check_before_waffle_callback:
-            value = check_before_waffle_callback(namespaced_flag_name)
+        try:
+            waffle_flag = Flag.objects.get(name=namespaced_flag_name)
+            return (waffle_flag.everyone is True)
+        except Flag.DoesNotExist:
+            return False
 
-        if value is None:
-            # Do not get cached value for the callback, because the key might be different.
-            # The callback needs to handle its own caching if it wants it.
-            value = self._cached_flags.get(namespaced_flag_name)
-            if value is None:
+    def _set_waffle_flag_metric(self, name, value):
+        """
+        For any flag name in _WAFFLE_FLAG_CUSTOM_METRIC_SET, add name/value
+        to cached values and set custom metric if the value changed.
 
-                if flag_undefined_default is not None:
-                    # determine if the flag is undefined in waffle
-                    try:
-                        Flag.objects.get(name=namespaced_flag_name)
-                    except Flag.DoesNotExist:
-                        value = flag_undefined_default
+        The name of the custom metric will have the prefix ``flag_`` and the
+        suffix will match the name of the flag.
+        The value of the custom metric could be False, True, or Both.
 
-                if value is None:
-                    request = crum.get_current_request()
-                    if request:
-                        value = flag_is_active(request, namespaced_flag_name)
-                    else:
-                        log.warning(u"%sFlag '%s' accessed without a request", self.log_prefix, namespaced_flag_name)
-                        # Return the default value if not in a request context.
-                        # Note: this skips the cache as the value might be different
-                        # in a normal request context. This case seems to occur when
-                        # a page redirects to a 404. In this case, we'll just return
-                        # the default value.
-                        return bool(flag_undefined_default)
+          The value Both would mean that the flag had both a True and False
+          value at different times during the transaction. This is most
+          likely due to having a check_before_waffle_callback, as is the
+          case with CourseWaffleFlag.
 
-                self._cached_flags[namespaced_flag_name] = value
-        return value
+        An example NewRelic query to see the values of a flag in different
+        environments, if your waffle flag was named ``my.waffle.flag`` might
+        look like::
+
+          SELECT count(*) FROM Transaction
+          WHERE flag_my.waffle.flag IS NOT NULL
+          FACET appName, flag_my.waffle.flag
+
+        Important: Remember to configure ``WAFFLE_FLAG_CUSTOM_METRICS`` for
+          LMS, Studio and Workers in order to see waffle flag usage in all
+          edx-platform environments.
+
+        """
+        if name not in _WAFFLE_FLAG_CUSTOM_METRIC_SET:
+            return
+
+        flag_metric_data = self._get_request_cache().setdefault('flag_metric', {})
+        is_value_change = False
+        if name not in flag_metric_data:
+            flag_metric_data[name] = str(value)
+            is_value_change = True
+        else:
+            if flag_metric_data[name] != str(value):
+                flag_metric_data[name] = 'Both'
+                is_value_change = True
+
+        if is_value_change:
+            metric_name = 'flag_{}'.format(name)
+            set_custom_metric(metric_name, flag_metric_data[name])
+
+
+def _get_waffle_flag_custom_metrics_set():
+    """
+    Returns a set based on the Django setting WAFFLE_FLAG_CUSTOM_METRICS (list).
+    """
+    waffle_flag_custom_metrics = getattr(settings, _WAFFLE_FLAG_CUSTOM_METRICS, None)
+    waffle_flag_custom_metrics = waffle_flag_custom_metrics if waffle_flag_custom_metrics else []
+    return set(waffle_flag_custom_metrics)
+
+    # .. toggle_name: WAFFLE_FLAG_CUSTOM_METRICS
+    # .. toggle_implementation: DjangoSetting
+    # .. toggle_default: False
+    # .. toggle_description: A list of waffle flag to track with custom metrics having values of (True, False, or Both).
+    # .. toggle_category: monitoring
+    # .. toggle_use_cases: opt_in
+    # .. toggle_creation_date: 2020-06-17
+    # .. toggle_expiration_date: None
+    # .. toggle_tickets: None
+    # .. toggle_status: supported
+    # .. toggle_warnings: Intent is for temporary research (1 day - several weeks) of a flag's usage.
+_WAFFLE_FLAG_CUSTOM_METRICS = 'WAFFLE_FLAG_CUSTOM_METRICS'
+
+# set of waffle flags that should be instrumented with custom metrics
+_WAFFLE_FLAG_CUSTOM_METRIC_SET = _get_waffle_flag_custom_metrics_set()
 
 
 class WaffleFlag(object):
     """
     Represents a single waffle flag, using a cached waffle namespace.
     """
+    # use a WeakSet so these instances can be garbage collected if need be
+    _class_instances = WeakSet()
 
-    def __init__(self, waffle_namespace, flag_name, flag_undefined_default=None):
+    def __init__(self, waffle_namespace, flag_name):
         """
         Initializes the waffle flag instance.
 
         Arguments:
             waffle_namespace (WaffleFlagNamespace | String): Namespace for this flag.
             flag_name (String): The name of the flag (without namespacing).
-            flag_undefined_default (Boolean): A default value to be returned if
-                the waffle flag is to be checked, but doesn't exist.
+
         """
         if isinstance(waffle_namespace, six.string_types):
             waffle_namespace = WaffleFlagNamespace(name=waffle_namespace)
@@ -315,7 +415,24 @@ class WaffleFlag(object):
         self.waffle_namespace = waffle_namespace
         self.waffle_namespace = waffle_namespace
         self.flag_name = flag_name
-        self.flag_undefined_default = flag_undefined_default
+        self._module_name = _get_instance_module_name(self)
+        self._class_instances.add(self)
+
+    @classmethod
+    def get_instances(cls):
+        """ Returns a WeakSet of the instantiated instances of WaffleFlag. """
+        return cls._class_instances
+
+    @property
+    def module_name(self):
+        """
+        Returns the module name. This is cached to work with the WeakSet instances.
+        """
+        return self._module_name
+
+    @module_name.setter
+    def module_name(self, value):
+        self._module_name = value
 
     @property
     def namespaced_flag_name(self):
@@ -328,10 +445,7 @@ class WaffleFlag(object):
         """
         Returns whether or not the flag is enabled.
         """
-        return self.waffle_namespace.is_flag_active(
-            self.flag_name,
-            flag_undefined_default=self.flag_undefined_default
-        )
+        return self.waffle_namespace.is_flag_active(self.flag_name)
 
     @contextmanager
     def override(self, active=True):
@@ -385,39 +499,60 @@ class CourseWaffleFlag(WaffleFlag):
 
         return course_override_callback
 
-    def _is_enabled(self, course_key=None):
-        """
-        Returns whether or not the flag is enabled without error checking.
-
-        Arguments:
-            course_key (CourseKey): The course to check for override before
-            checking waffle.
-        """
-        return self.waffle_namespace.is_flag_active(
-            self.flag_name,
-            check_before_waffle_callback=self._get_course_override_callback(course_key),
-            flag_undefined_default=self.flag_undefined_default
-        )
-
-    def is_enabled_without_course_context(self):
-        """
-        Returns whether or not the flag is enabled outside the context of a given course.
-        This should only be used when a course waffle flag must be used outside of a course.
-        If this is intended for use with a simple global setting, use simple waffle flag instead.
-        """
-        return self._is_enabled()
-
-    def is_enabled(self, course_key=None):
+    def is_enabled(self, course_key=None):  # pylint: disable=arguments-differ
         """
         Returns whether or not the flag is enabled within the context of a given course.
 
         Arguments:
-            course_key (CourseKey): The course to check for override before
-            checking waffle.
+            course_key (Optional[CourseKey]): The course to check for override before
+                checking waffle. If omitted, check whether the flag is enabled
+                outside the context of any course.
         """
-        # validate arguments
-        assert issubclass(type(course_key), CourseKey), u"The course_key '{}' must be a CourseKey.".format(
-            str(course_key)
+        if course_key:
+            assert isinstance(course_key, CourseKey), (
+                "Provided course_key '{}' is not instance of CourseKey.".format(course_key)
+            )
+        return self.waffle_namespace.is_flag_active(
+            self.flag_name,
+            check_before_waffle_callback=self._get_course_override_callback(course_key),
         )
 
-        return self._is_enabled(course_key)
+
+def _get_instance_module_name(instance_object):
+    """
+    Returns the module in which the passed instance object was defined.
+
+    This must be called from the ``__init__`` method of the instance class.
+    """
+    try:
+        stack = traceback.extract_stack()
+        # Example: 'openedx.core.djangoapps.waffle_utils'
+        instance_class_module = instance_object.__class__.__module__
+        # Example: 'openedx/core/djangoapps/waffle_utils'
+        class_module_as_path = instance_class_module.replace('.', '/')
+        module_string_index = -1
+        # start searching at -2, because -1 starts in this function.
+        # search up the stack to max of -10, because the class hierarchy
+        # shouldn't be that deep.
+        for stack_index in range(-2, -10, -1):
+            # Example: '/edx/app/edxapp/edx-platform/openedx/core/djangoapps/waffle_utils/__init__.py'
+            class_file_name = stack[stack_index].filename
+            if module_string_index == -1:
+                module_string_index = class_file_name.find(class_module_as_path)
+            if stack[stack_index].name != '__init__':
+                # assumes the instance is being defined as soon as we are
+                # no longer in any __init__ method of the class hierarchy.
+                break
+        # Example: '/edx/app/edxapp/edx-platform/openedx/core/djangoapps/programs/__init__.py'
+        instance_file_name = stack[stack_index].filename
+        # Example: 'openedx/core/djangoapps/programs/__init__.py'
+        instance_module_name = instance_file_name[module_string_index:]
+        # Example: 'openedx.core.djangoapps.programs.__init__.py'
+        instance_module_name = instance_module_name.replace('/', '.')
+        # Example: 'openedx.core.djangoapps.programs.__init__'
+        instance_module_name = re.sub(r'\.py$', '', instance_module_name)
+        # Example: 'openedx.core.djangoapps.programs'
+        instance_module_name = re.sub(r'\.__init__$', '', instance_module_name)
+        return instance_module_name
+    except Exception:  # pylint: disable=broad-except
+        return 'error.parsing.module'
