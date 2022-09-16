@@ -184,6 +184,28 @@ class SiteConfiguration(models.Model):
             beeline.add_context_field('setting_source', 'django_model')
             return self.site_values.get(name, default) if self.site_values else default
 
+    @beeline.traced('site_config.get_integration_value')
+    def get_integration_value(self, name, default=None):
+        """
+        Tahoe: Get `integration` value from the site configuration service.
+
+        If SiteConfiguration adapter isn't in use, fallback to the deprecated `SiteConfiguration.site_values` field.
+
+        Args:
+            name (str): Name of the setting to fetch.
+            default: default value to return if setting is not found in the configuration.
+
+        Returns:
+            Value for the given key or returns `None` if not configured.
+        """
+        if self.api_adapter:
+            # Tahoe: Use `SiteConfigAdapter` if available.
+            beeline.add_context_field('setting_source', 'site_config_service')
+            return self.api_adapter.get_value_of_type(self.api_adapter.TYPE_INTEGRATION, name, default)
+        else:
+            beeline.add_context_field('setting_source', 'django_model')
+            return self.site_values.get(name, default) if self.site_values else default
+
     @beeline.traced('site_config.get_secret_value')
     def get_secret_value(self, name, default=None):
         """
