@@ -133,11 +133,14 @@ class TestPasswordChange(CreateAccountMixin, CacheIsolationTestCase):
 
         # Visit the activation link
         response = self.client.get(activation_link)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 302)
+
+        # Visit the redirect link
+        _ = self.client.get(response.url)
 
         # Submit a new password and follow the redirect to the success page
         response = self.client.post(
-            activation_link,
+            response.url,
             # These keys are from the form on the current password reset confirmation page.
             {'new_password1': self.NEW_PASSWORD, 'new_password2': self.NEW_PASSWORD},
             follow=True
@@ -266,7 +269,7 @@ class TestPasswordChange(CreateAccountMixin, CacheIsolationTestCase):
             self.assertEqual(response.status_code, 200)
 
             expected_logs = (
-                (LOGGER_NAME, 'INFO', 'Password reset initiated for user {}.'.format(self.NEW_EMAIL)),
+                (LOGGER_NAME, 'INFO', 'Password reset initiated for email {}.'.format(self.NEW_EMAIL)),
                 (LOGGER_NAME, 'INFO', 'Invalid password reset attempt')
             )
             logger.check(*expected_logs)

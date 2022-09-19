@@ -11,7 +11,7 @@ from opaque_keys.edx.keys import CourseKey
 
 from lms.djangoapps.course_home_api.progress.v1.serializers import ProgressTabSerializer
 
-from student.models import CourseEnrollment
+from common.djangoapps.student.models import CourseEnrollment
 from lms.djangoapps.course_api.blocks.transformers.blocks_api import BlocksAPITransformer
 from lms.djangoapps.courseware.context_processor import user_timezone_locale_prefs
 from lms.djangoapps.courseware.courses import get_course_with_access, get_studio_url
@@ -98,9 +98,9 @@ class ProgressTabView(RetrieveAPIView):
         course_key = CourseKey.from_string(course_key_string)
 
         # Enable NR tracing for this view based on course
-        monitoring_utils.set_custom_metric('course_id', course_key_string)
-        monitoring_utils.set_custom_metric('user_id', request.user.id)
-        monitoring_utils.set_custom_metric('is_staff', request.user.is_staff)
+        monitoring_utils.set_custom_attribute('course_id', course_key_string)
+        monitoring_utils.set_custom_attribute('user_id', request.user.id)
+        monitoring_utils.set_custom_attribute('is_staff', request.user.is_staff)
 
         _, request.user = setup_masquerade(
             request,
@@ -127,11 +127,9 @@ class ProgressTabView(RetrieveAPIView):
         verification_status = IDVerificationService.user_status(request.user)
         verification_link = None
         if verification_status['status'] is None or verification_status['status'] == 'expired':
-            verification_link = IDVerificationService.get_verify_location('verify_student_verify_now',
-                                                                          course_id=course_key)
+            verification_link = IDVerificationService.get_verify_location(course_id=course_key)
         elif verification_status['status'] == 'must_reverify':
-            verification_link = IDVerificationService.get_verify_location('verify_student_reverify',
-                                                                          course_id=course_key)
+            verification_link = IDVerificationService.get_verify_location(course_id=course_key)
         verification_data = {
             'link': verification_link,
             'status': verification_status['status'],

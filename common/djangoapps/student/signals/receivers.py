@@ -12,9 +12,9 @@ from django.dispatch import receiver
 
 from openedx.core.djangoapps.appsembler.sites.utils import get_current_organization
 
-from lms.djangoapps.courseware.toggles import REDIRECT_TO_COURSEWARE_MICROFRONTEND
-from student.helpers import EMAIL_EXISTS_MSG_FMT, USERNAME_EXISTS_MSG_FMT, AccountValidationError
-from student.models import CourseEnrollment, CourseEnrollmentCelebration, is_email_retired, is_username_retired
+from lms.djangoapps.courseware.toggles import courseware_mfe_first_section_celebration_is_active
+from common.djangoapps.student.helpers import EMAIL_EXISTS_MSG_FMT, USERNAME_EXISTS_MSG_FMT, AccountValidationError
+from common.djangoapps.student.models import CourseEnrollment, CourseEnrollmentCelebration, is_email_retired, is_username_retired
 
 
 @receiver(pre_save, sender=get_user_model())
@@ -91,8 +91,8 @@ def create_course_enrollment_celebration(sender, instance, created, **kwargs):
         return
 
     # The UI for celebrations is only supported on the MFE right now, so don't turn on
-    # celebrations unless this enrollment's course is MFE-enabled.
-    if not REDIRECT_TO_COURSEWARE_MICROFRONTEND.is_enabled(instance.course_id):
+    # celebrations unless this enrollment's course is MFE-enabled and has milestones enabled.
+    if not courseware_mfe_first_section_celebration_is_active(instance.course_id):
         return
 
     try:

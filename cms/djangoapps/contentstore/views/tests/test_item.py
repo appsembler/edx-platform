@@ -14,6 +14,7 @@ from django.test import TestCase
 from django.test.client import RequestFactory
 from django.urls import reverse
 from edx_proctoring.exceptions import ProctoredExamNotFoundException
+from edx_toggles.toggles.testutils import override_waffle_switch
 from mock import Mock, PropertyMock, patch
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.asides import AsideUsageKeyV2
@@ -32,24 +33,15 @@ from xblock.runtime import DictKeyValueStore, KvsFieldData
 from xblock.test.tools import TestRuntime
 from xblock.validation import ValidationMessage
 
-from contentstore.tests.utils import CourseTestCase
-from contentstore.utils import reverse_course_url, reverse_usage_url
-from contentstore.views import item as item_module
-from contentstore.views.component import component_handler, get_component_templates
-from contentstore.views.item import (
-    ALWAYS,
-    VisibilityState,
-    _get_module_info,
-    _get_source_index,
-    _xblock_type_and_display_name,
-    add_container_page_publishing_info,
-    create_xblock_info,
-    highlights_setting
+from cms.djangoapps.contentstore.tests.utils import CourseTestCase
+from cms.djangoapps.contentstore.utils import reverse_course_url, reverse_usage_url
+from cms.djangoapps.contentstore.views import item as item_module
+from lms.djangoapps.lms_xblock.mixin import NONSENSICAL_ACCESS_RESTRICTION
+from common.djangoapps.student.tests.factories import UserFactory
+from common.djangoapps.xblock_django.models import (
+    XBlockConfiguration, XBlockStudioConfiguration, XBlockStudioConfigurationFlag
 )
-from lms_xblock.mixin import NONSENSICAL_ACCESS_RESTRICTION
-from student.tests.factories import UserFactory
-from xblock_django.models import XBlockConfiguration, XBlockStudioConfiguration, XBlockStudioConfigurationFlag
-from xblock_django.user_service import DjangoXBlockUserService
+from common.djangoapps.xblock_django.user_service import DjangoXBlockUserService
 from xmodule.capa_module import ProblemBlock
 from xmodule.course_module import DEFAULT_START_DATE
 from xmodule.modulestore import ModuleStoreEnum
@@ -65,6 +57,18 @@ from xmodule.partitions.partitions import (
 )
 from xmodule.partitions.tests.test_partitions import MockPartitionService
 from xmodule.x_module import STUDENT_VIEW, STUDIO_VIEW
+
+from ..component import component_handler, get_component_templates
+from ..item import (
+    ALWAYS,
+    VisibilityState,
+    _get_module_info,
+    _get_source_index,
+    _xblock_type_and_display_name,
+    add_container_page_publishing_info,
+    create_xblock_info,
+    highlights_setting
+)
 
 
 class AsideTest(XBlockAside):
@@ -333,7 +337,7 @@ class GetItemTest(ItemTest):
         """
         Tests that valid paging is passed along to underlying block
         """
-        with patch('contentstore.views.item.get_preview_fragment') as patched_get_preview_fragment:
+        with patch('cms.djangoapps.contentstore.views.item.get_preview_fragment') as patched_get_preview_fragment:
             retval = Mock()
             type(retval).content = PropertyMock(return_value="Some content")
             type(retval).resources = PropertyMock(return_value=[])
@@ -1236,7 +1240,7 @@ class TestMoveItem(ItemTest):
         validation = html.validate()
         self.assertEqual(len(validation.messages), 0)
 
-    @patch('contentstore.views.item.log')
+    @patch('cms.djangoapps.contentstore.views.item.log')
     def test_move_logging(self, mock_logger):
         """
         Test logging when an item is successfully moved.
@@ -2152,7 +2156,7 @@ class TestComponentHandler(TestCase):
 
         self.request_factory = RequestFactory()
 
-        patcher = patch('contentstore.views.component.modulestore')
+        patcher = patch('cms.djangoapps.contentstore.views.component.modulestore')
         self.modulestore = patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -2224,12 +2228,12 @@ class TestComponentHandler(TestCase):
         self.descriptor.handle = create_response
 
         with patch(
-            'contentstore.views.component.is_xblock_aside',
+            'cms.djangoapps.contentstore.views.component.is_xblock_aside',
             return_value=is_xblock_aside
         ), patch(
-            'contentstore.views.component.get_aside_from_xblock'
+            'cms.djangoapps.contentstore.views.component.get_aside_from_xblock'
         ) as mocked_get_aside_from_xblock, patch(
-            "contentstore.views.component.webob_to_django_response"
+            "cms.djangoapps.contentstore.views.component.webob_to_django_response"
         ) as mocked_webob_to_django_response:
             component_handler(
                 self.request,
@@ -2257,9 +2261,11 @@ class TestComponentTemplates(CourseTestCase):
         XBlockStudioConfiguration.objects.create(name='discussion', enabled=True, support_level="ps")
         XBlockStudioConfiguration.objects.create(name='problem', enabled=True, support_level="us")
         XBlockStudioConfiguration.objects.create(name='video', enabled=True, support_level="us")
-        # XBlock masquerading as a problem
+        # ORA Block has it's own category.
         XBlockStudioConfiguration.objects.create(name='openassessment', enabled=True, support_level="us")
+        # XBlock masquerading as a problem
         XBlockStudioConfiguration.objects.create(name='drag-and-drop-v2', enabled=True, support_level="fs")
+        XBlockStudioConfiguration.objects.create(name='staffgradedxblock', enabled=True, support_level="us")
 
         self.templates = get_component_templates(self.course)
 
@@ -2267,8 +2273,21 @@ class TestComponentTemplates(CourseTestCase):
         """
         Returns the templates for the specified type, or None if none is found.
         """
-        template_dict = next((template for template in self.templates if template.get('type') == template_type), None)
+        template_dict = self._get_template_dict_of_type(template_type)
         return template_dict.get('templates') if template_dict else None
+
+    def get_display_name_of_type(self, template_type):
+        """
+        Returns the display name for the specified type, or None if none found.
+        """
+        template_dict = self._get_template_dict_of_type(template_type)
+        return template_dict.get('display_name') if template_dict else None
+
+    def _get_template_dict_of_type(self, template_type):
+        """
+        Returns a dictionary of values for a category type.
+        """
+        return next((template for template in self.templates if template.get('type') == template_type), None)
 
     def get_template(self, templates, display_name):
         """
@@ -2282,6 +2301,10 @@ class TestComponentTemplates(CourseTestCase):
         """
         self._verify_basic_component("discussion", "Discussion")
         self._verify_basic_component("video", "Video")
+        self._verify_basic_component("openassessment", "Blank Open Response Assessment", True, 6)
+        self._verify_basic_component_display_name("discussion", "Discussion")
+        self._verify_basic_component_display_name("video", "Video")
+        self._verify_basic_component_display_name("openassessment", "Open Response")
         self.assertGreater(len(self.get_templates_of_type('html')), 0)
         self.assertGreater(len(self.get_templates_of_type('problem')), 0)
         self.assertIsNone(self.get_templates_of_type('advanced'))
@@ -2339,13 +2362,13 @@ class TestComponentTemplates(CourseTestCase):
 
         # Verify that non-advanced components are not added twice
         self.course.advanced_modules.append('video')
-        self.course.advanced_modules.append('openassessment')
+        self.course.advanced_modules.append('drag-and-drop-v2')
         self.templates = get_component_templates(self.course)
         advanced_templates = self.get_templates_of_type('advanced')
         self.assertEqual(len(advanced_templates), 1)
         only_template = advanced_templates[0]
         self.assertNotEqual(only_template.get('category'), 'video')
-        self.assertNotEqual(only_template.get('category'), 'openassessment')
+        self.assertNotEqual(only_template.get('category'), 'drag-and-drop-v2')
 
         # Now fully disable word_cloud through XBlockConfiguration
         XBlockConfiguration.objects.create(name='word_cloud', enabled=False)
@@ -2416,12 +2439,14 @@ class TestComponentTemplates(CourseTestCase):
             problem_templates = self.get_templates_of_type('problem')
             return self.get_template(problem_templates, label)
 
-        def verify_openassessment_present(support_level):
-            """ Helper method to verify that openassessment template is present """
-            openassessment = get_xblock_problem('Open Response Assessment')
-            self.assertIsNotNone(openassessment)
-            self.assertEqual(openassessment.get('category'), 'openassessment')
-            self.assertEqual(openassessment.get('support_level'), support_level)
+        def verify_staffgradedxblock_present(support_level):
+            """
+            Helper method to verify that staffgradedxblock template is present
+            """
+            sgp = get_xblock_problem('Staff Graded Points')
+            self.assertIsNotNone(sgp)
+            self.assertEqual(sgp.get('category'), 'staffgradedxblock')
+            self.assertEqual(sgp.get('support_level'), support_level)
 
         def verify_dndv2_present(support_level):
             """
@@ -2432,24 +2457,24 @@ class TestComponentTemplates(CourseTestCase):
             self.assertEqual(dndv2.get('category'), 'drag-and-drop-v2')
             self.assertEqual(dndv2.get('support_level'), support_level)
 
-        verify_openassessment_present(True)
         verify_dndv2_present(True)
+        verify_staffgradedxblock_present(True)
 
-        # Now enable XBlockStudioConfigurationFlag. The openassessment block is marked
+        # Now enable XBlockStudioConfigurationFlag. The staffgradedxblock block is marked
         # unsupported, so will no longer show up, but DnDv2 will continue to appear.
         XBlockStudioConfigurationFlag.objects.create(enabled=True)
-        self.assertIsNone(get_xblock_problem('Peer Assessment'))
+        self.assertIsNone(get_xblock_problem('Staff Graded Points'))
         self.assertIsNotNone(get_xblock_problem('Drag and Drop'))
 
         # Now allow unsupported components.
         self.course.allow_unsupported_xblocks = True
-        verify_openassessment_present('us')
+        verify_staffgradedxblock_present('us')
         verify_dndv2_present('fs')
 
         # Now disable the blocks completely through XBlockConfiguration
-        XBlockConfiguration.objects.create(name='openassessment', enabled=False)
+        XBlockConfiguration.objects.create(name='staffgradedxblock', enabled=False)
         XBlockConfiguration.objects.create(name='drag-and-drop-v2', enabled=False)
-        self.assertIsNone(get_xblock_problem('Peer Assessment'))
+        self.assertIsNone(get_xblock_problem('Staff Graded Points'))
         self.assertIsNone(get_xblock_problem('Drag and Drop'))
 
     def _verify_advanced_xblocks(self, expected_xblocks, expected_support_levels):
@@ -2465,14 +2490,21 @@ class TestComponentTemplates(CourseTestCase):
         template_support_levels = [template['support_level'] for template in templates[0]['templates']]
         self.assertEqual(template_support_levels, expected_support_levels)
 
-    def _verify_basic_component(self, component_type, display_name, support_level=True):
+    def _verify_basic_component(self, component_type, display_name, support_level=True, no_of_templates=1):
         """
         Verify the display name and support level of basic components (that have no boilerplates).
         """
         templates = self.get_templates_of_type(component_type)
-        self.assertEqual(1, len(templates))
+        self.assertEqual(no_of_templates, len(templates))
         self.assertEqual(display_name, templates[0]['display_name'])
         self.assertEqual(support_level, templates[0]['support_level'])
+
+    def _verify_basic_component_display_name(self, component_type, display_name):
+        """
+        Verify the display name of basic components.
+        """
+        component_display_name = self.get_display_name_of_type(component_type)
+        self.assertEqual(display_name, component_display_name)
 
 
 @ddt.ddt
@@ -2670,7 +2702,7 @@ class TestXBlockInfo(ItemTest):
         self.course.highlights_enabled_for_messaging = True
         self.store.update_item(self.course, None)
         chapter = self.store.get_item(self.chapter.location)
-        with highlights_setting.override():
+        with override_waffle_switch(highlights_setting, active=True):
             chapter_xblock_info = create_xblock_info(chapter)
             course_xblock_info = create_xblock_info(self.course)
             self.assertTrue(chapter_xblock_info['highlights_enabled'])

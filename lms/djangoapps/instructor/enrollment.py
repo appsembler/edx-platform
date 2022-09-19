@@ -30,7 +30,7 @@ from six import text_type
 from submissions import api as sub_api  # installed from the edx-submissions repository
 from submissions.models import score_set
 
-from course_modes.models import CourseMode
+from common.djangoapps.course_modes.models import CourseMode
 from lms.djangoapps.courseware.models import StudentModule
 from lms.djangoapps.grades.api import constants as grades_constants
 from lms.djangoapps.grades.api import disconnect_submissions_signal_receiver
@@ -50,8 +50,8 @@ from openedx.core.djangoapps.site_configuration import helpers as configuration_
 from openedx.core.djangoapps.theming.helpers import get_current_site
 from openedx.core.djangoapps.user_api.models import UserPreference
 from openedx.core.djangolib.markup import Text
-from student.models import CourseEnrollment, CourseEnrollmentAllowed, anonymous_id_for_user, is_email_retired
-from track.event_transaction_utils import (
+from common.djangoapps.student.models import CourseEnrollment, CourseEnrollmentAllowed, anonymous_id_for_user, is_email_retired
+from common.djangoapps.track.event_transaction_utils import (
     create_new_event_transaction_id,
     get_event_transaction_id,
     set_event_transaction_type
@@ -152,16 +152,16 @@ def enroll_email(course_id, student_email, auto_enroll=False, email_students=Fal
     """
     previous_state = EmailEnrollmentState(course_id, student_email)
     enrollment_obj = None
-    if previous_state.user:
+    if previous_state.user and User.objects.get(email=student_email).is_active:
         # if the student is currently unenrolled, don't enroll them in their
         # previous mode
 
-        # for now, White Labels use 'shoppingcart' which is based on the
+        # for now, White Labels use the
         # "honor" course_mode. Given the change to use "audit" as the default
         # course_mode in Open edX, we need to be backwards compatible with
         # how White Labels approach enrollment modes.
         if CourseMode.is_white_label(course_id):
-            course_mode = CourseMode.DEFAULT_SHOPPINGCART_MODE_SLUG
+            course_mode = CourseMode.HONOR
         else:
             course_mode = None
 

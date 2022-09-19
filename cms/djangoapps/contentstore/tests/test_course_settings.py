@@ -15,23 +15,27 @@ from crum import set_current_request
 from django.conf import settings
 from django.test import RequestFactory
 from django.test.utils import override_settings
+from edx_toggles.toggles.testutils import override_waffle_flag
 from milestones.models import MilestoneRelationshipType
 from milestones.tests.utils import MilestonesTestCaseMixin
 from mock import Mock, patch
 from pytz import UTC
 
-from contentstore.utils import reverse_course_url, reverse_usage_url
-from course_modes.models import CourseMode
-from models.settings.course_grading import GRADING_POLICY_CHANGED_EVENT_TYPE, CourseGradingModel, hash_grading_policy
-from models.settings.course_metadata import CourseMetadata
-from models.settings.encoder import CourseSettingsEncoder
-from models.settings.waffle import MATERIAL_RECOMPUTE_ONLY_FLAG
+from cms.djangoapps.contentstore.utils import reverse_course_url, reverse_usage_url
+from cms.djangoapps.models.settings.course_grading import (
+    GRADING_POLICY_CHANGED_EVENT_TYPE,
+    CourseGradingModel,
+    hash_grading_policy
+)
+from cms.djangoapps.models.settings.course_metadata import CourseMetadata
+from cms.djangoapps.models.settings.encoder import CourseSettingsEncoder
+from cms.djangoapps.models.settings.waffle import MATERIAL_RECOMPUTE_ONLY_FLAG
+from common.djangoapps.course_modes.models import CourseMode
 from openedx.core.djangoapps.models.course_details import CourseDetails
-from openedx.core.djangoapps.waffle_utils.testutils import override_waffle_flag
-from student.roles import CourseInstructorRole, CourseStaffRole
-from student.tests.factories import UserFactory
-from util import milestones_helpers
-from xblock_django.models import XBlockStudioConfigurationFlag
+from common.djangoapps.student.roles import CourseInstructorRole, CourseStaffRole
+from common.djangoapps.student.tests.factories import UserFactory
+from common.djangoapps.util import milestones_helpers
+from common.djangoapps.xblock_django.models import XBlockStudioConfigurationFlag
 from xmodule.fields import Date
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.django import modulestore
@@ -584,9 +588,9 @@ class CourseGradingTest(CourseTestCase):
             subgrader = CourseGradingModel.fetch_grader(self.course.id, i)
             self.assertDictEqual(grader, subgrader, str(i) + "th graders not equal")
 
-    @mock.patch('track.event_transaction_utils.uuid4')
-    @mock.patch('models.settings.course_grading.tracker')
-    @mock.patch('contentstore.signals.signals.GRADING_POLICY_CHANGED.send')
+    @mock.patch('common.djangoapps.track.event_transaction_utils.uuid4')
+    @mock.patch('cms.djangoapps.models.settings.course_grading.tracker')
+    @mock.patch('cms.djangoapps.contentstore.signals.signals.GRADING_POLICY_CHANGED.send')
     @ddt.data(ModuleStoreEnum.Type.mongo, ModuleStoreEnum.Type.split)
     def test_update_from_json(self, store, send_signal, tracker, uuid):
         uuid.return_value = "mockUUID"
@@ -722,9 +726,9 @@ class CourseGradingTest(CourseTestCase):
         self.assertTrue(result)
 
     @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'fails in open-release/juniper.master as well')
-    @mock.patch('track.event_transaction_utils.uuid4')
-    @mock.patch('models.settings.course_grading.tracker')
-    @mock.patch('contentstore.signals.signals.GRADING_POLICY_CHANGED.send')
+    @mock.patch('common.djangoapps.track.event_transaction_utils.uuid4')
+    @mock.patch('cms.djangoapps.models.settings.course_grading.tracker')
+    @mock.patch('cms.djangoapps.contentstore.signals.signals.GRADING_POLICY_CHANGED.send')
     def test_update_grader_from_json(self, send_signal, tracker, uuid):
         uuid.return_value = 'mockUUID'
         test_grader = CourseGradingModel.fetch(self.course.id)
@@ -767,8 +771,8 @@ class CourseGradingTest(CourseTestCase):
             ) for policy_hash in {grading_policy_2, grading_policy_3}
         ], any_order=True)
 
-    @mock.patch('track.event_transaction_utils.uuid4')
-    @mock.patch('models.settings.course_grading.tracker')
+    @mock.patch('common.djangoapps.track.event_transaction_utils.uuid4')
+    @mock.patch('cms.djangoapps.models.settings.course_grading.tracker')
     def test_update_cutoffs_from_json(self, tracker, uuid):
         uuid.return_value = 'mockUUID'
         test_grader = CourseGradingModel.fetch(self.course.id)
@@ -828,9 +832,9 @@ class CourseGradingTest(CourseTestCase):
         # Once deleted, the grace period should simply be None
         self.assertEqual(None, altered_grader.grace_period, "Delete grace period")
 
-    @mock.patch('track.event_transaction_utils.uuid4')
-    @mock.patch('models.settings.course_grading.tracker')
-    @mock.patch('contentstore.signals.signals.GRADING_POLICY_CHANGED.send')
+    @mock.patch('common.djangoapps.track.event_transaction_utils.uuid4')
+    @mock.patch('cms.djangoapps.models.settings.course_grading.tracker')
+    @mock.patch('cms.djangoapps.contentstore.signals.signals.GRADING_POLICY_CHANGED.send')
     def test_update_section_grader_type(self, send_signal, tracker, uuid):
         uuid.return_value = 'mockUUID'
         # Get the descriptor and the section_grader_type and assert they are the default values
@@ -909,7 +913,7 @@ class CourseGradingTest(CourseTestCase):
         grader_sample = self._model_from_url(grader_type_url_base + '/1')
         self.assertEqual(grader_sample, whole_model['graders'][1])
 
-    @mock.patch('contentstore.signals.signals.GRADING_POLICY_CHANGED.send')
+    @mock.patch('cms.djangoapps.contentstore.signals.signals.GRADING_POLICY_CHANGED.send')
     def test_add_delete_grader(self, send_signal):
         grader_type_url_base = get_url(self.course.id, 'grading_handler')
         original_model = self._model_from_url(grader_type_url_base)
@@ -1491,30 +1495,6 @@ class CourseMetadataEditingTest(CourseTestCase):
                 "proctoring_provider": {"value": "proctortrack"},
                 "proctoring_escalation_email": {"value": "foo@bar.com"},
             },
-            user=self.user
-        )
-        self.assertTrue(did_validate)
-        self.assertEqual(len(errors), 0)
-        self.assertIn('proctoring_provider', test_model)
-        self.assertIn('proctoring_escalation_email', test_model)
-
-    @override_settings(
-        PROCTORING_BACKENDS={
-            'DEFAULT': 'test_proctoring_provider',
-            'proctortrack': {}
-        }
-    )
-    def test_validate_update_escalation_email_not_requirement_disabled(self):
-        """
-        Tests the escalation email is not required if 'ENABLED_EXAM_SETTINGS_HTML_VIEW'
-        setting is not set to True
-        """
-        json_data = {
-            "proctoring_provider": {"value": 'proctortrack'},
-        }
-        did_validate, errors, test_model = CourseMetadata.validate_and_update_from_json(
-            self.course,
-            json_data,
             user=self.user
         )
         self.assertTrue(did_validate)

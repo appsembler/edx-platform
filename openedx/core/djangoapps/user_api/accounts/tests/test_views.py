@@ -26,8 +26,8 @@ from openedx.core.djangoapps.user_api.accounts import ACCOUNT_VISIBILITY_PREF_KE
 from openedx.core.djangoapps.user_api.models import UserPreference
 from openedx.core.djangoapps.user_api.preferences.api import set_user_preference
 from openedx.core.djangolib.testing.utils import CacheIsolationTestCase, skip_unless_lms
-from student.models import PendingEmailChange, UserProfile
-from student.tests.factories import TEST_PASSWORD, UserFactory
+from common.djangoapps.student.models import PendingEmailChange, UserProfile
+from common.djangoapps.student.tests.factories import TEST_PASSWORD, UserFactory
 
 from .. import ALL_USERS_VISIBILITY, CUSTOM_VISIBILITY, PRIVATE_VISIBILITY
 
@@ -181,7 +181,7 @@ class TestOwnUsernameAPI(CacheIsolationTestCase, UserAPITestCase):
         Test that a client (logged in) can get her own username.
         """
         self.client.login(username=self.user.username, password=TEST_PASSWORD)
-        self._verify_get_own_username(16)
+        self._verify_get_own_username(17)
 
     def test_get_username_inactive(self):
         """
@@ -191,7 +191,7 @@ class TestOwnUsernameAPI(CacheIsolationTestCase, UserAPITestCase):
         self.client.login(username=self.user.username, password=TEST_PASSWORD)
         self.user.is_active = False
         self.user.save()
-        self._verify_get_own_username(16)
+        self._verify_get_own_username(17)
 
     def test_get_username_not_logged_in(self):
         """
@@ -364,7 +364,7 @@ class TestAccountsAPI(CacheIsolationTestCase, UserAPITestCase):
         """
         self.different_client.login(username=self.different_user.username, password=TEST_PASSWORD)
         self.create_mock_profile(self.user)
-        with self.assertNumQueries(23):
+        with self.assertNumQueries(24):
             response = self.send_get(self.different_client)
         self._verify_full_shareable_account_response(response, account_privacy=ALL_USERS_VISIBILITY)
 
@@ -380,7 +380,7 @@ class TestAccountsAPI(CacheIsolationTestCase, UserAPITestCase):
         """
         self.different_client.login(username=self.different_user.username, password=TEST_PASSWORD)
         self.create_mock_profile(self.user)
-        with self.assertNumQueries(23):
+        with self.assertNumQueries(24):
             response = self.send_get(self.different_client)
         self._verify_private_account_response(response)
 
@@ -526,12 +526,12 @@ class TestAccountsAPI(CacheIsolationTestCase, UserAPITestCase):
             self.assertEqual(False, data["accomplishments_shared"])
 
         self.client.login(username=self.user.username, password=TEST_PASSWORD)
-        verify_get_own_information(21)
+        verify_get_own_information(22)
 
         # Now make sure that the user can get the same information, even if not active
         self.user.is_active = False
         self.user.save()
-        verify_get_own_information(13)
+        verify_get_own_information(14)
 
     @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'skip query count test')
     def test_get_account_empty_string(self):
@@ -547,7 +547,7 @@ class TestAccountsAPI(CacheIsolationTestCase, UserAPITestCase):
         legacy_profile.save()
 
         self.client.login(username=self.user.username, password=TEST_PASSWORD)
-        with self.assertNumQueries(21):
+        with self.assertNumQueries(22):
             response = self.send_get(self.client)
         for empty_field in ("level_of_education", "gender", "country", "state", "bio",):
             self.assertIsNone(response.data[empty_field])
@@ -801,7 +801,7 @@ class TestAccountsAPI(CacheIsolationTestCase, UserAPITestCase):
         )
         self.assertEqual("Valid e-mail address required.", field_errors["email"]["user_message"])
 
-    @mock.patch('student.views.management.do_email_change_request')
+    @mock.patch('common.djangoapps.student.views.management.do_email_change_request')
     def test_patch_duplicate_email(self, do_email_change_request):
         """
         Test that same success response will be sent to user even if the given email already used.
@@ -959,7 +959,7 @@ class TestAccountAPITransactions(TransactionTestCase):
         self.user = UserFactory.create(password=TEST_PASSWORD)
         self.url = reverse("accounts_api", kwargs={'username': self.user.username})
 
-    @mock.patch('student.views.do_email_change_request')
+    @mock.patch('common.djangoapps.student.views.do_email_change_request')
     def test_update_account_settings_rollback(self, mock_email_change):
         """
         Verify that updating account settings is transactional when a failure happens.

@@ -25,10 +25,10 @@ from enterprise.models import EnterpriseCustomerIdentityProvider, EnterpriseCust
 from openedx.core.djangoapps.user_authn.views.login import login_user
 from openedx.core.djangoapps.user_api.accounts.settings_views import account_settings_context
 from openedx.features.enterprise_support.tests.factories import EnterpriseCustomerFactory
-from third_party_auth import pipeline
-from third_party_auth.saml import SapSuccessFactorsIdentityProvider, log as saml_log
-from third_party_auth.tasks import fetch_saml_metadata
-from third_party_auth.tests import testutil, utils
+from common.djangoapps.third_party_auth import pipeline
+from common.djangoapps.third_party_auth.saml import SapSuccessFactorsIdentityProvider, log as saml_log
+from common.djangoapps.third_party_auth.tasks import fetch_saml_metadata
+from common.djangoapps.third_party_auth.tests import testutil, utils
 
 from .base import IntegrationTestMixin
 
@@ -142,7 +142,7 @@ class SamlIntegrationTestUtilities(object):
 
 
 @ddt.ddt
-@unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
+@utils.skip_unless_thirdpartyauth()
 class TestShibIntegrationTest(SamlIntegrationTestUtilities, IntegrationTestMixin, testutil.SAMLTestCase):
     """
     TestShib provider Integration Test, to test SAML functionality
@@ -375,7 +375,7 @@ class TestShibIntegrationTest(SamlIntegrationTestUtilities, IntegrationTestMixin
             self._test_return_login(previous_session_timed_out=True)
 
 
-@unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
+@utils.skip_unless_thirdpartyauth()
 class SuccessFactorsIntegrationTest(SamlIntegrationTestUtilities, IntegrationTestMixin, testutil.SAMLTestCase):
     """
     Test basic SAML capability using the TestShib details, and then check that we're able

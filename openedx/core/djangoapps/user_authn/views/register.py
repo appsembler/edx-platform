@@ -22,12 +22,11 @@ from django.utils.translation import get_language
 from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.debug import sensitive_post_parameters
-from ipware.ip import get_ip
+from edx_toggles.toggles import LegacyWaffleFlag, LegacyWaffleFlagNamespace
 from pytz import UTC
 from ratelimit.decorators import ratelimit
 from requests import HTTPError
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from six import text_type
 from social_core.exceptions import AuthAlreadyAssociated, AuthException
@@ -41,9 +40,10 @@ from tahoe_sites.api import (
     update_admin_role_in_organization,
 )
 
-import third_party_auth
+from common.djangoapps import third_party_auth
 # Note that this lives in LMS, so this dependency should be refactored.
 # TODO Have the discussions code subscribe to the REGISTER_USER signal instead.
+from common.djangoapps.student.helpers import get_next_url_for_login_page
 from lms.djangoapps.discussion.notification_prefs.views import enable_notifications
 from openedx.core.djangoapps.lang_pref import LANGUAGE_KEY
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
@@ -66,26 +66,25 @@ from openedx.core.djangoapps.user_authn.views.registration_form import (
     RegistrationFormFactory,
     get_registration_extension_form
 )
-from openedx.core.djangoapps.waffle_utils import WaffleFlag, WaffleFlagNamespace
-from student.helpers import (
+from common.djangoapps.student.helpers import (
     AccountValidationError,
     authenticate_new_user,
     create_or_set_user_attribute_created_on_site,
     do_create_account
 )
-from student.models import (
+from common.djangoapps.student.models import (
     RegistrationCookieConfiguration,
     UserAttribute,
     create_comments_service_user,
     email_exists_or_retired,
     username_exists_or_retired
 )
-from student.views import compose_and_send_activation_email
-from third_party_auth import pipeline, provider
-from third_party_auth.saml import SAP_SUCCESSFACTORS_SAML_KEY
-from track import segment
-from util.db import outer_atomic
-from util.json_request import JsonResponse
+from common.djangoapps.student.views import compose_and_send_activation_email
+from common.djangoapps.third_party_auth import pipeline, provider
+from common.djangoapps.third_party_auth.saml import SAP_SUCCESSFACTORS_SAML_KEY
+from common.djangoapps.track import segment
+from common.djangoapps.util.db import outer_atomic
+from common.djangoapps.util.json_request import JsonResponse
 
 from openedx.core.djangoapps.appsembler.api.helpers import skip_registration_email_for_registration_api
 from openedx.core.djangoapps.theming.helpers import get_current_request
@@ -114,20 +113,19 @@ REGISTRATION_UTM_CREATED_AT = 'registration_utm_created_at'
 REGISTER_USER = Signal(providing_args=["user", "registration"])
 
 
-# .. feature_toggle_name: registration.enable_failure_logging
-# .. feature_toggle_type: flag
-# .. feature_toggle_default: False
-# .. feature_toggle_description: Enable verbose logging of registration failure messages
-# .. feature_toggle_category: registration
-# .. feature_toggle_use_cases: monitored_rollout
-# .. feature_toggle_creation_date: 2020-04-30
-# .. feature_toggle_expiration_date: 2020-06-01
-# .. feature_toggle_warnings: None
-# .. feature_toggle_tickets: None
-# .. feature_toggle_status: supported
-REGISTRATION_FAILURE_LOGGING_FLAG = WaffleFlag(
-    waffle_namespace=WaffleFlagNamespace(name=u'registration'),
+# .. toggle_name: registration.enable_failure_logging
+# .. toggle_implementation: WaffleFlag
+# .. toggle_default: False
+# .. toggle_description: Enable verbose logging of registration failure messages
+# .. toggle_use_cases: temporary
+# .. toggle_creation_date: 2020-04-30
+# .. toggle_target_removal_date: 2020-06-01
+# .. toggle_warnings: This temporary feature toggle does not have a target removal date.
+# .. toggle_tickets: None
+REGISTRATION_FAILURE_LOGGING_FLAG = LegacyWaffleFlag(
+    waffle_namespace=LegacyWaffleFlagNamespace(name=u'registration'),
     flag_name=u'enable_failure_logging',
+    module_name=__name__,
 )
 REAL_IP_KEY = 'openedx.core.djangoapps.util.ratelimit.real_ip'
 
@@ -238,7 +236,10 @@ def create_account_with_params(request, params):
     # Sites using multiple languages need to record the language used during registration.
     # If not, compose_and_send_activation_email will be sent in site's default language only.
     create_or_set_user_attribute_created_on_site(user, request.site)
-    preferences_api.set_user_preference(user, LANGUAGE_KEY, get_language())
+
+    # Only add a default user preference if user does not already has one.
+    if not preferences_api.has_user_preference(user, LANGUAGE_KEY):
+        preferences_api.set_user_preference(user, LANGUAGE_KEY, get_language())
 
     # Check if system is configured to skip activation email for the current user.
     skip_email = _skip_activation_email(
@@ -532,7 +533,8 @@ class RegistrationView(APIView):
         if response:
             return response
 
-        response = self._create_response(request, {}, status_code=200)
+        redirect_url = get_next_url_for_login_page(request, include_host=True)
+        response = self._create_response(request, {}, status_code=200, redirect_url=redirect_url)
         set_logged_in_cookies(request, response, user)
         return response
 
@@ -608,13 +610,14 @@ class RegistrationView(APIView):
 
         return response, user
 
-    def _create_response(self, request, response_dict, status_code):
+    def _create_response(self, request, response_dict, status_code, redirect_url=None):
         if status_code == 200:
             # keeping this `success` field in for now, as we have outstanding clients expecting this
             response_dict['success'] = True
         else:
             self._log_validation_errors(request, response_dict, status_code)
-
+        if redirect_url:
+            response_dict['redirect_url'] = redirect_url
         return JsonResponse(response_dict, status=status_code)
 
     def _log_validation_errors(self, request, errors, status_code):

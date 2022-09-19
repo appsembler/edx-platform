@@ -41,8 +41,8 @@ from openedx.core.lib.api.view_utils import (
     add_serializer_errors,
     build_api_error
 )
-from student.models import CourseAccessRole, CourseEnrollment
-from util.model_utils import truncate_fields
+from common.djangoapps.student.models import CourseAccessRole, CourseEnrollment
+from common.djangoapps.util.model_utils import truncate_fields
 from xmodule.modulestore.django import modulestore
 
 from . import is_feature_enabled
@@ -69,11 +69,11 @@ from .serializers import (
     TopicSerializer
 )
 from .utils import emit_team_event
-from .waffle import are_team_submissions_enabled
+from .toggles import are_team_submissions_enabled
 
 TEAM_MEMBERSHIPS_PER_PAGE = 5
 TOPICS_PER_PAGE = 12
-MAXIMUM_SEARCH_SIZE = 100000
+MAXIMUM_SEARCH_SIZE = 10000
 
 log = logging.getLogger(__name__)
 
@@ -1360,15 +1360,18 @@ class MembershipListView(ExpandableFieldViewMixin, GenericAPIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
             teamset_teams = CourseTeam.objects.filter(course_id=requested_course_key, topic_id=teamset_id)
-            teams_with_access = [
-                team for team in teamset_teams
-                if has_specific_team_access(request.user, team)
-            ]
-            if not teams_with_access:
-                return Response(
-                    build_api_error(ugettext_noop("No teamset found in given course with given id")),
-                    status=status.HTTP_404_NOT_FOUND
-                )
+            if has_course_staff_privileges(request.user, requested_course_key):
+                teams_with_access = list(teamset_teams)
+            else:
+                teams_with_access = [
+                    team for team in teamset_teams
+                    if has_specific_team_access(request.user, team)
+                ]
+                if teamset.is_private_managed and not teams_with_access:
+                    return Response(
+                        build_api_error(ugettext_noop("No teamset found in given course with given id")),
+                        status=status.HTTP_404_NOT_FOUND
+                    )
             team_ids = [team.team_id for team in teams_with_access]
 
         if 'username' in request.query_params:

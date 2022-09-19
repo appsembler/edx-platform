@@ -46,8 +46,8 @@ IDA_LOGOUT_URI_LIST = [
 ################################ LOGGERS ######################################
 
 LOG_OVERRIDES = [
-    ('track.contexts', logging.CRITICAL),
-    ('track.middleware', logging.CRITICAL),
+    ('common.djangoapps.track.contexts', logging.CRITICAL),
+    ('common.djangoapps.track.middleware', logging.CRITICAL),
     ('lms.djangoapps.discussion.django_comment_client.utils', logging.CRITICAL),
 ]
 for log_name, log_level in LOG_OVERRIDES:
@@ -93,6 +93,7 @@ DEBUG_TOOLBAR_PANELS = (
     'debug_toolbar.panels.sql.SQLPanel',
     'debug_toolbar.panels.signals.SignalsPanel',
     'debug_toolbar.panels.logging.LoggingPanel',
+    'debug_toolbar.panels.history.HistoryPanel',
     # ProfilingPanel has been intentionally removed for default devstack.py
     # runtimes for performance reasons. If you wish to re-enable it in your
     # local development environment, please create a new settings file
@@ -137,17 +138,6 @@ WEBPACK_CONFIG_PATH = 'webpack.dev.config.js'
 ########################### VERIFIED CERTIFICATES #################################
 
 FEATURES['AUTOMATIC_VERIFY_STUDENT_IDENTITY_FOR_TESTING'] = True
-FEATURES['ENABLE_PAYMENT_FAKE'] = True
-
-CC_PROCESSOR_NAME = 'CyberSource2'
-CC_PROCESSOR = {
-    'CyberSource2': {
-        "PURCHASE_ENDPOINT": '/shoppingcart/payment_fake/',
-        "SECRET_KEY": 'abcd123',
-        "ACCESS_KEY": 'abcd123',
-        "PROFILE_ID": 'edx',
-    }
-}
 
 ########################### External REST APIs #################################
 FEATURES['ENABLE_OAUTH2_PROVIDER'] = True
@@ -161,9 +151,6 @@ FEATURES['PREVENT_CONCURRENT_LOGINS'] = False
 
 ########################### Milestones #################################
 FEATURES['MILESTONES_APP'] = True
-
-########################### Organizations #################################
-FEATURES['ORGANIZATIONS_APP'] = True
 
 ########################### Entrance Exams #################################
 FEATURES['ENTRANCE_EXAMS'] = True
@@ -223,9 +210,6 @@ SEARCH_SKIP_ENROLLMENT_START_DATE_FILTERING = True
 
 
 ########################## Shopping cart ##########################
-FEATURES['ENABLE_SHOPPING_CART'] = True
-FEATURES['STORE_BILLING_INFO'] = True
-FEATURES['ENABLE_PAID_COURSE_REGISTRATION'] = True
 FEATURES['ENABLE_COSMETIC_DISPLAY_PRICE'] = True
 
 ######################### Program Enrollments #####################
@@ -236,8 +220,10 @@ FEATURES['ENABLE_COURSEWARE_MICROFRONTEND'] = True
 
 ########################## Third Party Auth #######################
 
-if FEATURES.get('ENABLE_THIRD_PARTY_AUTH') and 'third_party_auth.dummy.DummyBackend' not in AUTHENTICATION_BACKENDS:
-    AUTHENTICATION_BACKENDS = ['third_party_auth.dummy.DummyBackend'] + list(AUTHENTICATION_BACKENDS)
+if FEATURES.get('ENABLE_THIRD_PARTY_AUTH') and (
+        'common.djangoapps.third_party_auth.dummy.DummyBackend' not in AUTHENTICATION_BACKENDS
+):
+    AUTHENTICATION_BACKENDS = ['common.djangoapps.third_party_auth.dummy.DummyBackend'] + list(AUTHENTICATION_BACKENDS)
 
 ############## ECOMMERCE API CONFIGURATION SETTINGS ###############
 ECOMMERCE_PUBLIC_URL_ROOT = 'http://localhost:18130'
@@ -345,6 +331,8 @@ EDXNOTES_CLIENT_NAME = 'edx_notes_api-backend-service'
 ############## Settings for Microfrontends  #########################
 LEARNING_MICROFRONTEND_URL = 'http://localhost:2000'
 ACCOUNT_MICROFRONTEND_URL = 'http://localhost:1997'
+LOGISTRATION_MICROFRONTEND_URL = 'http://localhost:1999'
+LOGISTRATION_MICROFRONTEND_DOMAIN = 'localhost:1999'
 
 ############## Docker based devstack settings #######################
 

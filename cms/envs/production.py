@@ -109,7 +109,7 @@ BROKER_POOL_LIMIT = 0
 BROKER_CONNECTION_TIMEOUT = 1
 
 # For the Result Store, use the django cache named 'celery'
-CELERY_RESULT_BACKEND = 'djcelery.backends.cache:CacheBackend'
+CELERY_RESULT_BACKEND = 'django-cache'
 
 # When the broker is behind an ELB, use a heartbeat to refresh the
 # connection and to detect if it has been dropped.
@@ -136,7 +136,7 @@ CELERY_QUEUES = {
     DEFAULT_PRIORITY_QUEUE: {}
 }
 
-CELERY_ROUTES = "{}celery.Router".format(QUEUE_VARIANT)
+CELERY_ROUTES = "openedx.core.lib.celery.routers.route_task"
 
 # STATIC_URL_BASE specifies the base url to use for static files
 STATIC_URL_BASE = ENV_TOKENS.get('STATIC_URL_BASE', None)
@@ -295,6 +295,9 @@ STUDIO_SHORT_NAME = ENV_TOKENS.get('STUDIO_SHORT_NAME') or STUDIO_SHORT_NAME
 if "TRACKING_IGNORE_URL_PATTERNS" in ENV_TOKENS:
     TRACKING_IGNORE_URL_PATTERNS = ENV_TOKENS.get("TRACKING_IGNORE_URL_PATTERNS")
 
+# Heartbeat
+HEARTBEAT_CELERY_ROUTING_KEY = ENV_TOKENS.get('HEARTBEAT_CELERY_ROUTING_KEY', HEARTBEAT_CELERY_ROUTING_KEY)
+
 LOGIN_REDIRECT_WHITELIST = [reverse_lazy('home')]
 
 
@@ -342,7 +345,7 @@ else:
 COURSE_IMPORT_EXPORT_BUCKET = ENV_TOKENS.get('COURSE_IMPORT_EXPORT_BUCKET', '')
 
 if COURSE_IMPORT_EXPORT_BUCKET:
-    COURSE_IMPORT_EXPORT_STORAGE = 'contentstore.storage.ImportExportS3Storage'
+    COURSE_IMPORT_EXPORT_STORAGE = 'cms.djangoapps.contentstore.storage.ImportExportS3Storage'
 else:
     COURSE_IMPORT_EXPORT_STORAGE = DEFAULT_FILE_STORAGE
 
@@ -476,7 +479,8 @@ if FEATURES['ENABLE_COURSEWARE_INDEX'] or FEATURES['ENABLE_LIBRARY_INDEX'] or FE
     # Use ElasticSearch for the search engine
     SEARCH_ENGINE = "search.elastic.ElasticSearchEngine"
 
-ELASTIC_SEARCH_CONFIG = ENV_TOKENS.get('ELASTIC_SEARCH_CONFIG', [{}])
+# TODO: Once we have successfully upgraded to ES7, switch this back to ELASTIC_SEARCH_CONFIG.
+ELASTIC_SEARCH_CONFIG = ENV_TOKENS.get('ELASTIC_SEARCH_CONFIG_ES7', [{}])
 
 XBLOCK_SETTINGS = ENV_TOKENS.get('XBLOCK_SETTINGS', {})
 XBLOCK_SETTINGS.setdefault("VideoBlock", {})["licensing_enabled"] = FEATURES.get("LICENSING", False)
@@ -574,3 +578,26 @@ if FEATURES.get('ENABLE_CORS_HEADERS'):
     CORS_ALLOW_HEADERS = corsheaders_default_headers + (
         'use-jwt-cookie',
     )
+
+################# Settings for brand logos. #################
+LOGO_URL = ENV_TOKENS.get('LOGO_URL', LOGO_URL)
+LOGO_URL_PNG = ENV_TOKENS.get('LOGO_URL_PNG', LOGO_URL_PNG)
+LOGO_TRADEMARK_URL = ENV_TOKENS.get('LOGO_TRADEMARK_URL', LOGO_TRADEMARK_URL)
+FAVICON_URL = ENV_TOKENS.get('FAVICON_URL', FAVICON_URL)
+
+######################## CELERY ROTUING ########################
+
+# Defines alternate environment tasks, as a dict of form { task_name: alternate_queue }
+ALTERNATE_ENV_TASKS = {
+    'completion_aggregator.tasks.update_aggregators': 'lms',
+    'openedx.core.djangoapps.content.block_structure.tasks.update_course_in_cache': 'lms',
+    'openedx.core.djangoapps.content.block_structure.tasks.update_course_in_cache_v2': 'lms',
+}
+
+# Defines the task -> alternate worker queue to be used when routing.
+EXPLICIT_QUEUES = {
+    'lms.djangoapps.grades.tasks.compute_all_grades_for_course': {
+        'queue': POLICY_CHANGE_GRADES_ROUTING_KEY},
+    'cms.djangoapps.contentstore.tasks.update_search_index': {
+        'queue': UPDATE_SEARCH_INDEX_JOB_QUEUE},
+}

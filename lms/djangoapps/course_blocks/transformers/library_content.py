@@ -14,8 +14,8 @@ from openedx.core.djangoapps.content.block_structure.transformer import (
     BlockStructureTransformer,
     FilteringTransformerMixin
 )
-from track import contexts
-from xmodule.library_content_module import LibraryContentModule
+from common.djangoapps.track import contexts
+from xmodule.library_content_module import LibraryContentBlock
 from xmodule.modulestore.django import modulestore
 
 from ..utils import get_student_module_as_dict
@@ -99,7 +99,7 @@ class ContentLibraryTransformer(FilteringTransformerMixin, BlockStructureTransfo
 
                 # Update selected
                 previous_count = len(selected)
-                block_keys = LibraryContentModule.make_selection(selected, library_children, max_count, mode)
+                block_keys = LibraryContentBlock.make_selection(selected, library_children, max_count, mode)
                 selected = block_keys['selected']
 
                 # Save back any changes
@@ -175,7 +175,7 @@ class ContentLibraryTransformer(FilteringTransformerMixin, BlockStructureTransfo
             with tracker.get_tracker().context(full_event_name, context):
                 tracker.emit(full_event_name, event_data)
 
-        LibraryContentModule.publish_selected_children_events(
+        LibraryContentBlock.publish_selected_children_events(
             block_keys,
             format_block_keys,
             publish_event,
@@ -234,7 +234,7 @@ class ContentLibraryOrderTransformer(BlockStructureTransformer):
                 # has modified those blocks (for example, content gating may have affected this). So do not
                 # transform the order in that case.
                 if current_children_blocks != current_selected_blocks:
-                    logger.info(
+                    logger.debug(
                         u'Mismatch between the children of %s in the stored state and the actual children for user %s. '
                         'Continuing without order transformation.',
                         str(block_key),

@@ -2,15 +2,14 @@
 Unit tests for Contentstore views.
 """
 
-from django.urls import reverse
 from django.test.utils import override_settings
-
+from django.urls import reverse
+from opaque_keys.edx.keys import CourseKey
 from rest_framework import status
 from rest_framework.test import APITestCase
-from opaque_keys.edx.keys import CourseKey
 
 from lms.djangoapps.courseware.tests.factories import GlobalStaffFactory, InstructorFactory
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory

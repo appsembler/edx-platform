@@ -19,8 +19,8 @@ from openedx.core.djangoapps.django_comment_common.models import (
     Role
 )
 from openedx.core.djangoapps.django_comment_common.utils import seed_permissions_roles
-from student.models import CourseAccessRole, CourseEnrollment, UserProfile, anonymous_id_for_user
-from util.testing import UrlResetMixin
+from common.djangoapps.student.models import CourseAccessRole, CourseEnrollment, UserProfile, anonymous_id_for_user
+from common.djangoapps.util.testing import UrlResetMixin
 
 
 @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'Broken upstream test, fixed in d7dc8de0537 commit of Lilac')

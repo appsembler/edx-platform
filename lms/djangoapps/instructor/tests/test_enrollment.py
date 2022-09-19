@@ -22,8 +22,8 @@ import unittest
 
 from capa.tests.response_xml_factory import MultipleChoiceResponseXMLFactory
 from lms.djangoapps.courseware.models import StudentModule
-from grades.subsection_grade_factory import SubsectionGradeFactory
-from grades.tests.utils import answer_problem
+from lms.djangoapps.grades.subsection_grade_factory import SubsectionGradeFactory
+from lms.djangoapps.grades.tests.utils import answer_problem
 from lms.djangoapps.ccx.tests.factories import CcxFactory
 from lms.djangoapps.course_blocks.api import get_course_blocks
 from lms.djangoapps.instructor.enrollment import (
@@ -39,9 +39,9 @@ from lms.djangoapps.teams.models import CourseTeamMembership
 from lms.djangoapps.teams.tests.factories import CourseTeamFactory
 from openedx.core.djangoapps.ace_common.tests.mixins import EmailTemplateTagMixin
 from openedx.core.djangolib.testing.utils import CacheIsolationTestCase, get_mock_request
-from student.models import CourseEnrollment, CourseEnrollmentAllowed, anonymous_id_for_user
-from student.roles import CourseCcxCoachRole
-from student.tests.factories import AdminFactory, UserFactory
+from common.djangoapps.student.models import CourseEnrollment, CourseEnrollmentAllowed, anonymous_id_for_user
+from common.djangoapps.student.roles import CourseCcxCoachRole
+from common.djangoapps.student.tests.factories import AdminFactory, UserFactory
 from xmodule.modulestore.tests.django_utils import TEST_DATA_SPLIT_MODULESTORE, SharedModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
 
@@ -110,6 +110,7 @@ class TestEnrollmentChangeBase(six.with_metaclass(ABCMeta, CacheIsolationTestCas
 
 @patch('lms.djangoapps.instructor.enrollment.get_organization_by_site', Mock(return_value=object()))
 @patch('lms.djangoapps.instructor.enrollment.is_exist_organization_user_by_email', Mock(return_value=False))
+@ddt.ddt
 class TestInstructorEnrollDB(TestEnrollmentChangeBase):
     """ Test instructor.enrollment.enroll_email """
     @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'Could not fix the test')
@@ -227,6 +228,71 @@ class TestInstructorEnrollDB(TestEnrollmentChangeBase):
         action = lambda email: enroll_email(self.course_key, email, auto_enroll=False)
 
         return self._run_state_change_test(before_ideal, after_ideal, action)
+
+    @ddt.data(True, False)
+    def test_enroll_inactive_user(self, auto_enroll):
+        before_ideal = SettableEnrollmentState(
+            user=True,
+            enrollment=False,
+            allowed=False,
+            auto_enroll=False,
+        )
+        print("checking initialization...")
+        eobjs = before_ideal.create_user(self.course_key, is_active=False)
+        before = EmailEnrollmentState(self.course_key, eobjs.email)
+        self.assertEqual(before, before_ideal)
+
+        print('running action...')
+        enroll_email(self.course_key, eobjs.email, auto_enroll=auto_enroll)
+
+        print('checking effects...')
+
+        after_ideal = SettableEnrollmentState(
+            user=True,
+            enrollment=False,
+            allowed=True,
+            auto_enroll=auto_enroll,
+        )
+        after = EmailEnrollmentState(self.course_key, eobjs.email)
+        self.assertEqual(after, after_ideal)
+
+    @ddt.data(True, False)
+    def test_enroll_inactive_user_again(self, auto_enroll):
+        course_key = CourseLocator('Robot', 'fAKE', 'C--se--ID')
+        before_ideal = SettableEnrollmentState(
+            user=True,
+            enrollment=False,
+            allowed=True,
+            auto_enroll=auto_enroll,
+        )
+        print("checking initialization...")
+        user = UserFactory()
+        user.is_active = False
+        user.save()
+        eobjs = EnrollmentObjects(
+            user.email,
+            None,
+            None,
+            CourseEnrollmentAllowed.objects.create(
+                email=user.email, course_id=course_key, auto_enroll=auto_enroll
+            )
+        )
+        before = EmailEnrollmentState(course_key, eobjs.email)
+        self.assertEqual(before, before_ideal)
+
+        print('running action...')
+        enroll_email(self.course_key, eobjs.email, auto_enroll=auto_enroll)
+
+        print('checking effects...')
+
+        after_ideal = SettableEnrollmentState(
+            user=True,
+            enrollment=False,
+            allowed=True,
+            auto_enroll=auto_enroll,
+        )
+        after = EmailEnrollmentState(self.course_key, eobjs.email)
+        self.assertEqual(after, after_ideal)
 
 
 @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'Those tests fail without an easy fix')
@@ -763,7 +829,7 @@ class SettableEnrollmentState(EmailEnrollmentState):
     def __neq__(self, other):
         return not self == other
 
-    def create_user(self, course_id=None):
+    def create_user(self, course_id=None, is_active=True):
         """
         Utility method to possibly create and possibly enroll a user.
         Creates a state matching the SettableEnrollmentState properties.
@@ -777,7 +843,7 @@ class SettableEnrollmentState(EmailEnrollmentState):
         # if self.user=False, then this will just be used to generate an email.
         email = "robot_no_user_exists_with_this_email@edx.org"
         if self.user:
-            user = UserFactory()
+            user = UserFactory(is_active=is_active)
             email = user.email
             if self.enrollment:
                 cenr = CourseEnrollment.enroll(user, course_id)

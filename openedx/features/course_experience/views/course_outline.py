@@ -7,7 +7,7 @@ import datetime
 import re
 import six
 
-from completion import waffle as completion_waffle
+from completion.waffle import ENABLE_COMPLETION_TRACKING_SWITCH
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.shortcuts import redirect
@@ -22,7 +22,6 @@ from pytz import UTC
 from waffle.models import Switch
 from web_fragments.fragment import Fragment
 
-from course_modes.models import CourseMode
 from lms.djangoapps.courseware.access import has_access
 from lms.djangoapps.courseware.courses import get_course_overview_with_access
 from lms.djangoapps.courseware.date_summary import verified_upgrade_deadline_link
@@ -33,8 +32,8 @@ from openedx.core.djangoapps.schedules.utils import reset_self_paced_schedule
 from openedx.features.course_experience import RELATIVE_DATES_FLAG
 from openedx.features.course_experience.utils import dates_banner_should_display
 from openedx.features.content_type_gating.models import ContentTypeGatingConfig
-from student.models import CourseEnrollment
-from util.milestones_helpers import get_course_content_milestones
+from common.djangoapps.student.models import CourseEnrollment
+from common.djangoapps.util.milestones_helpers import get_course_content_milestones
 from xmodule.course_module import COURSE_VISIBILITY_PUBLIC
 from xmodule.modulestore.django import modulestore
 
@@ -167,10 +166,8 @@ class CourseOutlineFragmentView(EdxFragmentView):
         """
         Returns the date that the ENABLE_COMPLETION_TRACKING waffle switch was enabled.
         """
-        # pylint: disable=protected-access
-        switch_name = completion_waffle.waffle()._namespaced_name(completion_waffle.ENABLE_COMPLETION_TRACKING)
         try:
-            return Switch.objects.get(name=switch_name).created
+            return Switch.objects.get(name=ENABLE_COMPLETION_TRACKING_SWITCH.name).created
         except Switch.DoesNotExist:
             return DEFAULT_COMPLETION_TRACKING_START
 

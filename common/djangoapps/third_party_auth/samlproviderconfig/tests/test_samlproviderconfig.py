@@ -14,10 +14,11 @@ from rest_framework.test import APITestCase
 
 from enterprise.models import EnterpriseCustomerIdentityProvider, EnterpriseCustomer
 from enterprise.constants import ENTERPRISE_ADMIN_ROLE, ENTERPRISE_LEARNER_ROLE
-from third_party_auth.tests.samlutils import set_jwt_cookie
-from third_party_auth.models import SAMLProviderConfig, SAMLConfiguration
-from third_party_auth.tests import testutil
-from third_party_auth.utils import convert_saml_slug_provider_id
+from common.djangoapps.third_party_auth.tests.samlutils import set_jwt_cookie
+from common.djangoapps.third_party_auth.models import SAMLProviderConfig, SAMLConfiguration
+from common.djangoapps.third_party_auth.tests import testutil
+from common.djangoapps.third_party_auth.tests.utils import skip_unless_thirdpartyauth
+from common.djangoapps.third_party_auth.utils import convert_saml_slug_provider_id
 
 # country here refers to the URN provided by a user's IDP
 SINGLE_PROVIDER_CONFIG = {
@@ -41,7 +42,7 @@ ENTERPRISE_ID = str(uuid4())
 ENTERPRISE_ID_NON_EXISTENT = str(uuid4())
 
 
-@unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
+@skip_unless_thirdpartyauth()
 class SAMLProviderConfigTests(APITestCase):
     """
     API Tests for SAMLProviderConfig REST endpoints

@@ -6,7 +6,7 @@ Utility methods for instructor tasks
 from eventtracking import tracker
 
 from lms.djangoapps.instructor_task.models import ReportStore
-from util.file import course_filename_prefix_generator
+from common.djangoapps.util.file import course_filename_prefix_generator
 
 REPORT_REQUESTED_EVENT_NAME = u'edx.instructor.report.requested'
 
@@ -44,9 +44,8 @@ def upload_csv_to_report_store(rows, csv_name, course_id, timestamp, config_name
     )
 
     report_store.store_rows(course_id, report_name, rows)
-    report_path = report_store.storage.url(report_store.path_to(course_id, report_name))
     tracker_emit(csv_name)
-    return report_name, report_path
+    return report_name
 
 
 def upload_zip_to_report_store(file, zip_name, course_id, timestamp, config_name='GRADES_DOWNLOAD'):

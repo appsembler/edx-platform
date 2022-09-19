@@ -4,15 +4,12 @@ waffle switches for the course_details view.
 """
 
 
-from openedx.core.djangoapps.waffle_utils import (
-    CourseWaffleFlag,
-    WaffleFlagNamespace,
-    WaffleSwitchNamespace
-)
+from edx_toggles.toggles import LegacyWaffleFlagNamespace, LegacyWaffleSwitchNamespace
+from openedx.core.djangoapps.waffle_utils import CourseWaffleFlag
 
 COURSE_DETAIL_WAFFLE_NAMESPACE = 'course_detail'
-COURSE_DETAIL_WAFFLE_FLAG_NAMESPACE = WaffleFlagNamespace(name=COURSE_DETAIL_WAFFLE_NAMESPACE)
-WAFFLE_SWITCHES = WaffleSwitchNamespace(name=COURSE_DETAIL_WAFFLE_NAMESPACE)
+COURSE_DETAIL_WAFFLE_FLAG_NAMESPACE = LegacyWaffleFlagNamespace(name=COURSE_DETAIL_WAFFLE_NAMESPACE)
+WAFFLE_SWITCHES = LegacyWaffleSwitchNamespace(name=COURSE_DETAIL_WAFFLE_NAMESPACE)
 
 # Course Override Flag
 COURSE_DETAIL_UPDATE_CERTIFICATE_DATE = u'course_detail_update_certificate_date'
@@ -26,6 +23,7 @@ def waffle_flags():
         COURSE_DETAIL_UPDATE_CERTIFICATE_DATE: CourseWaffleFlag(
             waffle_namespace=COURSE_DETAIL_WAFFLE_NAMESPACE,
             flag_name=COURSE_DETAIL_UPDATE_CERTIFICATE_DATE,
+            module_name=__name__,
         )
     }
 
