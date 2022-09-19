@@ -138,7 +138,7 @@ class TestLoginHelper(TestCase):
         with with_site_configuration_context(configuration=dict(THIRD_PARTY_AUTH_HINT=tpa_hint)):
             validate_login()
 
-    @patch('student.helpers._get_redirect_to', Mock(return_value=None))
+    @patch('common.djangoapps.student.helpers._get_redirect_to', Mock(return_value=None))
     def test_custom_tahoe_site_redirect_lms(self):
         """
         Allow site admins to customize the default after-login URL.

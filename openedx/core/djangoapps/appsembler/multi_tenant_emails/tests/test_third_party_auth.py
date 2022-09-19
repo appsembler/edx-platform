@@ -10,7 +10,7 @@ from mock import patch
 from openedx.core.djangolib.testing.utils import skip_unless_lms
 
 from .test_utils import with_organization_context, create_org_user
-from third_party_auth.utils import user_exists
+from common.djangoapps.third_party_auth.utils import user_exists
 from organizations.models import Organization
 
 
@@ -39,7 +39,7 @@ class TestMultiTenantEmailsUtils(TestCase):
         """
         self.create_users()
         with patch(
-            'third_party_auth.utils.get_current_organization',
+            'common.djangoapps.third_party_auth.utils.get_current_organization',
             return_value=Organization.objects.filter(name=self.RED).first()
         ):
             assert user_exists({'email': 'red_user@example.com'})
@@ -47,7 +47,7 @@ class TestMultiTenantEmailsUtils(TestCase):
             assert user_exists({'username': 'red_user', 'email': 'red_user@example.com'})
 
         with patch(
-            'third_party_auth.utils.get_current_organization',
+            'common.djangoapps.third_party_auth.utils.get_current_organization',
             return_value=Organization.objects.filter(name=self.BLUE).first()
         ):
             assert user_exists({'email': 'blue_user@example.com'})
@@ -62,14 +62,14 @@ class TestMultiTenantEmailsUtils(TestCase):
         """
         self.create_users()
         with patch(
-            'third_party_auth.utils.get_current_organization',
+            'common.djangoapps.third_party_auth.utils.get_current_organization',
             return_value=Organization.objects.filter(name=self.RED).first()
         ):
             assert not user_exists({'email': 'blue_user@example.com'})
             assert not user_exists({'email': 'another_user@example.com'})
 
         with patch(
-            'third_party_auth.utils.get_current_organization',
+            'common.djangoapps.third_party_auth.utils.get_current_organization',
             return_value=Organization.objects.filter(name=self.BLUE).first()
         ):
             assert not user_exists({'email': 'red_user@example.com'})
@@ -83,13 +83,13 @@ class TestMultiTenantEmailsUtils(TestCase):
         """
         self.create_users()
         with patch(
-            'third_party_auth.utils.get_current_organization',
+            'common.djangoapps.third_party_auth.utils.get_current_organization',
             return_value=Organization.objects.filter(name=self.RED).first()
         ):
             assert not user_exists({'username': 'another_user'})
 
         with patch(
-            'third_party_auth.utils.get_current_organization',
+            'common.djangoapps.third_party_auth.utils.get_current_organization',
             return_value=Organization.objects.filter(name=self.BLUE).first()
         ):
             assert not user_exists({'username': 'another_user'})
@@ -101,13 +101,13 @@ class TestMultiTenantEmailsUtils(TestCase):
         """
         self.create_users()
         with patch(
-            'third_party_auth.utils.get_current_organization',
+            'common.djangoapps.third_party_auth.utils.get_current_organization',
             return_value=Organization.objects.filter(name=self.RED).first()
         ):
             assert not user_exists({'username': 'blue_user', 'email': 'blue_user@example.com'})
 
         with patch(
-            'third_party_auth.utils.get_current_organization',
+            'common.djangoapps.third_party_auth.utils.get_current_organization',
             return_value=Organization.objects.filter(name=self.BLUE).first()
         ):
             assert not user_exists({'username': 'red_user', 'email': 'red_user@example.com'})
@@ -118,13 +118,13 @@ class TestMultiTenantEmailsUtils(TestCase):
         """
         self.create_users()
         with patch(
-            'third_party_auth.utils.get_current_organization',
+            'common.djangoapps.third_party_auth.utils.get_current_organization',
             return_value=Organization.objects.filter(name=self.RED).first()
         ):
             assert user_exists({'username': 'blue_user'})
 
         with patch(
-            'third_party_auth.utils.get_current_organization',
+            'common.djangoapps.third_party_auth.utils.get_current_organization',
             return_value=Organization.objects.filter(name=self.BLUE).first()
         ):
             assert user_exists({'username': 'red_user'})

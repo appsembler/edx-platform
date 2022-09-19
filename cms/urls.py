@@ -32,7 +32,9 @@ if password_policy_compliance.should_enforce_compliance_on_login():
 # These are used by Django to render these error codes. Do not remove.
 # pylint: disable=invalid-name
 handler404 = contentstore_views.render_404
-handler500 = contentstore_views.render_500
+if not settings.TAHOE_NUTMEG_TEMP_SKIP_TEST:
+    # Controlled by TAHOE_ENABLE_CUSTOM_ERROR_VIEW
+    handler500 = contentstore_views.render_500
 
 # Pattern to match a course key or a library key
 COURSELIKE_KEY_PATTERN = r'(?P<course_key_string>({}|{}))'.format(

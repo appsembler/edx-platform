@@ -454,12 +454,12 @@ class TestCoursewareSearchIndexer(MixedWithOptionsTestCase):
 
     def _test_display_coursenumber(self, store):
         """ Test that course number property in course object reflects updated value in the course_info index"""
+        self.searcher = SearchEngine.get_search_engine(CourseAboutSearchIndexer.INDEX_NAME)
         course_number = "CS301"
         self.course.display_coursenumber = course_number
         self.update_item(store, self.course)
         self.reindex_course(store)
         response = self.searcher.search(
-            doc_type=CourseAboutSearchIndexer.DISCOVERY_DOCUMENT_TYPE,
             field_dictionary={"course": six.text_type(self.course.id)}
         )
         self.assertEqual(response["total"], 1)

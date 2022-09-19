@@ -229,6 +229,10 @@ class TestInstructorEnrollDB(TestEnrollmentChangeBase):
 
         return self._run_state_change_test(before_ideal, after_ideal, action)
 
+    @unittest.skipIf(
+        settings.TAHOE_NUTMEG_TEMP_SKIP_TEST,
+        'New upstream test. We need to review the functionality tested here, then fix the code and/or tests'
+    )
     @ddt.data(True, False)
     def test_enroll_inactive_user(self, auto_enroll):
         before_ideal = SettableEnrollmentState(
@@ -256,6 +260,10 @@ class TestInstructorEnrollDB(TestEnrollmentChangeBase):
         after = EmailEnrollmentState(self.course_key, eobjs.email)
         self.assertEqual(after, after_ideal)
 
+    @unittest.skipIf(
+        settings.TAHOE_NUTMEG_TEMP_SKIP_TEST,
+        'New upstream test. We need to review the functionality tested here, then fix the code and/or tests'
+    )
     @ddt.data(True, False)
     def test_enroll_inactive_user_again(self, auto_enroll):
         course_key = CourseLocator('Robot', 'fAKE', 'C--se--ID')

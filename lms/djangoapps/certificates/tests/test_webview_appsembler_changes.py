@@ -9,7 +9,7 @@ from lms.djangoapps.certificates.views.webview import _update_organization_conte
 
 
 @patch(
-    'util.organizations_helpers.get_course_organizations',
+    'organizations.api.get_course_organizations',
     Mock(return_value=[{
         # List of a single organization.
         'name': 'org-name',

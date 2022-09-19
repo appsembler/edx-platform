@@ -7,7 +7,7 @@ from organizations.models import Organization
 from student.admin import RegistrationAdmin
 
 
-@patch('student.admin.get_organization_for_user', Mock(side_effect=Organization.DoesNotExist))
+@patch('common.djangoapps.student.admin.get_organization_for_user', Mock(side_effect=Organization.DoesNotExist))
 def test_activation_link_no_org():
     """
     Missing organizations are handled gracefully.
@@ -28,8 +28,8 @@ def test_activation_link_learner_is_active():
     assert link == 'Learner is active.'
 
 
-@patch('student.admin.get_organization_for_user', Mock())
-@patch('student.admin.get_site_by_organization', Mock(return_value=Mock(domain='somesite.org')))
+@patch('common.djangoapps.student.admin.get_organization_for_user', Mock())
+@patch('common.djangoapps.student.admin.get_site_by_organization', Mock(return_value=Mock(domain='somesite.org')))
 def test_activation_link():
     """
     The link prints well and only for copying.
