@@ -95,7 +95,7 @@ class SAMLAuthBackend(SAMLAuth):  # pylint: disable=abstract-method
             log.warning(
                 u'[THIRD_PARTY_AUTH] Error in SAML authentication flow. '
                 u'Provider: {idp_name}, Message: {message}'.format(
-                    message=ex.message,
+                    message=str(ex),
                     idp_name=response.get('idp_name')
                 )
             )
