@@ -30,7 +30,6 @@ from lms.djangoapps.grades.config.waffle import WRITABLE_GRADEBOOK, waffle_flags
 from lms.djangoapps.instructor.toggles import DATA_DOWNLOAD_V2
 from lms.djangoapps.instructor.views.gradebook_api import calculate_page_info
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
-from openedx.core.djangoapps.waffle_utils.testutils import override_waffle_flag
 from common.djangoapps.student.models import CourseEnrollment
 from common.djangoapps.student.tests.factories import AdminFactory, CourseAccessRoleFactory, CourseEnrollmentFactory
 from xmodule.modulestore import ModuleStoreEnum

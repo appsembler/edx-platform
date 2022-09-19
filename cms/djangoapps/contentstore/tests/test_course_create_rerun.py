@@ -7,6 +7,7 @@ import datetime
 import unittest
 
 import ddt
+from mock import patch
 import six
 
 from django.conf import settings
