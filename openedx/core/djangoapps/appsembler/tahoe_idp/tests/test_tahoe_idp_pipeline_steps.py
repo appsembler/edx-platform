@@ -2,6 +2,7 @@
 Tests for the `tahoe-idp` pipeline steps and settings.
 """
 import pytest
+from unittest import skipIf
 from unittest.mock import patch, Mock
 from django.conf import settings
 
@@ -16,6 +17,10 @@ from common.djangoapps.student.tests.factories import UserFactory
 from organizations.tests.factories import OrganizationFactory
 
 
+@skipIf(
+    settings.TAHOE_NUTMEG_TEMP_SKIP_TEST,
+    "Review and fix, see the Omar's note in this test"
+)
 def test_tahoe_idp_step_in_settings():
     """
     Test for SOCIAL_AUTH_PIPELINE setting to ensure the `tahoe_idp_user_updates` step is configured correctly.

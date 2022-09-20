@@ -23,11 +23,11 @@ from .test_utils import lms_multi_tenant_test, with_organization_context
     # Patch to avoids error when importing from CMS
     'openedx.core.djangoapps.user_authn.views.register.add_course_creator_role'
 )
-@patch(
-    # Imitate a proper `X_EDX_API_KEY` header being passed
-    'openedx.core.djangoapps.appsembler.sites.utils.is_request_has_valid_api_key',
-    Mock(return_value=True),
-)
+# @patch(
+#     # Imitate a proper `X_EDX_API_KEY` header being passed
+#     'openedx.core.djangoapps.appsembler.sites.utils.is_request_has_valid_api_key',
+#     Mock(return_value=True),
+# )
 class MultiTenantAMCSignupTest(APITestCase):
     """
     Tests to ensure the AMC registration end-point allow multi-tenant emails.

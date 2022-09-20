@@ -15,9 +15,9 @@ from mock import Mock
 from testfixtures import LogCapture
 
 from openedx.core.djangoapps.site_configuration.tests.test_util import with_site_configuration_context
-from student.helpers import get_next_url_for_login_page
+from common.djangoapps.student.helpers import get_next_url_for_login_page
 
-LOGGER_NAME = "student.helpers"
+LOGGER_NAME = "common.djangoapps.student.helpers"
 
 
 @ddt.ddt
@@ -105,7 +105,7 @@ class TestLoginHelper(TestCase):
         for method in ['GET', 'POST']
     ]
 
-    @patch('student.helpers.third_party_auth.pipeline.get')
+    @patch('common.djangoapps.student.helpers.third_party_auth.pipeline.get')
     @ddt.data(*tpa_hint_test_cases_with_method)
     @ddt.unpack
     def test_third_party_auth_hint(
@@ -138,7 +138,7 @@ class TestLoginHelper(TestCase):
         with with_site_configuration_context(configuration=dict(THIRD_PARTY_AUTH_HINT=tpa_hint)):
             validate_login()
 
-    @patch('student.helpers._get_redirect_to', Mock(return_value=None))
+    @patch('common.djangoapps.student.helpers._get_redirect_to', Mock(return_value=None))
     def test_custom_tahoe_site_redirect_lms(self):
         """
         Allow site admins to customize the default after-login URL.

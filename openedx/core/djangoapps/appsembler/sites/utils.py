@@ -44,9 +44,8 @@ from tahoe_sites.api import (
     update_admin_role_in_organization,
 )
 
-from common.djangoapps.util.organizations_helpers import get_organization_courses
-from openedx.core.lib.api.api_key_permissions import is_request_has_valid_api_key
-from openedx.core.lib.log_utils import audit_log
+# from openedx.core.lib.api.api_key_permissions import is_request_has_valid_api_key
+# from openedx.core.lib.log_utils import audit_log
 from openedx.core.djangoapps.theming.helpers import get_current_request, get_current_site
 from openedx.core.djangoapps.theming.models import SiteTheme
 
@@ -252,13 +251,13 @@ def is_request_for_amc_admin(request):
     param = request.POST.get('registered_from_amc', False)
     has_amc_parameter = (param == 'True') or (param == 'true') or (param is True)
 
-    if has_amc_parameter:
-        if is_request_has_valid_api_key(request):
-            # Security: Ensure the request is coming from the AMC backend with proper `X_EDX_API_KEY` header.
-            return True
-        else:
-            audit_log('Suspicious call for the `is_request_for_amc_admin()` function.')
-            raise Exception('Suspicious call for the `is_request_for_amc_admin()` function.')
+    # if has_amc_parameter:
+    #     if is_request_has_valid_api_key(request):
+    #         # Security: Ensure the request is coming from the AMC backend with proper `X_EDX_API_KEY` header.
+    #         return True
+    #     else:
+    #         audit_log('Suspicious call for the `is_request_for_amc_admin()` function.')
+    #         raise Exception('Suspicious call for the `is_request_for_amc_admin()` function.')
 
     return False
 
@@ -508,7 +507,7 @@ def get_models_using_course_key():
 def delete_organization_courses(organization):
     course_keys = []
 
-    for course in get_organization_courses({'id': organization.id}):
+    for course in org_api.get_organization_courses({'id': organization.id}):
         course_keys.append(course['course_id'])
 
     for model_class, field_name in get_models_using_course_key():

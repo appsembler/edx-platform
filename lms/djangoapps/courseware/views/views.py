@@ -34,7 +34,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from django.views.generic import View
 from edx_django_utils import monitoring as monitoring_utils
-from edx_django_utils.monitoring import set_custom_metrics_for_course_key
+from edx_django_utils.monitoring import set_custom_attributes_for_course_key
 from ipware.ip import get_ip
 from markupsafe import escape
 from opaque_keys import InvalidKeyError
@@ -48,15 +48,16 @@ from rest_framework.throttling import UserRateThrottle
 from six import text_type
 from web_fragments.fragment import Fragment
 
-import survey.views
-from course_modes.models import CourseMode, get_course_prices
-from edxmako.shortcuts import marketing_link, render_to_response, render_to_string
-from edxnotes.helpers import is_feature_enabled
+from lms.djangoapps.survey import views as survey_views
+from common.djangoapps.course_modes.models import CourseMode, get_course_prices
+from common.djangoapps.edxmako.shortcuts import marketing_link, render_to_response, render_to_string
+from lms.djangoapps.edxnotes.helpers import is_feature_enabled
 from lms.djangoapps.ccx.custom_exception import CCXLocatorValidationException
 from lms.djangoapps.certificates import api as certs_api
 from lms.djangoapps.certificates.models import CertificateStatuses
 from lms.djangoapps.commerce.utils import EcommerceService
-from lms.djangoapps.course_home_api.utils import is_request_from_learning_mfe
+from lms.djangoapps.course_home_api.toggles import course_home_mfe_dates_tab_is_active
+from lms.djangoapps.course_home_api.utils import get_microfrontend_url, is_request_from_learning_mfe
 from lms.djangoapps.courseware.access import has_access, has_ccx_coach_role
 from lms.djangoapps.courseware.access_utils import check_course_open_for_learner, check_public_access
 from lms.djangoapps.courseware.courses import (
@@ -112,19 +113,19 @@ from openedx.core.djangolib.markup import HTML, Text
 from openedx.core.lib.mobile_utils import is_request_from_mobile_app
 from openedx.features.content_type_gating.models import ContentTypeGatingConfig
 from openedx.features.course_duration_limits.access import generate_course_expired_fragment
-from openedx.features.course_experience import UNIFIED_COURSE_TAB_FLAG, course_home_url_name
+from openedx.features.course_experience import DISABLE_UNIFIED_COURSE_TAB_FLAG, course_home_url_name
 from openedx.features.course_experience.course_tools import CourseToolsPluginManager
 from openedx.features.course_experience.utils import dates_banner_should_display
 from openedx.features.course_experience.views.course_dates import CourseDatesFragmentView
 from openedx.features.course_experience.waffle import ENABLE_COURSE_ABOUT_SIDEBAR_HTML
 from openedx.features.course_experience.waffle import waffle as course_experience_waffle
 from openedx.features.enterprise_support.api import data_sharing_consent_required
-from student.models import CourseEnrollment, UserTestGroup
-from track import segment
-from util.cache import cache, cache_if_anonymous
-from util.db import outer_atomic
-from util.milestones_helpers import get_prerequisite_courses_display
-from util.views import ensure_valid_course_key, ensure_valid_usage_key
+from common.djangoapps.student.models import CourseEnrollment, UserTestGroup
+from common.djangoapps.track import segment
+from common.djangoapps.util.cache import cache, cache_if_anonymous
+from common.djangoapps.util.db import outer_atomic
+from common.djangoapps.util.milestones_helpers import get_prerequisite_courses_display
+from common.djangoapps.util.views import ensure_valid_course_key, ensure_valid_usage_key
 from xmodule.course_module import COURSE_VISIBILITY_PUBLIC, COURSE_VISIBILITY_PUBLIC_OUTLINE
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.exceptions import ItemNotFoundError, NoPathToItem
@@ -145,6 +146,7 @@ REQUIREMENTS_DISPLAY_MODES = CourseMode.CREDIT_MODES + [CourseMode.VERIFIED]
 CertData = namedtuple(
     "CertData", ["cert_status", "title", "msg", "download_url", "cert_web_view_url"]
 )
+EARNED_BUT_NOT_AVAILABLE_CERT_STATUS = 'earned_but_not_available'
 
 AUDIT_PASSING_CERT_DATA = CertData(
     CertificateStatuses.audit_passing,
@@ -201,6 +203,14 @@ UNVERIFIED_CERT_DATA = CertData(
         u'You have not received a certificate because you do not have a current {platform_name} '
         'verified identity.'
     ).format(platform_name=configuration_helpers.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)),
+    download_url=None,
+    cert_web_view_url=None
+)
+
+EARNED_BUT_NOT_AVAILABLE_CERT_DATA = CertData(
+    EARNED_BUT_NOT_AVAILABLE_CERT_STATUS,
+    _('Your certificate will be available soon!'),
+    _('After this course officially ends, you will receive an email notification with your certificate.'),
     download_url=None,
     cert_web_view_url=None
 )
@@ -435,7 +445,7 @@ def course_info(request, course_id):
     course_key = CourseKey.from_string(course_id)
 
     # If the unified course experience is enabled, redirect to the "Course" tab
-    if UNIFIED_COURSE_TAB_FLAG.is_enabled(course_key):
+    if not DISABLE_UNIFIED_COURSE_TAB_FLAG.is_enabled(course_key):
         return redirect(reverse(course_home_url_name(course_key), args=[course_id]))
 
     with modulestore().bulk_operations(course_key):
@@ -469,11 +479,6 @@ def course_info(request, course_id):
             if SelfPacedConfiguration.current().enable_course_home_improvements:
                 # Shared code with the new Course Home (DONE)
                 dates_fragment = CourseDatesFragmentView().render_to_fragment(request, course_id=course_id)
-
-        # This local import is due to the circularity of lms and openedx references.
-        # This may be resolved by using stevedore to allow web fragments to be used
-        # as plugins, and to avoid the direct import.
-        from openedx.features.course_experience.views.course_reviews import CourseReviewsModuleFragmentView
 
         # Shared code with the new Course Home (DONE)
         # Get the course tools enabled for this user and course
@@ -606,7 +611,7 @@ class CourseTabView(EdxFragmentView):
                 # Must come after masquerading on creation of page context
                 self.register_user_access_warning_messages(request, course)
 
-                set_custom_metrics_for_course_key(course_key)
+                set_custom_attributes_for_course_key(course_key)
                 return super(CourseTabView, self).get(request, course=course, page_context=page_context, **kwargs)
             except Exception as exception:  # pylint: disable=broad-except
                 return CourseTabView.handle_exceptions(request, course_key, course, exception)
@@ -641,7 +646,8 @@ class CourseTabView(EdxFragmentView):
                             register_label=_("register"),
                             current_url=urlquote_plus(request.path),
                         ),
-                    )
+                    ),
+                    once_only=True
                 )
             else:
                 PageLevelMessages.register_warning_message(
@@ -944,14 +950,6 @@ def course_about(request, course_id):
 
         allow_anonymous = check_public_access(course, [COURSE_VISIBILITY_PUBLIC, COURSE_VISIBILITY_PUBLIC_OUTLINE])
 
-        # This local import is due to the circularity of lms and openedx references.
-        # This may be resolved by using stevedore to allow web fragments to be used
-        # as plugins, and to avoid the direct import.
-        from openedx.features.course_experience.views.course_reviews import CourseReviewsModuleFragmentView
-
-        # Embed the course reviews tool
-        reviews_fragment_view = CourseReviewsModuleFragmentView().render_to_fragment(request, course=course)
-
         context = {
             'course': course,
             'course_details': course_details,
@@ -976,7 +974,6 @@ def course_about(request, course_id):
             'disable_courseware_header': True,
             'pre_requisite_courses': pre_requisite_courses,
             'course_image_urls': overview.image_urls,
-            'reviews_fragment_view': reviews_fragment_view,
             'sidebar_html_enabled': sidebar_html_enabled,
             'allow_anonymous': allow_anonymous,
         }
@@ -1021,11 +1018,14 @@ def dates(request, course_id):
     from lms.urls import COURSE_DATES_NAME, RESET_COURSE_DEADLINES_NAME
 
     course_key = CourseKey.from_string(course_id)
+    if course_home_mfe_dates_tab_is_active(course_key) and not request.user.is_staff:
+        microfrontend_url = get_microfrontend_url(course_key=course_key, view_name=COURSE_DATES_NAME)
+        raise Redirect(microfrontend_url)
 
     # Enable NR tracing for this view based on course
-    monitoring_utils.set_custom_metric('course_id', text_type(course_key))
-    monitoring_utils.set_custom_metric('user_id', request.user.id)
-    monitoring_utils.set_custom_metric('is_staff', request.user.is_staff)
+    monitoring_utils.set_custom_attribute('course_id', text_type(course_key))
+    monitoring_utils.set_custom_attribute('user_id', request.user.id)
+    monitoring_utils.set_custom_attribute('is_staff', request.user.is_staff)
 
     course = get_course_with_access(request.user, 'load', course_key, check_if_enrolled=False)
 
@@ -1216,6 +1216,9 @@ def _certificate_message(student, course, enrollment_mode):
 
     cert_downloadable_status = certs_api.certificate_downloadable_status(student, course.id)
 
+    if cert_downloadable_status.get('earned_but_not_available'):
+        return EARNED_BUT_NOT_AVAILABLE_CERT_DATA
+
     if cert_downloadable_status['is_generating']:
         return GENERATING_CERT_DATA
 
@@ -1256,6 +1259,9 @@ def get_cert_data(student, course, enrollment_mode, course_grade=None):
 
     if not CourseMode.is_eligible_for_certificate(enrollment_mode, status=cert_data.cert_status):
         return INELIGIBLE_PASSING_CERT_DATA.get(enrollment_mode)
+
+    if cert_data.cert_status == EARNED_BUT_NOT_AVAILABLE_CERT_STATUS:
+        return cert_data
 
     certificates_enabled_for_course = certs_api.cert_generation_enabled(course.id)
     if course_grade is None:
@@ -1523,7 +1529,7 @@ def course_survey(request, course_id):
     if not course.course_survey_name:
         return redirect(redirect_url)
 
-    return survey.views.view_student_survey(
+    return survey_views.view_student_survey(
         request.user,
         course.course_survey_name,
         course=course,
@@ -1638,7 +1644,7 @@ def render_xblock(request, usage_key_string, check_if_enrolled=True):
     Returns an HttpResponse with HTML content for the xBlock with the given usage_key.
     The returned HTML is a chromeless rendering of the xBlock (excluding content of the containing courseware).
     """
-    from lms.urls import COURSE_DATES_NAME, RESET_COURSE_DEADLINES_NAME
+    from lms.urls import RESET_COURSE_DEADLINES_NAME
     from openedx.features.course_experience.urls import COURSE_HOME_VIEW_NAME
 
     usage_key = UsageKey.from_string(usage_key_string)
@@ -1647,10 +1653,13 @@ def render_xblock(request, usage_key_string, check_if_enrolled=True):
     course_key = usage_key.course_key
 
     requested_view = request.GET.get('view', 'student_view')
-    if requested_view != 'student_view':
+    if requested_view != 'student_view' and requested_view != 'public_view':
         return HttpResponseBadRequest(
             u"Rendering of the xblock view '{}' is not supported.".format(bleach.clean(requested_view, strip=True))
         )
+
+    staff_access = has_access(request.user, 'staff', course_key)
+    _course_masquerade, request.user = setup_masquerade(request, course_key, staff_access)
 
     with modulestore().bulk_operations(course_key):
         # verify the user has access to the course, including enrollment check
@@ -1680,7 +1689,7 @@ def render_xblock(request, usage_key_string, check_if_enrolled=True):
         missed_deadlines, missed_gated_content = dates_banner_should_display(course_key, request.user)
 
         context = {
-            'fragment': block.render('student_view', context=student_view_context),
+            'fragment': block.render(requested_view, context=student_view_context),
             'course': course,
             'disable_accordion': True,
             'allow_iframing': True,
@@ -1689,7 +1698,7 @@ def render_xblock(request, usage_key_string, check_if_enrolled=True):
             'disable_window_wrap': True,
             'enable_completion_on_view_service': enable_completion_on_view_service,
             'edx_notes_enabled': is_feature_enabled(course, request.user),
-            'staff_access': bool(request.user.has_perm(VIEW_XQA_INTERFACE, course)),
+            'staff_access': staff_access,
             'xqa_server': settings.FEATURES.get('XQA_SERVER', 'http://your_xqa_server.com'),
             'missed_deadlines': missed_deadlines,
             'missed_gated_content': missed_gated_content,

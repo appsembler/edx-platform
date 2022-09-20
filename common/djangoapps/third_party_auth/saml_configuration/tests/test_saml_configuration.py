@@ -9,9 +9,9 @@ from django.contrib.auth.models import User
 
 from rest_framework import status
 from rest_framework.test import APITestCase
-from third_party_auth.models import SAMLConfiguration
-from third_party_auth.tests import testutil
-
+from common.djangoapps.third_party_auth.models import SAMLConfiguration
+from common.djangoapps.third_party_auth.tests import testutil
+from common.djangoapps.third_party_auth.tests.utils import skip_unless_thirdpartyauth
 SAML_CONFIGURATIONS = [
     {
         'site': 1,
@@ -45,7 +45,7 @@ PRIV_CONFIGURATIONS = [
 TEST_PASSWORD = 'testpwd'
 
 
-@unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
+@skip_unless_thirdpartyauth()
 class SAMLConfigurationTests(APITestCase):
     """
     API Tests for SAMLConfiguration objects retrieval.

@@ -17,7 +17,7 @@ from rest_framework.response import Response
 
 from completion.exceptions import UnavailableCompletionData
 from completion.utilities import get_key_to_last_completed_block
-from course_modes.models import CourseMode
+from common.djangoapps.course_modes.models import CourseMode
 from lms.djangoapps.course_goals.api import (add_course_goal, get_course_goal, get_course_goal_text,
                                              has_course_goal_permission, valid_course_goals_ordered)
 from lms.djangoapps.course_home_api.outline.v1.serializers import OutlineTabSerializer
@@ -30,16 +30,16 @@ from lms.djangoapps.courseware.courses import get_course_date_blocks, get_course
 from lms.djangoapps.courseware.date_summary import TodaysDate
 from lms.djangoapps.courseware.masquerade import setup_masquerade
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
-from openedx.core.djangoapps.user_api.course_tag.api import get_course_tag, set_course_tag
-from openedx.features.course_duration_limits.access import generate_course_expired_message
-from openedx.features.course_experience import COURSE_ENABLE_UNENROLLED_ACCESS_FLAG, LATEST_UPDATE_FLAG
+from openedx.features.course_duration_limits.access import get_access_expiration_data
+from openedx.features.course_experience import COURSE_ENABLE_UNENROLLED_ACCESS_FLAG
 from openedx.features.course_experience.course_tools import CourseToolsPluginManager
+from openedx.features.course_experience.course_updates import (
+    dismiss_current_update_for_user, get_current_update_for_user,
+)
 from openedx.features.course_experience.utils import get_course_outline_block_tree
-from openedx.features.course_experience.views.latest_update import LatestUpdateFragmentView
-from openedx.features.course_experience.views.welcome_message import PREFERENCE_KEY, WelcomeMessageFragmentView
-from openedx.features.discounts.utils import generate_offer_html
-from student.models import CourseEnrollment
-from xmodule.course_module import COURSE_VISIBILITY_PUBLIC
+from openedx.features.discounts.utils import generate_offer_data
+from common.djangoapps.student.models import CourseEnrollment
+from xmodule.course_module import COURSE_VISIBILITY_PUBLIC, COURSE_VISIBILITY_PUBLIC_OUTLINE
 from xmodule.modulestore.django import modulestore
 
 
@@ -69,6 +69,11 @@ class OutlineTabView(RetrieveAPIView):
 
         Body consists of the following fields:
 
+        access_expiration: An object detailing when access to this course will expire
+            expiration_date: (str) When the access expires, in ISO 8601 notation
+            masquerading_expired_course: (bool) Whether this course is expired for the masqueraded user
+            upgrade_deadline: (str) Last chance to upgrade, in ISO 8601 notation (or None if can't upgrade anymore)
+            upgrade_url: (str) Upgrade linke (or None if can't upgrade anymore)
         course_blocks:
             blocks: List of serialized Course Block objects. Each serialization has the following fields:
                 id: (str) The usage ID of the block.
@@ -81,6 +86,7 @@ class OutlineTabView(RetrieveAPIView):
                     xBlock on the web LMS.
                 children: (list) If the block has child blocks, a list of IDs of
                     the child blocks.
+                resume_block: (bool) Whether the block is the resume block
         course_goals:
             goal_options: (list) A list of goals where each goal is represented as a tuple (goal_key, goal_string)
             selected_goal:
@@ -90,6 +96,11 @@ class OutlineTabView(RetrieveAPIView):
             analytics_id: (str) The unique id given to the tool.
             title: (str) The display title of the tool.
             url: (str) The link to access the tool.
+        dates_banner_info: (obj)
+            content_type_gating_enabled: (bool) Whether content type gating is enabled for this enrollment.
+            missed_deadlines: (bool) Whether the user has missed any graded content deadlines for the given course.
+            missed_gated_content: (bool) Whether the user has missed any gated content for the given course.
+            verified_upgrade_link: (str) The URL to ecommerce IDA for purchasing the verified upgrade.
         dates_widget:
             course_date_blocks: List of serialized Course Dates objects. Each serialization has the following fields:
                 complete: (bool) Meant to only be used by assignments. Indicates completeness for an
@@ -107,6 +118,14 @@ class OutlineTabView(RetrieveAPIView):
             can_enroll: (bool) Whether the user can enroll in the given course
             extra_text: (str)
         handouts_html: (str) Raw HTML for the handouts section of the course info
+        has_ended: (bool) Indicates whether course has ended
+        offer: An object detailing upgrade discount information
+            code: (str) Checkout code
+            expiration_date: (str) Expiration of offer, in ISO 8601 notation
+            original_price: (str) Full upgrade price without checkout code; includes currency symbol
+            discounted_price: (str) Upgrade price with checkout code; includes currency symbol
+            percentage: (int) Amount of discount
+            upgrade_url: (str) Checkout URL
         resume_course:
             has_visited_course: (bool) Whether the user has ever visited the course
             url: (str) The display name of the course block to resume
@@ -115,12 +134,10 @@ class OutlineTabView(RetrieveAPIView):
     **Returns**
 
         * 200 on success with above fields.
-        * 403 if the user is not authenticated.
         * 404 if the course is not available or cannot be seen.
 
     """
 
-    permission_classes = (IsAuthenticated,)
     serializer_class = OutlineTabSerializer
 
     def get(self, request, *args, **kwargs):
@@ -132,9 +149,9 @@ class OutlineTabView(RetrieveAPIView):
             raise Http404
 
         # Enable NR tracing for this view based on course
-        monitoring_utils.set_custom_metric('course_id', course_key_string)
-        monitoring_utils.set_custom_metric('user_id', request.user.id)
-        monitoring_utils.set_custom_metric('is_staff', request.user.is_staff)
+        monitoring_utils.set_custom_attribute('course_id', course_key_string)
+        monitoring_utils.set_custom_attribute('user_id', request.user.id)
+        monitoring_utils.set_custom_attribute('is_staff', request.user.is_staff)
 
         course = get_course_with_access(request.user, 'load', course_key, check_if_enrolled=False)
 
@@ -149,38 +166,7 @@ class OutlineTabView(RetrieveAPIView):
         enrollment = CourseEnrollment.get_enrollment(request.user, course_key)
         allow_anonymous = COURSE_ENABLE_UNENROLLED_ACCESS_FLAG.is_enabled(course_key)
         allow_public = allow_anonymous and course.course_visibility == COURSE_VISIBILITY_PUBLIC
-        is_enrolled = enrollment and enrollment.is_active
-        is_staff = has_access(request.user, 'staff', course_key)
-        show_enrolled = is_enrolled or is_staff
-
-        show_handouts = show_enrolled or allow_public
-        handouts_html = get_course_info_section(request, request.user, course, 'handouts') if show_handouts else ''
-
-        # TODO: TNL-7185 Legacy: Refactor to return the offer & expired data and format the message in the MFE
-        offer_html = generate_offer_html(request.user, course_overview)
-        course_expired_html = generate_course_expired_message(request.user, course_overview)
-
-        welcome_message_html = None
-        if get_course_tag(request.user, course_key, PREFERENCE_KEY) != 'False':
-            if LATEST_UPDATE_FLAG.is_enabled(course_key):
-                welcome_message_html = LatestUpdateFragmentView().latest_update_html(request, course)
-            else:
-                welcome_message_html = WelcomeMessageFragmentView().welcome_message_html(request, course)
-
-        enroll_alert = {
-            'can_enroll': True,
-            'extra_text': None,
-        }
-        if not show_enrolled:
-            if CourseMode.is_masters_only(course_key):
-                enroll_alert['can_enroll'] = False
-                enroll_alert['extra_text'] = _('Please contact your degree administrator or '
-                                               'edX Support if you have questions.')
-            elif course.invitation_only:
-                enroll_alert['can_enroll'] = False
-
-        course_tools = CourseToolsPluginManager.get_enabled_course_tools(request, course_key)
-        date_blocks = get_course_date_blocks(course, request.user, request, num_assignments=1)
+        allow_public_outline = allow_anonymous and course.course_visibility == COURSE_VISIBILITY_PUBLIC_OUTLINE
 
         # User locale settings
         user_timezone_locale = user_timezone_locale_prefs(request)
@@ -190,69 +176,102 @@ class OutlineTabView(RetrieveAPIView):
         if course_home_mfe_dates_tab_is_active(course.id):
             dates_tab_link = get_microfrontend_url(course_key=course.id, view_name='dates')
 
-        course_blocks = get_course_outline_block_tree(request, course_key_string, request.user if is_enrolled else None)
-
-        has_visited_course = False
-        try:
-            resume_block = get_key_to_last_completed_block(request.user, course.id)
-            has_visited_course = True
-        except UnavailableCompletionData:
-            resume_block = course_usage_key
-
-        resume_path = reverse('jump_to', kwargs={
-            'course_id': course_key_string,
-            'location': str(resume_block)
-        })
-        resume_course_url = request.build_absolute_uri(resume_path)
-
-        resume_course = {
-            'has_visited_course': has_visited_course,
-            'url': resume_course_url,
+        # Set all of the defaults
+        access_expiration = None
+        course_blocks = None
+        course_goals = {
+            'goal_options': [],
+            'selected_goal': None
         }
-
+        course_tools = CourseToolsPluginManager.get_enabled_course_tools(request, course_key)
         dates_widget = {
-            'course_date_blocks': [block for block in date_blocks if not isinstance(block, TodaysDate)],
+            'course_date_blocks': [],
             'dates_tab_link': dates_tab_link,
             'user_timezone': user_timezone,
         }
+        enroll_alert = {
+            'can_enroll': True,
+            'extra_text': None,
+        }
+        handouts_html = None
+        offer_data = None
+        resume_course = {
+            'has_visited_course': False,
+            'url': None,
+        }
+        welcome_message_html = None
 
-        # Only show the set course goal message for enrolled, unverified
-        # users in a course that allows for verified statuses.
-        is_already_verified = CourseEnrollment.is_enrolled_as_verified(request.user, course_key)
-        if (not is_already_verified and
-                has_course_goal_permission(request, course_key_string, {'is_enrolled': is_enrolled})):
-            course_goals = {
-                'goal_options': valid_course_goals_ordered(include_unsure=True),
-                'selected_goal': None
-            }
+        is_enrolled = enrollment and enrollment.is_active
+        is_staff = bool(has_access(request.user, 'staff', course_key))
+        show_enrolled = is_enrolled or is_staff
+        if show_enrolled:
+            course_blocks = get_course_outline_block_tree(request, course_key_string, request.user)
+            date_blocks = get_course_date_blocks(course, request.user, request, num_assignments=1)
+            dates_widget['course_date_blocks'] = [block for block in date_blocks if not isinstance(block, TodaysDate)]
 
-            selected_goal = get_course_goal(request.user, course_key)
-            if selected_goal:
-                course_goals['selected_goal'] = {
-                    'key': selected_goal.goal_key,
-                    'text': get_course_goal_text(selected_goal.goal_key),
+            handouts_html = get_course_info_section(request, request.user, course, 'handouts')
+            welcome_message_html = get_current_update_for_user(request, course)
+
+            offer_data = generate_offer_data(request.user, course_overview)
+            access_expiration = get_access_expiration_data(request.user, course_overview)
+
+            # Only show the set course goal message for enrolled, unverified
+            # users in a course that allows for verified statuses.
+            is_already_verified = CourseEnrollment.is_enrolled_as_verified(request.user, course_key)
+            if not is_already_verified and has_course_goal_permission(request, course_key_string,
+                                                                      {'is_enrolled': is_enrolled}):
+                course_goals = {
+                    'goal_options': valid_course_goals_ordered(include_unsure=True),
+                    'selected_goal': None
                 }
-        else:
-            course_goals = {
-                'goal_options': [],
-                'selected_goal': None
-            }
+
+                selected_goal = get_course_goal(request.user, course_key)
+                if selected_goal:
+                    course_goals['selected_goal'] = {
+                        'key': selected_goal.goal_key,
+                        'text': get_course_goal_text(selected_goal.goal_key),
+                    }
+
+            try:
+                resume_block = get_key_to_last_completed_block(request.user, course.id)
+                resume_course['has_visited_course'] = True
+            except UnavailableCompletionData:
+                resume_block = course_usage_key
+            resume_path = reverse('jump_to', kwargs={
+                'course_id': course_key_string,
+                'location': str(resume_block)
+            })
+            resume_course['url'] = request.build_absolute_uri(resume_path)
+        elif allow_public_outline or allow_public:
+            course_blocks = get_course_outline_block_tree(request, course_key_string, None)
+            if allow_public:
+                handouts_html = get_course_info_section(request, request.user, course, 'handouts')
+
+        if not show_enrolled:
+            if CourseMode.is_masters_only(course_key):
+                enroll_alert['can_enroll'] = False
+                enroll_alert['extra_text'] = _('Please contact your degree administrator or '
+                                               'edX Support if you have questions.')
+            elif course.invitation_only:
+                enroll_alert['can_enroll'] = False
 
         data = {
+            'access_expiration': access_expiration,
             'course_blocks': course_blocks,
-            'course_expired_html': course_expired_html,
             'course_goals': course_goals,
             'course_tools': course_tools,
             'dates_widget': dates_widget,
             'enroll_alert': enroll_alert,
             'handouts_html': handouts_html,
-            'offer_html': offer_html,
+            'has_ended': course.has_ended(),
+            'offer': offer_data,
             'resume_course': resume_course,
             'welcome_message_html': welcome_message_html,
         }
         context = self.get_serializer_context()
-        context['course_key'] = course_key
+        context['course_overview'] = course_overview
         context['enable_links'] = show_enrolled or allow_public
+        context['enrollment'] = enrollment
         serializer = self.get_serializer_class()(data, context=context)
 
         return Response(serializer.data)
@@ -274,7 +293,8 @@ def dismiss_welcome_message(request):
 
     try:
         course_key = CourseKey.from_string(course_id)
-        set_course_tag(request.user, course_key, PREFERENCE_KEY, 'False')
+        course = get_course_with_access(request.user, 'load', course_key, check_if_enrolled=True)
+        dismiss_current_update_for_user(request, course)
         return Response({'message': _('Welcome message successfully dismissed.')})
     except Exception:
         raise UnableToDismissWelcomeMessage

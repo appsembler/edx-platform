@@ -19,7 +19,7 @@ from django.utils.translation import ugettext_lazy
 from lazy import lazy
 from pytz import utc
 
-from course_modes.models import CourseMode, get_cosmetic_verified_display_price
+from common.djangoapps.course_modes.models import CourseMode, get_cosmetic_verified_display_price
 from lms.djangoapps.certificates.api import get_active_web_certificate
 from lms.djangoapps.courseware.utils import verified_upgrade_deadline_link, can_show_verified_upgrade
 from lms.djangoapps.verify_student.models import VerificationDeadline
@@ -28,9 +28,8 @@ from openedx.core.djangoapps.catalog.utils import get_course_run_details
 from openedx.core.djangoapps.certificates.api import can_show_certificate_available_date_field
 from openedx.core.djangolib.markup import HTML, Text
 from openedx.features.course_duration_limits.access import get_user_course_expiration_date
-from openedx.features.course_duration_limits.models import CourseDurationLimitConfig
 from openedx.features.course_experience import RELATIVE_DATES_FLAG, UPGRADE_DEADLINE_MESSAGE, CourseHomeMessages
-from student.models import CourseEnrollment
+from common.djangoapps.student.models import CourseEnrollment
 
 from .context_processor import user_timezone_locale_prefs
 
@@ -431,7 +430,7 @@ class CourseAssignmentDate(DateSummary):
         """ Used to set the title_html and title properties for the assignment date block """
         if link:
             self.assignment_title_html = HTML(
-                '<a href="{assignment_link}">{assignment_title}</a>'
+                '<a href="{assignment_link}" class="btn btn-outline-primary">{assignment_title}</a>'
             ).format(assignment_link=link, assignment_title=title)
         self.assignment_title = title
 
@@ -444,8 +443,6 @@ class CourseExpiredDate(DateSummary):
 
     @property
     def date(self):
-        if not CourseDurationLimitConfig.enabled_for_enrollment(self.user, self.course):
-            return
         return get_user_course_expiration_date(self.user, self.course)
 
     @property
@@ -667,11 +664,11 @@ class VerificationDeadlineDate(DateSummary):
             'verification-deadline-passed': (_('Learn More'), ''),
             'verification-deadline-retry': (
                 _('Retry Verification'),
-                IDVerificationService.get_verify_location('verify_student_reverify'),
+                IDVerificationService.get_verify_location(),
             ),
             'verification-deadline-upcoming': (
                 _('Verify My Identity'),
-                IDVerificationService.get_verify_location('verify_student_verify_now', self.course_id),
+                IDVerificationService.get_verify_location(self.course_id),
             )
         }
 

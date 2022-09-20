@@ -5,6 +5,12 @@ Serializers for the content libraries REST API
 from django.core.validators import validate_unicode_slug
 from rest_framework import serializers
 
+from openedx.core.djangoapps.content_libraries.constants import (
+    LIBRARY_TYPES,
+    COMPLEX,
+    ALL_RIGHTS_RESERVED,
+    LICENSE_OPTIONS,
+)
 from openedx.core.djangoapps.content_libraries.models import ContentLibraryPermission
 from openedx.core.lib import blockstore_api
 
@@ -21,6 +27,7 @@ class ContentLibraryMetadataSerializer(serializers.Serializer):
     # begins with 'lib:'. (The numeric ID of the ContentLibrary object in MySQL
     # is not exposed via this API.)
     id = serializers.CharField(source="key", read_only=True)
+    type = serializers.ChoiceField(choices=LIBRARY_TYPES, default=COMPLEX)
     org = serializers.SlugField(source="key.org")
     slug = serializers.CharField(source="key.slug", validators=(validate_unicode_slug, ))
     bundle_uuid = serializers.UUIDField(format='hex_verbose', read_only=True)
@@ -34,6 +41,7 @@ class ContentLibraryMetadataSerializer(serializers.Serializer):
     allow_public_read = serializers.BooleanField(default=False)
     has_unpublished_changes = serializers.BooleanField(read_only=True)
     has_unpublished_deletes = serializers.BooleanField(read_only=True)
+    license = serializers.ChoiceField(choices=LICENSE_OPTIONS, default=ALL_RIGHTS_RESERVED)
 
 
 class ContentLibraryUpdateSerializer(serializers.Serializer):
@@ -45,6 +53,8 @@ class ContentLibraryUpdateSerializer(serializers.Serializer):
     description = serializers.CharField()
     allow_public_learning = serializers.BooleanField()
     allow_public_read = serializers.BooleanField()
+    type = serializers.ChoiceField(choices=LIBRARY_TYPES)
+    license = serializers.ChoiceField(choices=LICENSE_OPTIONS)
 
 
 class ContentLibraryPermissionLevelSerializer(serializers.Serializer):
@@ -57,13 +67,31 @@ class ContentLibraryPermissionLevelSerializer(serializers.Serializer):
     access_level = serializers.ChoiceField(choices=ContentLibraryPermission.ACCESS_LEVEL_CHOICES)
 
 
+class ContentLibraryAddPermissionByEmailSerializer(serializers.Serializer):
+    """
+    Serializer for adding a new user and granting their access level via their email address.
+    """
+    access_level = serializers.ChoiceField(choices=ContentLibraryPermission.ACCESS_LEVEL_CHOICES)
+    email = serializers.EmailField()
+
+
 class ContentLibraryPermissionSerializer(ContentLibraryPermissionLevelSerializer):
     """
     Serializer for a ContentLibraryPermission object, which grants either a user
     or a group permission to view a content library.
     """
-    user_id = serializers.IntegerField(source="user.id", allow_null=True)
+    email = serializers.EmailField(source="user.email", read_only=True, default=None)
+    username = serializers.CharField(source="user.username", read_only=True, default=None)
     group_name = serializers.CharField(source="group.name", allow_null=True, allow_blank=False, default=None)
+
+
+class ContentLibraryFilterSerializer(serializers.Serializer):
+    """
+    Serializer for filtering library listings.
+    """
+    text_search = serializers.CharField(default=None, required=False)
+    org = serializers.CharField(default=None, required=False)
+    type = serializers.ChoiceField(choices=LIBRARY_TYPES, default=None, required=False)
 
 
 class LibraryXBlockMetadataSerializer(serializers.Serializer):
@@ -72,7 +100,7 @@ class LibraryXBlockMetadataSerializer(serializers.Serializer):
     """
     id = serializers.CharField(source="usage_key", read_only=True)
     def_key = serializers.CharField(read_only=True)
-    block_type = serializers.CharField(source="def_key.block_type")
+    block_type = serializers.CharField(source="usage_key.block_type")
     display_name = serializers.CharField(read_only=True)
     has_unpublished_changes = serializers.BooleanField(read_only=True)
     # When creating a new XBlock in a library, the slug becomes the ID part of

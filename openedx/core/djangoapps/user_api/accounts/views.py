@@ -39,7 +39,7 @@ from tahoe_sites.api import get_organization_for_user
 from wiki.models import ArticleRevision
 from wiki.models.pluginbase import RevisionPluginRevision
 
-from entitlements.models import CourseEntitlement
+from common.djangoapps.entitlements.models import CourseEntitlement
 from openedx.core.djangoapps.ace_common.template_context import get_base_template_context
 from openedx.core.djangoapps.api_admin.models import ApiAccessRequest
 from openedx.core.djangoapps.course_groups.models import UnregisteredLearnerCohortAssignments
@@ -53,7 +53,7 @@ from openedx.core.djangoapps.theming.helpers import get_current_site
 from openedx.core.djangolib.oauth2_retirement_utils import retire_dot_oauth2_models
 from openedx.core.lib.api.authentication import BearerAuthenticationAllowInactiveUser
 from openedx.core.lib.api.parsers import MergePatchParser
-from student.models import (
+from common.djangoapps.student.models import (
     AccountRecovery,
     CourseEnrollment,
     CourseEnrollmentAllowed,

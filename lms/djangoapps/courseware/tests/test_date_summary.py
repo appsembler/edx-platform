@@ -10,12 +10,15 @@ import waffle
 from django.contrib.messages.middleware import MessageMiddleware
 from django.test import RequestFactory
 from django.urls import reverse
-from freezegun import freeze_time
+from edx_toggles.toggles.testutils import override_waffle_flag
 from mock import patch
 from pytz import utc
 
-from course_modes.models import CourseMode
-from course_modes.tests.factories import CourseModeFactory
+from common.djangoapps.course_modes.models import CourseMode
+from common.djangoapps.course_modes.tests.factories import CourseModeFactory
+from freezegun import freeze_time
+from lms.djangoapps.commerce.models import CommerceConfiguration
+from lms.djangoapps.course_home_api.toggles import COURSE_HOME_MICROFRONTEND, COURSE_HOME_MICROFRONTEND_DATES_TAB
 from lms.djangoapps.courseware.courses import get_course_date_blocks
 from lms.djangoapps.courseware.date_summary import (
     CertificateAvailableDate,
@@ -32,21 +35,23 @@ from lms.djangoapps.courseware.models import (
     DynamicUpgradeDeadlineConfiguration,
     OrgDynamicUpgradeDeadlineConfiguration
 )
-from lms.djangoapps.commerce.models import CommerceConfiguration
-from lms.djangoapps.course_home_api.toggles import COURSE_HOME_MICROFRONTEND, COURSE_HOME_MICROFRONTEND_DATES_TAB
+from lms.djangoapps.experiments.testutils import override_experiment_waffle_flag
 from lms.djangoapps.verify_student.models import VerificationDeadline
+from lms.djangoapps.verify_student.services import IDVerificationService
 from lms.djangoapps.verify_student.tests.factories import SoftwareSecurePhotoVerificationFactory
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.schedules.signals import CREATE_SCHEDULE_WAFFLE_FLAG
 from openedx.core.djangoapps.self_paced.models import SelfPacedConfiguration
 from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
 from openedx.core.djangoapps.user_api.preferences.api import set_user_preference
-from openedx.core.djangoapps.waffle_utils.testutils import override_waffle_flag
 from openedx.features.course_duration_limits.models import CourseDurationLimitConfig
 from openedx.features.course_experience import (
-    RELATIVE_DATES_FLAG, UNIFIED_COURSE_TAB_FLAG, UPGRADE_DEADLINE_MESSAGE, CourseHomeMessages
+    DISABLE_UNIFIED_COURSE_TAB_FLAG,
+    RELATIVE_DATES_FLAG,
+    UPGRADE_DEADLINE_MESSAGE,
+    CourseHomeMessages
 )
-from student.tests.factories import TEST_PASSWORD, CourseEnrollmentFactory, UserFactory
+from common.djangoapps.student.tests.factories import TEST_PASSWORD, CourseEnrollmentFactory, UserFactory
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
@@ -145,7 +150,7 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
         CourseEnrollmentFactory(course_id=course.id, user=user, mode=CourseMode.VERIFIED)
         self.assert_block_types(course, user, expected_blocks)
 
-    @RELATIVE_DATES_FLAG.override(active=True)
+    @override_experiment_waffle_flag(RELATIVE_DATES_FLAG, active=True)
     def test_enabled_block_types_with_assignments(self):  # pylint: disable=too-many-statements
         """
         Creates a course with multiple subsections to test all of the different
@@ -300,7 +305,7 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
                 for html_tag in assignment_title_html:
                     self.assertIn(html_tag, assignment_title)
 
-    @RELATIVE_DATES_FLAG.override(active=True)
+    @override_experiment_waffle_flag(RELATIVE_DATES_FLAG, active=True)
     @ddt.data(
         ([], 3),
         ([{
@@ -366,7 +371,7 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
         blocks = get_course_date_blocks(course, user, request, include_past_dates=True)
         self.assertEqual(len(blocks), date_block_count)
 
-    @RELATIVE_DATES_FLAG.override(active=True)
+    @override_experiment_waffle_flag(RELATIVE_DATES_FLAG, active=True)
     def test_enabled_block_types_with_expired_course(self):
         course = create_course_run(days_till_start=-100)
         user = create_user()
@@ -420,7 +425,7 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
         'info',
         'openedx.course_experience.course_home',
     )
-    @override_waffle_flag(UNIFIED_COURSE_TAB_FLAG, active=True)
+    @override_waffle_flag(DISABLE_UNIFIED_COURSE_TAB_FLAG, active=False)
     def test_todays_date_no_timezone(self, url_name):
         with freeze_time('2015-01-02'):
             course = create_course_run()
@@ -442,7 +447,7 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
         'info',
         'openedx.course_experience.course_home',
     )
-    @override_waffle_flag(UNIFIED_COURSE_TAB_FLAG, active=True)
+    @override_waffle_flag(DISABLE_UNIFIED_COURSE_TAB_FLAG, active=False)
     def test_todays_date_timezone(self, url_name):
         with freeze_time('2015-01-02'):
             course = create_course_run()
@@ -472,7 +477,7 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
         'info',
         'openedx.course_experience.course_home',
     )
-    @override_waffle_flag(UNIFIED_COURSE_TAB_FLAG, active=True)
+    @override_waffle_flag(DISABLE_UNIFIED_COURSE_TAB_FLAG, active=False)
     def test_start_date_render(self, url_name):
         with freeze_time('2015-01-02'):
             course = create_course_run()
@@ -490,7 +495,7 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
         'info',
         'openedx.course_experience.course_home',
     )
-    @override_waffle_flag(UNIFIED_COURSE_TAB_FLAG, active=True)
+    @override_waffle_flag(DISABLE_UNIFIED_COURSE_TAB_FLAG, active=False)
     def test_start_date_render_time_zone(self, url_name):
         with freeze_time('2015-01-02'):
             course = create_course_run()
@@ -543,7 +548,7 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
         {'weeks_to_complete': 7},  # Weeks to complete > time til end (end date shown)
         {'weeks_to_complete': 4},  # Weeks to complete < time til end (end date not shown)
     )
-    @RELATIVE_DATES_FLAG.override(active=True)
+    @override_experiment_waffle_flag(RELATIVE_DATES_FLAG, active=True)
     def test_course_end_date_self_paced(self, cr_details):
         """
         In self-paced courses, the end date will now only show up if the learner
@@ -675,7 +680,7 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
                 'You must successfully complete verification before this date to qualify for a Verified Certificate.'
             )
             self.assertEqual(block.link_text, 'Verify My Identity')
-            self.assertEqual(block.link, reverse('verify_student_verify_now', args=(course.id,)))
+            self.assertEqual(block.link, IDVerificationService.get_verify_location(course.id))
 
     def test_verification_deadline_date_retry(self):
         with freeze_time('2015-01-02'):
@@ -692,7 +697,7 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
                 'You must successfully complete verification before this date to qualify for a Verified Certificate.'
             )
             self.assertEqual(block.link_text, 'Retry Verification')
-            self.assertEqual(block.link, reverse('verify_student_reverify'))
+            self.assertEqual(block.link, IDVerificationService.get_verify_location())
 
     def test_verification_deadline_date_denied(self):
         with freeze_time('2015-01-02'):
@@ -732,8 +737,8 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
         ('openedx.course_experience.course_home', False),
     )
     @ddt.unpack
-    @override_waffle_flag(UNIFIED_COURSE_TAB_FLAG, active=True)
-    @RELATIVE_DATES_FLAG.override(active=True)
+    @override_waffle_flag(DISABLE_UNIFIED_COURSE_TAB_FLAG, active=False)
+    @override_experiment_waffle_flag(RELATIVE_DATES_FLAG, active=True)
     def test_dates_tab_link_render(self, url_name, mfe_active):
         """ The dates tab link should only show for enrolled or staff users """
         course = create_course_run()
@@ -751,8 +756,8 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
         def assert_html_elements(assert_function, user):
             self.client.login(username=user.username, password=TEST_PASSWORD)
             if mfe_active:
-                with COURSE_HOME_MICROFRONTEND.override(active=True), \
-                     COURSE_HOME_MICROFRONTEND_DATES_TAB.override(active=True):
+                with override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True), \
+                     override_waffle_flag(COURSE_HOME_MICROFRONTEND_DATES_TAB, active=True):
                     response = self.client.get(url, follow=True)
             else:
                 response = self.client.get(url, follow=True)

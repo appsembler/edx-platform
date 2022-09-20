@@ -10,7 +10,7 @@ from time import time
 
 import re
 import six
-from course_blocks.api import get_course_blocks
+from lms.djangoapps.course_blocks.api import get_course_blocks
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from lazy import lazy
@@ -19,7 +19,7 @@ from pytz import UTC
 from six import text_type
 from six.moves import zip, zip_longest
 
-from course_modes.models import CourseMode
+from common.djangoapps.course_modes.models import CourseMode
 from lms.djangoapps.certificates.models import CertificateWhitelist, GeneratedCertificate, certificate_info_for_user
 from lms.djangoapps.courseware.courses import get_course_by_id
 from lms.djangoapps.courseware.user_state_client import DjangoXBlockUserStateClient
@@ -41,8 +41,8 @@ from openedx.core.djangoapps.content.block_structure.api import get_course_in_ca
 from openedx.core.djangoapps.course_groups.cohorts import bulk_cache_cohorts, get_cohort, is_course_cohorted
 from openedx.core.djangoapps.user_api.course_tag.api import BulkCourseTags
 from openedx.core.lib.cache_utils import get_cache
-from student.models import CourseEnrollment
-from student.roles import BulkRoleCache
+from common.djangoapps.student.models import CourseEnrollment
+from common.djangoapps.student.roles import BulkRoleCache
 from xmodule.modulestore.django import modulestore
 from xmodule.partitions.partitions_service import PartitionService
 from xmodule.split_test_module import get_split_user_partitions
@@ -897,7 +897,9 @@ class ProblemResponses(object):
         store = modulestore()
         user_state_client = DjangoXBlockUserStateClient()
 
-        student_data_keys = set()
+        # Each user's generated report data may contain different fields, so we use an OrderedDict to prevent
+        # duplication of keys while preserving the order the XBlock provides the keys in.
+        student_data_keys = OrderedDict()
 
         with store.bulk_operations(course_key):
             for usage_key in usage_keys:
@@ -944,7 +946,15 @@ class ProblemResponses(object):
                             for user_state in user_states:
                                 user_response = response.copy()
                                 user_response.update(user_state)
-                                student_data_keys = student_data_keys.union(list(user_state.keys()))
+
+                                # Respect the column order as returned by the xblock, if any.
+                                if isinstance(user_state, OrderedDict):
+                                    user_state_keys = user_state.keys()
+                                else:
+                                    user_state_keys = sorted(user_state.keys())
+                                for key in user_state_keys:
+                                    student_data_keys[key] = 1
+
                                 responses.append(user_response)
                         else:
                             responses.append(response)
@@ -961,7 +971,7 @@ class ProblemResponses(object):
         # finally end with the more machine friendly block_key and state.
         student_data_keys_list = (
             ['username', 'title', 'location'] +
-            sorted(student_data_keys) +
+            list(student_data_keys.keys()) +
             ['block_key', 'state']
         )
 
@@ -1010,11 +1020,10 @@ class ProblemResponses(object):
 
         # Perform the upload
         csv_name = cls._generate_upload_file_name(problem_locations, filter_types)
-        report_name, report_path = upload_csv_to_report_store(rows, csv_name, course_id, start_date)
+        report_name = upload_csv_to_report_store(rows, csv_name, course_id, start_date)
         current_step = {
             'step': 'CSV uploaded',
             'report_name': report_name,
-            'report_path': report_path,
         }
 
         return task_progress.update_task_state(extra_meta=current_step)

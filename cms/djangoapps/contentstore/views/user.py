@@ -15,14 +15,16 @@ from opaque_keys.edx.keys import CourseKey
 from opaque_keys.edx.locator import LibraryLocator
 from tahoe_sites.api import get_organization_for_user, get_organization_user_by_email
 
-from course_creators.views import user_requested_access
-from edxmako.shortcuts import render_to_response
-from student import auth
-from student.auth import STUDIO_EDIT_ROLES, STUDIO_VIEW_USERS, get_user_permissions
-from student.models import CourseEnrollment
-from student.roles import CourseInstructorRole, CourseStaffRole, LibraryUserRole
-from util.json_request import JsonResponse, expect_json
-from organizations.models import OrganizationCourse, Organization
+from organizations.models import Organization
+
+from cms.djangoapps.course_creators.views import user_requested_access
+from common.djangoapps.edxmako.shortcuts import render_to_response
+from common.djangoapps.student import auth
+from common.djangoapps.student.auth import STUDIO_EDIT_ROLES, STUDIO_VIEW_USERS, get_user_permissions
+from common.djangoapps.student.models import CourseEnrollment
+from common.djangoapps.student.roles import CourseInstructorRole, CourseStaffRole, LibraryUserRole
+from common.djangoapps.util.json_request import JsonResponse, expect_json
+
 from xmodule.modulestore.django import modulestore
 
 
@@ -183,7 +185,7 @@ def _course_team_user(request, course_key, email):
     # can't modify an inactive user but can remove it
     if not (user.is_active or new_role is None):
         msg = {
-            "error": _(u'User {email} has registered but has not yet activated his/her account.').format(email=email),
+            "error": _(u'User {email} has registered but has not yet activated their account.').format(email=email),
         }
         return JsonResponse(msg, 400)
 

@@ -30,9 +30,9 @@ from six.moves.urllib.parse import urljoin
 from xblock.field_data import DictFieldData
 from xblock.fields import ScopeIds
 
-from bulk_email.api import is_bulk_email_feature_enabled
-from course_modes.models import CourseMode, CourseModesArchive
-from edxmako.shortcuts import render_to_response
+from lms.djangoapps.bulk_email.api import is_bulk_email_feature_enabled
+from common.djangoapps.course_modes.models import CourseMode, CourseModesArchive
+from common.djangoapps.edxmako.shortcuts import render_to_response
 from lms.djangoapps.certificates import api as certs_api
 from lms.djangoapps.certificates.models import (
     CertificateGenerationConfiguration,
@@ -54,18 +54,19 @@ from openedx.core.djangoapps.verified_track_content.models import VerifiedTrackC
 from openedx.core.djangolib.markup import HTML, Text
 from openedx.core.lib.url_utils import quote_slashes
 from openedx.core.lib.xblock_utils import wrap_xblock
-from student.models import CourseEnrollment
-from student.roles import (
+from common.djangoapps.student.models import CourseEnrollment
+from common.djangoapps.student.roles import (
     CourseFinanceAdminRole, CourseInstructorRole,
     CourseSalesAdminRole, CourseStaffRole
 )
-from util.json_request import JsonResponse
+from common.djangoapps.util.json_request import JsonResponse
 from xmodule.html_module import HtmlBlock
 from xmodule.modulestore.django import modulestore
 from xmodule.tabs import CourseTab
 
 from .tools import get_units_with_due_date, title_or_url
 from .. import permissions
+from ..toggles import data_download_v2_is_enabled
 
 log = logging.getLogger(__name__)
 
@@ -612,9 +613,9 @@ def _section_data_download(course, access):
         settings.FEATURES.get('ENABLE_SPECIAL_EXAMS', False) and
         course.enable_proctored_exams
     )
-
+    section_key = 'data_download_2' if data_download_v2_is_enabled(course_key) else 'data_download'
     section_data = {
-        'section_key': 'data_download',
+        'section_key': section_key,
         'section_display_name': _('Data Download'),
         'access': access,
         'show_generate_proctored_exam_report_button': show_proctored_report_button,

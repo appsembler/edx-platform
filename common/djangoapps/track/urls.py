@@ -3,14 +3,13 @@ URLs for track app
 """
 
 
-from django.conf import settings
 from django.conf.urls import url
 
-import track.views
-import track.views.segmentio
+from . import views
+from .views import segmentio
 
 urlpatterns = [
-    url(r'^event$', track.views.user_track),
-    url(r'^segmentio/event$', track.views.segmentio.segmentio_event),
-    url(r'^segmentio/send/(?P<method>[a-z]+)$', track.views.segmentio.send_event),
+    url(r'^event$', views.user_track),
+    url(r'^segmentio/event$', segmentio.segmentio_event),
+    url(r'^segmentio/send/(?P<method>[a-z]+)$', segmentio.send_event),
 ]

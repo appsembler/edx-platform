@@ -7,6 +7,11 @@ and disabling for instructor-paced courses.
 import ddt
 import mock
 import six
+from edx_toggles.toggles import LegacyWaffleSwitch
+from edx_toggles.toggles.testutils import override_waffle_switch
+from common.djangoapps.student.tests.factories import CourseEnrollmentFactory, UserFactory
+from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
+from xmodule.modulestore.tests.factories import CourseFactory
 
 from django.conf import settings
 
@@ -22,9 +27,8 @@ from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
 from lms.djangoapps.grades.tests.utils import mock_passing_grade
 from lms.djangoapps.verify_student.models import IDVerificationAttempt, SoftwareSecurePhotoVerification
 from openedx.core.djangoapps.certificates.config import waffle
-from student.tests.factories import CourseEnrollmentFactory, UserFactory
-from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
-from xmodule.modulestore.tests.factories import CourseFactory
+
+AUTO_CERTIFICATE_GENERATION_SWITCH = LegacyWaffleSwitch(waffle.waffle(), waffle.AUTO_CERTIFICATE_GENERATION)
 
 
 class SelfGeneratedCertsSignalTest(ModuleStoreTestCase):
@@ -86,13 +90,13 @@ class WhitelistGeneratedCertificatesTest(ModuleStoreTestCase):
             'lms.djangoapps.certificates.signals.generate_certificate.apply_async',
             return_value=None
         ) as mock_generate_certificate_apply_async:
-            with waffle.waffle().override(waffle.AUTO_CERTIFICATE_GENERATION, active=False):
+            with override_waffle_switch(AUTO_CERTIFICATE_GENERATION_SWITCH, active=False):
                 CertificateWhitelist.objects.create(
                     user=self.user,
                     course_id=self.course.id
                 )
                 mock_generate_certificate_apply_async.assert_not_called()
-            with waffle.waffle().override(waffle.AUTO_CERTIFICATE_GENERATION, active=True):
+            with override_waffle_switch(AUTO_CERTIFICATE_GENERATION_SWITCH, active=True):
                 CertificateWhitelist.objects.create(
                     user=self.user,
                     course_id=self.course.id
@@ -114,13 +118,13 @@ class WhitelistGeneratedCertificatesTest(ModuleStoreTestCase):
                 'lms.djangoapps.certificates.signals.generate_certificate.apply_async',
                 return_value=None
         ) as mock_generate_certificate_apply_async:
-            with waffle.waffle().override(waffle.AUTO_CERTIFICATE_GENERATION, active=False):
+            with override_waffle_switch(AUTO_CERTIFICATE_GENERATION_SWITCH, active=False):
                 CertificateWhitelist.objects.create(
                     user=self.user,
                     course_id=self.ip_course.id
                 )
                 mock_generate_certificate_apply_async.assert_not_called()
-            with waffle.waffle().override(waffle.AUTO_CERTIFICATE_GENERATION, active=True):
+            with override_waffle_switch(AUTO_CERTIFICATE_GENERATION_SWITCH, active=True):
                 CertificateWhitelist.objects.create(
                     user=self.user,
                     course_id=self.ip_course.id
@@ -169,7 +173,7 @@ class PassingGradeCertsTest(ModuleStoreTestCase):
             'lms.djangoapps.certificates.signals.generate_certificate.apply_async',
             return_value=None
         ) as mock_generate_certificate_apply_async:
-            with waffle.waffle().override(waffle.AUTO_CERTIFICATE_GENERATION, active=True):
+            with override_waffle_switch(AUTO_CERTIFICATE_GENERATION_SWITCH, active=True):
                 grade_factory = CourseGradeFactory()
                 # Not passing
                 grade_factory.update(self.user, self.course)
@@ -190,7 +194,7 @@ class PassingGradeCertsTest(ModuleStoreTestCase):
             'lms.djangoapps.certificates.signals.generate_certificate.apply_async',
             return_value=None
         ) as mock_generate_certificate_apply_async:
-            with waffle.waffle().override(waffle.AUTO_CERTIFICATE_GENERATION, active=True):
+            with override_waffle_switch(AUTO_CERTIFICATE_GENERATION_SWITCH, active=True):
                 grade_factory = CourseGradeFactory()
                 # Not passing
                 grade_factory.update(self.user, self.ip_course)
@@ -376,7 +380,7 @@ class LearnerTrackChangeCertsTest(ModuleStoreTestCase):
             'lms.djangoapps.certificates.signals.generate_certificate.apply_async',
             return_value=None
         ) as mock_generate_certificate_apply_async:
-            with waffle.waffle().override(waffle.AUTO_CERTIFICATE_GENERATION, active=True):
+            with override_waffle_switch(AUTO_CERTIFICATE_GENERATION_SWITCH, active=True):
                 mock_generate_certificate_apply_async.assert_not_called()
                 attempt = SoftwareSecurePhotoVerification.objects.create(
                     user=self.user_one,
@@ -397,7 +401,7 @@ class LearnerTrackChangeCertsTest(ModuleStoreTestCase):
             'lms.djangoapps.certificates.signals.generate_certificate.apply_async',
             return_value=None
         ) as mock_generate_certificate_apply_async:
-            with waffle.waffle().override(waffle.AUTO_CERTIFICATE_GENERATION, active=True):
+            with override_waffle_switch(AUTO_CERTIFICATE_GENERATION_SWITCH, active=True):
                 mock_generate_certificate_apply_async.assert_not_called()
                 attempt = SoftwareSecurePhotoVerification.objects.create(
                     user=self.user_two,
@@ -451,7 +455,7 @@ class CertificateGenerationTaskTest(ModuleStoreTestCase):
             'lms.djangoapps.certificates.signals.generate_certificate.apply_async',
             return_value=None
         ) as mock_generate_certificate_apply_async:
-            with waffle.waffle().override(waffle.AUTO_CERTIFICATE_GENERATION, active=True):
+            with override_waffle_switch(AUTO_CERTIFICATE_GENERATION_SWITCH, active=True):
                 fire_ungenerated_certificate_task(self.user, self.course.id)
                 task_created = mock_generate_certificate_apply_async.called
                 self.assertEqual(task_created, should_create)

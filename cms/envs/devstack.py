@@ -26,7 +26,7 @@ CMS_BASE = 'localhost:18010'
 
 
 # Disable noisy loggers
-for pkg_name in ['track.contexts', 'track.middleware']:
+for pkg_name in ['common.djangoapps.track.contexts', 'common.djangoapps.track.middleware']:
     logging.getLogger(pkg_name).setLevel(logging.CRITICAL)
 
 # Docker does not support the syslog socket at /dev/log. Rely on the console.
@@ -94,6 +94,7 @@ DEBUG_TOOLBAR_PANELS = (
     'debug_toolbar.panels.signals.SignalsPanel',
     'debug_toolbar.panels.logging.LoggingPanel',
     'debug_toolbar.panels.profiling.ProfilingPanel',
+    'debug_toolbar.panels.history.HistoryPanel',
 )
 
 DEBUG_TOOLBAR_CONFIG = {
@@ -118,7 +119,11 @@ def should_show_debug_toolbar(request):
 FEATURES['MILESTONES_APP'] = True
 
 ########################### ORGANIZATIONS #################################
-FEATURES['ORGANIZATIONS_APP'] = True
+# Although production studio.edx.org disables `ORGANIZATIONS_AUTOCREATE`,
+# we purposefully leave auto-creation enabled in Devstack Studio for developer
+# convenience, allowing devs to create test courses for any organization
+# without having to first manually create said organizations in the admin panel.
+ORGANIZATIONS_AUTOCREATE = True
 
 ################################ ENTRANCE EXAMS ################################
 FEATURES['ENTRANCE_EXAMS'] = True

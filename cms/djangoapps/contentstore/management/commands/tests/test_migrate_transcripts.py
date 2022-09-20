@@ -241,13 +241,13 @@ class TestMigrateTranscripts(ModuleStoreTestCase):
                 'cms.djangoapps.contentstore.tasks', 'INFO',
                 (u'[Transcript Migration] [run=-1] [video-transcript-will-be-migrated] '
                  u'[revision=rev-opt-published-only] [video={}] [edx_video_id=test_edx_video_id] '
-                 u'[language_code=hr]'.format(self.video_descriptor.location))
+                 u'[language_code=ge]'.format(self.video_descriptor.location))
             ),
             (
                 'cms.djangoapps.contentstore.tasks', 'INFO',
                 (u'[Transcript Migration] [run=-1] [video-transcript-will-be-migrated] '
                  u'[revision=rev-opt-published-only] [video={}] [edx_video_id=test_edx_video_id] '
-                 u'[language_code=ge]'.format(self.video_descriptor.location))
+                 u'[language_code=hr]'.format(self.video_descriptor.location))
             ),
             # Tahoe: Added because we don't use tasks anymore
             (

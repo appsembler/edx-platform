@@ -18,8 +18,6 @@ import ddt
 import mock
 from tahoe_sites.api import update_admin_role_in_organization
 
-from openedx.core.djangoapps.waffle_utils.testutils import override_waffle_flag
-
 from openedx.core.djangoapps.site_configuration.tests.factories import (
     SiteFactory,
 )

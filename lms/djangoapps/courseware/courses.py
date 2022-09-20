@@ -25,7 +25,7 @@ from six import text_type
 
 from openedx.core.lib.cache_utils import request_cached
 
-import branding
+from lms.djangoapps import branding
 from lms.djangoapps.courseware.access import has_access
 from lms.djangoapps.courseware.access_response import (
     AuthenticationRequiredAccessError,
@@ -43,10 +43,11 @@ from lms.djangoapps.courseware.date_summary import (
     VerificationDeadlineDate,
     VerifiedUpgradeDeadlineDate
 )
+from lms.djangoapps.courseware.exceptions import CourseRunNotFound
 from lms.djangoapps.courseware.masquerade import check_content_start_date_for_masquerade_user
 from lms.djangoapps.courseware.model_data import FieldDataCache
 from lms.djangoapps.courseware.module_render import get_module
-from edxmako.shortcuts import render_to_string
+from common.djangoapps.edxmako.shortcuts import render_to_string
 from lms.djangoapps.courseware.access_utils import (
     check_authentication,
     check_enrollment,
@@ -61,9 +62,9 @@ from openedx.core.lib.api.view_utils import LazySequence
 from openedx.features.course_duration_limits.access import AuditExpiredError
 from openedx.features.course_experience import RELATIVE_DATES_FLAG
 from openedx.features.course_experience.utils import is_block_structure_complete_for_assignments
-from static_replace import replace_static_urls
-from survey.utils import SurveyRequiredAccessError, check_survey_required_and_unanswered
-from util.date_utils import strftime_localized
+from common.djangoapps.static_replace import replace_static_urls
+from lms.djangoapps.survey.utils import SurveyRequiredAccessError, check_survey_required_and_unanswered
+from common.djangoapps.util.date_utils import strftime_localized
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.exceptions import ItemNotFoundError
 from xmodule.x_module import STUDENT_VIEW
@@ -82,7 +83,7 @@ def get_course(course_id, depth=0):
     """
     Given a course id, return the corresponding course descriptor.
 
-    If the course does not exist, raises a ValueError.  This is appropriate
+    If the course does not exist, raises a CourseRunNotFound. This is appropriate
     for internal use.
 
     depth: The number of levels of children for the modulestore to cache.
@@ -90,7 +91,7 @@ def get_course(course_id, depth=0):
     """
     course = modulestore().get_course(course_id, depth=depth)
     if course is None:
-        raise ValueError(u"Course not found: {0}".format(course_id))
+        raise CourseRunNotFound(course_key=course_id)
     return course
 
 
@@ -531,6 +532,8 @@ def get_course_assignments(course_key, user, include_access=False):
     Each returned object is a namedtuple with fields: title, url, date, contains_gated_content, complete, past_due,
     assignment_type
     """
+    if not user.id:
+        return []
     store = modulestore()
     course_usage_key = store.make_course_usage_key(course_key)
     block_data = get_course_blocks(user, course_usage_key, allow_start_dates_in_future=True, include_completion=True)
@@ -578,9 +581,8 @@ def get_course_assignments(course_key, user, include_access=False):
                         'start': block_data.get_xblock_field(descendent, 'submission_start'),
                         'required': True
                     }]
-                    valid_assessments = block_data.get_xblock_field(descendent, 'valid_assessments')
-                    print(valid_assessments)
 
+                    valid_assessments = block_data.get_xblock_field(descendent, 'valid_assessments')
                     if valid_assessments:
                         all_assessments.extend(valid_assessments)
 
