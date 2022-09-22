@@ -2,7 +2,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth.models import User
 
-from contentstore.views.course import reindex_course_and_check_access
+from cms.djangoapps.contentstore.views.course import reindex_course_and_check_access
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 
 

@@ -29,8 +29,8 @@ from django.test import TestCase
 from django.test.utils import override_settings
 from rest_framework import status
 
-from student.roles import CourseAccessRole, CourseCreatorRole, CourseInstructorRole, CourseStaffRole
-from student.tests.factories import UserFactory
+from common.djangoapps.student.roles import CourseAccessRole, CourseCreatorRole, CourseInstructorRole, CourseStaffRole
+from common.djangoapps.student.tests.factories import UserFactory
 
 import cms.urls
 from cms.djangoapps.appsembler.views import (

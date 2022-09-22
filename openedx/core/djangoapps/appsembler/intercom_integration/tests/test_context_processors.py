@@ -10,7 +10,7 @@ from openedx.core.djangoapps.appsembler.intercom_integration.context_processors 
     intercom
 )
 
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 
 APPSEMBLER_APP = 'openedx.core.djangoapps.appsembler.intercom_integration'
 

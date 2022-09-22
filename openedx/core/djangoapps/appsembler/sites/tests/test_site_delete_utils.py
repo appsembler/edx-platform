@@ -7,8 +7,8 @@ from django.contrib.sites.models import Site
 from django.core.management import call_command
 from oauth2_provider.models import Application
 from organizations.models import OrganizationCourse
-from status.models import CourseMessage
-from student.models import AnonymousUserId
+from common.djangoapps.status.models import CourseMessage
+from common.djangoapps.student.models import AnonymousUserId
 
 from openedx.core.djangoapps.appsembler.api.tests.factories import (
     CourseOverviewFactory,

@@ -11,8 +11,8 @@ from django.db import transaction
 
 from openedx.core.djangoapps.appsembler.sites.serializers import RegistrationSerializer
 from openedx.core.djangoapps.appsembler.sites.utils import reset_amc_tokens
-from student.models import UserProfile
-from student.roles import CourseCreatorRole
+from common.djangoapps.student.models import UserProfile
+from common.djangoapps.student.roles import CourseCreatorRole
 
 
 class Command(BaseCommand):

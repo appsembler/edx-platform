@@ -28,7 +28,7 @@ from xmodule.contentstore.django import contentstore
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.xml_importer import import_course_from_xml
-from util.json_request import JsonResponse
+from common.djangoapps.util.json_request import JsonResponse
 
 TEST_DATA_DIR = settings.COMMON_TEST_DATA_ROOT
 
@@ -452,7 +452,7 @@ class AssetToJsonTestCase(AssetsTestCase):
         assert '/asset-v1:' in content, 'Ensure json gets serialized'
 
     @override_settings(LMS_BASE="lms_base_url")
-    @patch('contentstore.views.assets.get_site_for_course', mock.Mock(return_value=mock.Mock(domain='site_domain')))
+    @patch('cms.djangoapps.contentstore.views.assets.get_site_for_course', mock.Mock(return_value=mock.Mock(domain='site_domain')))
     def test_site_url(self):
         output = self.make_asset()
         assert output["external_url"] == "//site_domain/asset-v1:org+class+run+type@asset+block@ḿӳ_fíĺé_name.jpg"

@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 from openedx.core.djangoapps.user_authn.views.password_reset import password_reset
 from openedx.core.djangolib.testing.utils import skip_unless_lms
 
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 
 
 @ddt.ddt

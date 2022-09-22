@@ -147,8 +147,8 @@ class PipelineLoginAnalyticsTest(IntegrationTestMixin, testutil.TestCase):
         pipeline_kws = {'uid': social.uid, 'user': user, 'social': social}
 
         # don't decorate whole test method with these since they can be called creating UserSocialAuth
-        with mock.patch("third_party_auth.pipeline.tracker.emit") as mock_tracker_emit:
-            with mock.patch("third_party_auth.pipeline.segment.track") as mock_segment_track:
+        with mock.patch("common.djangoapps.third_party_auth.pipeline.tracker.emit") as mock_tracker_emit:
+            with mock.patch("common.djangoapps.third_party_auth.pipeline.segment.track") as mock_segment_track:
                 pipeline.login_analytics(
                     strategy=strategy, backend=self.provider.backend_class(),
                     pipeline_index=0, auth_entry='login', **pipeline_kws

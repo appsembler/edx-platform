@@ -8,7 +8,7 @@ from django.contrib.sites.models import Site
 import lms.lib.comment_client as cc
 from organizations.models import Organization
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
-from student.roles import CourseAccessRole
+from common.djangoapps.student.roles import CourseAccessRole
 
 
 log = logging.getLogger(__name__)

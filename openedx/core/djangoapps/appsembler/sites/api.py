@@ -14,7 +14,7 @@ from rest_framework.response import Response
 
 from organizations.models import Organization
 from tahoe_sites.api import get_organization_user_by_email, get_organization_for_user, get_site_by_organization
-from branding.api import get_base_url
+from lms.djangoapps.branding.api import get_base_url
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 from rest_framework.views import APIView
 from openedx.core.lib.api.permissions import ApiKeyHeaderPermission

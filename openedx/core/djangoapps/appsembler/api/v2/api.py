@@ -1,4 +1,4 @@
-from student.models import (email_exists_or_retired,
+from common.djangoapps.student.models import (email_exists_or_retired,
                             username_exists_or_retired)
 
 

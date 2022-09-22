@@ -348,7 +348,7 @@ class TestMigrateTranscripts(ModuleStoreTestCase):
 
     @ddt.data(*itertools.product([1, 2], [True, False], [True, False]))
     @ddt.unpack
-    @patch('contentstore.management.commands.migrate_transcripts.log')
+    @patch('cms.djangoapps.contentstore.management.commands.migrate_transcripts.log')
     def test_migrate_transcripts_batch_size(self, batch_size, commit, all_courses, mock_logger):
         """
         Test that migrations across course batches, is working as expected.

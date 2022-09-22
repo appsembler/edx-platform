@@ -10,7 +10,7 @@ from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
 from opaque_keys.edx.locator import CourseLocator
 
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 from openedx.core.djangoapps.user_authn.views.register import _skip_activation_email
 from openedx.core.djangoapps.appsembler.api.helpers import (
     as_course_key,

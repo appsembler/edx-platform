@@ -5,7 +5,7 @@ Tests for the `get_user_by_username_or_email` helper with `APPSEMBLER_MULTI_TENA
 import pytest
 
 from django.contrib.auth import get_user_model
-from student.models import get_user_by_username_or_email
+from common.djangoapps.student.models import get_user_by_username_or_email
 
 from openedx.core.djangoapps.appsembler.multi_tenant_emails.tests.test_utils import (
     create_org_user,

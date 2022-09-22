@@ -15,7 +15,7 @@ from organizations.tests.factories import OrganizationFactory
 
 from opaque_keys.edx.keys import CourseKey
 
-from student.models import CourseEnrollmentAllowed
+from common.djangoapps.student.models import CourseEnrollmentAllowed
 from openedx.core.djangoapps.appsembler.sites.tasks import (
     import_course_on_site_creation,
     import_course_on_site_creation_apply_async,

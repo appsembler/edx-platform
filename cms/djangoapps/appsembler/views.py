@@ -22,8 +22,8 @@ from tahoe_sites.api import deprecated_get_admin_users_queryset_by_email
 
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.user_authn.utils import is_safe_login_or_logout_redirect
-from student.roles import CourseCreatorRole, CourseInstructorRole, CourseStaffRole
-from edxmako.shortcuts import render_to_response
+from common.djangoapps.student.roles import CourseCreatorRole, CourseInstructorRole, CourseStaffRole
+from common.djangoapps.edxmako.shortcuts import render_to_response
 
 
 logger = logging.getLogger(__name__)

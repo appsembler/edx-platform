@@ -6,7 +6,7 @@ from django.conf import settings
 from django.dispatch.dispatcher import receiver
 from xmodule.modulestore.django import SignalHandler
 
-from course_modes.models import CourseMode
+from common.djangoapps.course_modes.models import CourseMode
 
 
 @receiver(SignalHandler.course_published)

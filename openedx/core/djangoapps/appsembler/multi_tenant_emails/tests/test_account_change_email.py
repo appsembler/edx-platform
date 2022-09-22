@@ -10,7 +10,7 @@ from rest_framework.test import APITestCase
 
 from django.urls import reverse
 
-from student.models import PendingEmailChange
+from common.djangoapps.student.models import PendingEmailChange
 
 from .test_utils import lms_multi_tenant_test, with_organization_context, create_org_user
 

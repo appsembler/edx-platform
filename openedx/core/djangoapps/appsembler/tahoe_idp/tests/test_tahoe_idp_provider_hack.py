@@ -9,7 +9,7 @@ import ddt
 from django.contrib.sites.models import Site
 
 from openedx.core.djangoapps.site_configuration.tests.test_util import with_site_configuration_context
-from third_party_auth.tests import testutil
+from common.djangoapps.third_party_auth.tests import testutil
 
 SITE_DOMAIN_A = 'professionalx.example.com'
 SITE_DOMAIN_B = 'somethingelse.example.com'

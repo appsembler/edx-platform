@@ -4,7 +4,7 @@ Tests for customization in the admin.py for Tahoe.
 from mock import patch, Mock
 
 from organizations.models import Organization
-from student.admin import RegistrationAdmin
+from common.djangoapps.student.admin import RegistrationAdmin
 
 
 @patch('common.djangoapps.student.admin.get_organization_for_user', Mock(side_effect=Organization.DoesNotExist))

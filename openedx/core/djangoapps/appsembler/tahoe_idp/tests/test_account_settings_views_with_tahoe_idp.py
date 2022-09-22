@@ -10,8 +10,8 @@ from openedx.core.djangoapps.programs.tests.mixins import ProgramsApiConfigMixin
 from openedx.core.djangoapps.site_configuration.tests.mixins import SiteMixin
 from openedx.core.djangoapps.user_api.accounts.settings_views import account_settings_context
 from openedx.core.djangolib.testing.utils import skip_unless_lms
-from student.tests.factories import UserFactory
-from third_party_auth.tests.testutil import ThirdPartyAuthTestMixin
+from common.djangoapps.student.tests.factories import UserFactory
+from common.djangoapps.third_party_auth.tests.testutil import ThirdPartyAuthTestMixin
 
 
 @skip_unless_lms

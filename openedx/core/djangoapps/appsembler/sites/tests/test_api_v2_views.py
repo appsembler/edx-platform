@@ -20,7 +20,7 @@ from rest_framework.authtoken.models import Token
 
 import tahoe_sites.api
 
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 
 from openedx.core.djangoapps.appsembler.sites import api_v2
 

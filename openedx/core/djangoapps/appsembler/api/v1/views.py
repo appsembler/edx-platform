@@ -30,9 +30,9 @@ from openedx.core.djangoapps.content.course_overviews.models import CourseOvervi
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.user_authn.views.register import create_account_with_params
 from openedx.core.djangoapps.user_authn.views.password_reset import PasswordResetFormNoActive
-from student.helpers import AccountValidationError
+from common.djangoapps.student.helpers import AccountValidationError
 
-from student.models import CourseEnrollment
+from common.djangoapps.student.models import CourseEnrollment
 
 from .mixins import TahoeAuthMixin
 

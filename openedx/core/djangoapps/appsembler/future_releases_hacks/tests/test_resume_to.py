@@ -11,7 +11,7 @@ from openedx.core.djangoapps.appsembler.multi_tenant_emails.tests.test_utils imp
     create_org_user,
     with_organization_context,
 )
-from student.tests.factories import CourseEnrollmentFactory
+from common.djangoapps.student.tests.factories import CourseEnrollmentFactory
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory

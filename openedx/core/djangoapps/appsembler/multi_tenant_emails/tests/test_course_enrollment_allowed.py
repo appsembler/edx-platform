@@ -9,9 +9,9 @@ from xmodule.modulestore.tests.factories import CourseFactory
 
 from django.urls import reverse
 from django.contrib.auth.models import User
-from student.models import CourseEnrollment, CourseEnrollmentAllowed
+from common.djangoapps.student.models import CourseEnrollment, CourseEnrollmentAllowed
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 from tahoe_sites.tests.utils import create_organization_mapping
 
 from .test_utils import with_organization_context, lms_multi_tenant_test

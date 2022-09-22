@@ -37,7 +37,7 @@ from openedx.core.djangoapps.appsembler.sites.tests.factories import (
 from openedx.core.djangoapps.site_configuration.tests.factories import (
     SiteFactory,
 )
-from student.models import (
+from common.djangoapps.student.models import (
     CourseAccessRole,
     CourseEnrollment,
     CourseEnrollmentAllowed,
@@ -48,7 +48,7 @@ from student.models import (
     UserSignupSource,
     UserTestGroup,
 )
-from student.tests.factories import (
+from common.djangoapps.student.tests.factories import (
     CourseAccessRoleFactory,
     CourseEnrollmentAllowedFactory,
     CourseEnrollmentFactory,
@@ -60,7 +60,7 @@ from organizations.models import Organization, OrganizationCourse
 
 from oauth2_provider.models import AccessToken, RefreshToken, Application
 
-from student.roles import CourseCreatorRole
+from common.djangoapps.student.roles import CourseCreatorRole
 
 
 @unittest.skipIf(
@@ -459,7 +459,7 @@ class TestOffboardSiteCommand(ModuleStoreTestCase):
         empty_data = self.command.process_user_standing(user)
 
         assert empty_data == {}
-        from student.models import UserStanding
+        from common.djangoapps.student.models import UserStanding
 
         standing = UserStandingFactory.create(
             user=user,

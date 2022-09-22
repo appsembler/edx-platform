@@ -8,7 +8,7 @@ from django.template.response import TemplateResponse
 from django.utils.html import format_html
 from hijack_admin.admin import HijackUserAdminMixin
 from ratelimitbackend import admin
-from student.admin import UserAdmin
+from common.djangoapps.student.admin import UserAdmin
 from organizations.models import Organization
 from tahoe_sites.api import get_organization_for_user
 

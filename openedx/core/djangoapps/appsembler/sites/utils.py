@@ -555,7 +555,7 @@ def add_course_creator_role(user):
           This helper is being replaced by `update_course_creator_role_for_cms` which has unit tests.
     """
     from cms.djangoapps.course_creators.models import CourseCreator  # Fix LMS->CMS imports.
-    from student.roles import CourseAccessRole, CourseCreatorRole  # Avoid circular import.
+    from common.djangoapps.student.roles import CourseAccessRole, CourseCreatorRole  # Avoid circular import.
     CourseCreator.objects.update_or_create(user=user, defaults={'state': CourseCreator.GRANTED})
     CourseAccessRole.objects.create(user=user, role=CourseCreatorRole.ROLE, course_id=None, org='')
 
