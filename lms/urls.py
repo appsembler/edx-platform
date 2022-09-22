@@ -207,8 +207,12 @@ urlpatterns = [
     path('403', handler403),
     path('404', handler404),
     path('429', handler429),
-    path('500', handler500),
 ]
+
+if settings.TAHOE_ENABLE_CUSTOM_ERROR_VIEW:
+    urlpatterns += [
+        path('500', handler500),
+    ]
 
 if settings.FEATURES.get('ENABLE_MOBILE_REST_API'):
     urlpatterns += [
