@@ -413,13 +413,16 @@ class AssetToJsonTestCase(AssetsTestCase):
     we can send out to the client via JSON.
     """
     def make_asset(self):
-        thumbnail_location = self.course_key.make_asset_key('thumbnail', 'ḿӳ_fíĺé_name_thumb.jpg')
-        # pylint: disable=protected-access
+        upload_date = datetime(2013, 6, 1, 10, 30, tzinfo=UTC)
+        content_type = 'image/jpg'
+        course_key = CourseLocator('org', 'class', 'run')
+        location = course_key.make_asset_key('asset', 'ḿӳ_fíĺé_name.jpg')
+        thumbnail_location = course_key.make_asset_key('thumbnail', 'ḿӳ_fíĺé_name_thumb.jpg')
         return assets._get_asset_json(
             "ḿӳ_fíĺé",
-            self.content_type,
-            self.upload_date,
-            self.location,
+            content_type,
+            upload_date,
+            location,
             thumbnail_location,
             True,
         )
@@ -432,19 +435,21 @@ class AssetToJsonTestCase(AssetsTestCase):
         location = course_key.make_asset_key('asset', 'ḿӳ_fíĺé_name.jpg')
         thumbnail_location = course_key.make_asset_key('thumbnail', 'ḿӳ_fíĺé_name_thumb.jpg')
 
-        output = self.make_asset()
+        # pylint: disable=protected-access
+        output = assets._get_asset_json("ḿӳ_fíĺé", content_type, upload_date, location, thumbnail_location, True)
+
         self.assertEqual(output["display_name"], "ḿӳ_fíĺé")
         self.assertEqual(output["date_added"], "Jun 01, 2013 at 10:30 UTC")
         self.assertEqual(output["url"], "/asset-v1:org+class+run+type@asset+block@ḿӳ_fíĺé_name.jpg")
         self.assertEqual(
-            output["external_url"], "https://lms_root_url/asset-v1:org+class+run+type@asset+block@ḿӳ_fíĺé_name.jpg"
+            output["external_url"], "//lms_base_url/asset-v1:org+class+run+type@asset+block@ḿӳ_fíĺé_name.jpg"
         )
         self.assertEqual(output["portable_url"], "/static/ḿӳ_fíĺé_name.jpg")
         self.assertEqual(output["thumbnail"], "/asset-v1:org+class+run+type@thumbnail+block@ḿӳ_fíĺé_name_thumb.jpg")
         self.assertEqual(output["id"], str(location))
         self.assertEqual(output['locked'], True)
-        # pylint: disable=protected-access
-        output = assets._get_asset_json("name", content_type, upload_date, location, thumbnail_location, False)
+
+        output = assets._get_asset_json("name", content_type, upload_date, location, None, False)
         self.assertIsNone(output["thumbnail"])
 
         response_with_unicode = JsonResponse(output)
