@@ -11,6 +11,7 @@ from opaque_keys.edx.keys import CourseKey
 
 from lms.djangoapps.certificates.models import GeneratedCertificate
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
+from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from xmodule.modulestore.django import modulestore
 
 log = logging.getLogger(__name__)
@@ -64,7 +65,10 @@ def has_html_certificates_enabled(course):
     """
     Returns True if HTML certificates are enabled
     """
-    if not settings.FEATURES.get('CERTIFICATES_HTML_VIEW', False):
+    if not configuration_helpers.get_value(
+        'CERTIFICATES_HTML_VIEW',
+        settings.FEATURES.get('CERTIFICATES_HTML_VIEW', False)
+    ):
         return False
     return course.cert_html_view_enabled
 

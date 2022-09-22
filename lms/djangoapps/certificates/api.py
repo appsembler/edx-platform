@@ -45,7 +45,6 @@ from lms.djangoapps.certificates.utils import (
 )
 from openedx.core.djangoapps.certificates.api import certificates_viewable_for_course
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
-from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 
 log = logging.getLogger("edx.certificate")
 User = get_user_model()
@@ -423,10 +422,7 @@ def example_certificates_status(course_key):
 
 
 def has_html_certificates_enabled(course):
-    if not configuration_helpers.get_value('CERTIFICATES_HTML_VIEW',
-                                           settings.FEATURES.get('CERTIFICATES_HTML_VIEW', False)):
-        return False
-    return course.cert_html_view_enabled
+    return _has_html_certificates_enabled(course)
 
 
 def get_certificate_url(user_id=None, course_id=None, uuid=None, user_certificate=None):
