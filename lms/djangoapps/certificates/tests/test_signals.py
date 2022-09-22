@@ -17,6 +17,7 @@ from lms.djangoapps.certificates.generation_handler import CERTIFICATES_USE_ALLO
 from lms.djangoapps.certificates.models import (
     CertificateGenerationConfiguration,
     CertificateStatuses,
+    CertificateWhitelist,
     GeneratedCertificate
 )
 from lms.djangoapps.certificates.signals import _fire_ungenerated_certificate_task
