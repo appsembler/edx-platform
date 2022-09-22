@@ -7,6 +7,7 @@ from django.conf import settings
 from django.conf.urls import include, url
 from django.conf.urls.static import static
 from django.contrib.admin import autodiscover as django_autodiscover
+from django.urls import path
 from django.utils.translation import ugettext_lazy as _
 from django.views.generic.base import RedirectView
 from edx_api_doc_tools import make_docs_urls
@@ -58,6 +59,7 @@ from common.djangoapps.util import views as util_views
 RESET_COURSE_DEADLINES_NAME = 'reset_course_deadlines'
 RENDER_XBLOCK_NAME = 'render_xblock'
 COURSE_DATES_NAME = 'dates'
+COURSE_PROGRESS_NAME = 'progress'
 
 if settings.DEBUG or settings.FEATURES.get('ENABLE_DJANGO_ADMIN_SITE'):
     django_autodiscover()
@@ -70,8 +72,9 @@ if settings.DEBUG or settings.FEATURES.get('ENABLE_DJANGO_ADMIN_SITE'):
 # Custom error pages
 # These are used by Django to render these error codes. Do not remove.
 # pylint: disable=invalid-name
+handler403 = static_template_view_views.render_403
 handler404 = static_template_view_views.render_404
-
+handler429 = static_template_view_views.render_429
 if settings.TAHOE_ENABLE_CUSTOM_ERROR_VIEW:
     handler500 = static_template_view_views.render_500
 
@@ -201,6 +204,10 @@ urlpatterns = [
     ),
     url(r'^api/discounts/', include(('openedx.features.discounts.urls', 'openedx.features.discounts'),
                                     namespace='api_discounts')),
+    path('403', handler403),
+    path('404', handler404),
+    path('429', handler429),
+    path('500', handler500),
 ]
 
 if settings.FEATURES.get('ENABLE_MOBILE_REST_API'):
@@ -216,12 +223,6 @@ if settings.FEATURES.get('ENABLE_OPENBADGES'):
 urlpatterns += [
     url(r'^openassessment/fileupload/', include('openassessment.fileupload.urls')),
 ]
-
-# sysadmin dashboard, to see what courses are loaded, to delete & load courses
-if settings.FEATURES.get('ENABLE_SYSADMIN_DASHBOARD'):
-    urlpatterns += [
-        url(r'^sysadmin/', include('lms.djangoapps.dashboard.sysadmin_urls')),
-    ]
 
 urlpatterns += [
     url(r'^support/', include('lms.djangoapps.support.urls')),
@@ -252,9 +253,9 @@ if settings.WIKI_ENABLED:
 
         # These urls are for viewing the wiki in the context of a course. They should
         # never be returned by a reverse() so they come after the other url patterns
-        url(r'^courses/{}/course_wiki/?$'.format(settings.COURSE_ID_PATTERN),
+        url(fr'^courses/{settings.COURSE_ID_PATTERN}/course_wiki/?$',
             course_wiki_views.course_wiki_redirect, name='course_wiki'),
-        url(r'^courses/{}/wiki/'.format(settings.COURSE_KEY_REGEX),
+        url(fr'^courses/{settings.COURSE_KEY_REGEX}/wiki/',
             include((wiki_url_patterns, 'course_wiki_do_not_reverse'), namespace='course_wiki_do_not_reverse')),
     ]
 
@@ -318,7 +319,7 @@ urlpatterns += [
     # passed as a 'view' parameter to the URL.
     # Note: This is not an API. Compare this with the xblock_view API above.
     url(
-        r'^xblock/{usage_key_string}$'.format(usage_key_string=settings.USAGE_KEY_PATTERN),
+        fr'^xblock/{settings.USAGE_KEY_PATTERN}$',
         courseware_views.render_xblock,
         name=RENDER_XBLOCK_NAME,
     ),
@@ -502,7 +503,7 @@ urlpatterns += [
             settings.COURSE_ID_PATTERN,
         ),
         courseware_views.progress,
-        name='progress',
+        name=COURSE_PROGRESS_NAME,
     ),
 
     # dates page
@@ -668,7 +669,7 @@ urlpatterns += [
 
     # Calendar Sync UI in LMS
     url(
-        r'^courses/{}/'.format(settings.COURSE_ID_PATTERN,),
+        fr'^courses/{settings.COURSE_ID_PATTERN}/',
         include('openedx.features.calendar_sync.urls'),
     ),
 
@@ -758,6 +759,17 @@ urlpatterns += [
 ]
 
 urlpatterns += [
+    url(
+        r'^courses/{}/lti_tab/(?P<provider_uuid>[^/]+)/$'.format(
+            settings.COURSE_ID_PATTERN,
+        ),
+        CourseTabView.as_view(),
+        name='lti_course_tab',
+        kwargs={'tab_type': 'lti_tab'},
+    ),
+]
+
+urlpatterns += [
     # This MUST be the last view in the courseware--it's a catch-all for custom tabs.
     url(
         r'^courses/{}/(?P<tab_slug>[^/]+)/$'.format(
@@ -771,7 +783,7 @@ urlpatterns += [
 if settings.FEATURES.get('ENABLE_STUDENT_HISTORY_VIEW'):
     urlpatterns += [
         url(
-            r'^courses/{}/submission_history/(?P<student_username>[^/]*)/(?P<location>.*?)$'.format(
+            r'^courses/{}/submission_history/(?P<learner_identifier>[^/]*)/(?P<location>.*?)$'.format(
                 settings.COURSE_ID_PATTERN
             ),
             courseware_views.submission_history,
@@ -905,7 +917,7 @@ urlpatterns += [
 # Custom courses on edX (CCX) URLs
 if settings.FEATURES.get('CUSTOM_COURSES_EDX'):
     urlpatterns += [
-        url(r'^courses/{}/'.format(settings.COURSE_ID_PATTERN),
+        url(fr'^courses/{settings.COURSE_ID_PATTERN}/',
             include('lms.djangoapps.ccx.urls')),
         url(r'^api/ccx/', include(('lms.djangoapps.ccx.api.urls', 'lms.djangoapps.ccx'), namespace='ccx_api')),
     ]
@@ -960,12 +972,6 @@ if settings.FEATURES.get('ENABLE_FINANCIAL_ASSISTANCE_FORM'):
             courseware_views.financial_assistance_request,
             name='submit_financial_assistance_request'
         )
-    ]
-
-# Branch.io Text Me The App
-if settings.BRANCH_IO_KEY:
-    urlpatterns += [
-        url(r'^text-me-the-app', student_views.text_me_the_app, name='text_me_the_app'),
     ]
 
 # API docs.
@@ -1024,3 +1030,9 @@ urlpatterns += [
 urlpatterns += [
     url(r'^api/course_experience/', include('openedx.features.course_experience.api.v1.urls')),
 ]
+
+# Bulk User Retirement API urls
+if settings.FEATURES.get('ENABLE_BULK_USER_RETIREMENT'):
+    urlpatterns += [
+        url(r'', include('lms.djangoapps.bulk_user_retirement.urls')),
+    ]

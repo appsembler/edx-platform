@@ -2,10 +2,9 @@
 Custom session serializer to deal with going from python2 and python3.
 """
 import pickle
-import six
 
 
-class PickleSerializer(object):
+class PickleSerializer:
     """
     Set the pickle protocol version explicitly because we don't want
     to have session thrashing when we upgrade to newer versions of

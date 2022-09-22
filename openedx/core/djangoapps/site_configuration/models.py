@@ -67,7 +67,7 @@ class SiteConfiguration(models.Model):
     tahoe_config_modifier = None  # Tahoe: Placeholder for `TahoeConfigurationValueModifier` instance
 
     site = models.OneToOneField(Site, related_name='configuration', on_delete=models.CASCADE)
-    enabled = models.BooleanField(default=False, verbose_name=u"Enabled")
+    enabled = models.BooleanField(default=False, verbose_name="Enabled")
     site_values = JSONField(
         null=False,
         blank=True,
@@ -81,7 +81,7 @@ class SiteConfiguration(models.Model):
     page_elements = JSONField(blank=True, default=get_initial_page_elements)
 
     def __str__(self):
-        return u"<SiteConfiguration: {site} >".format(site=self.site)  # xss-lint: disable=python-wrap-html
+        return f"<SiteConfiguration: {self.site} >"  # xss-lint: disable=python-wrap-html
 
     def __repr__(self):
         return self.__str__()
@@ -134,9 +134,9 @@ class SiteConfiguration(models.Model):
                     beeline.add_context_field('value_source', 'django_model')
                     return self.site_values.get(name, default) if self.site_values else default
             except AttributeError as error:
-                logger.exception(u'Invalid JSON data. \n [%s]', error)
+                logger.exception('Invalid JSON data. \n [%s]', error)
         else:
-            logger.info(u"Site Configuration is not enabled for site (%s).", self.site)
+            logger.info("Site Configuration is not enabled for site (%s).", self.site)
 
         return default
 
@@ -500,7 +500,7 @@ class SiteConfigurationHistory(TimeStampedModel):
     .. no_pii:
     """
     site = models.ForeignKey(Site, related_name='configuration_histories', on_delete=models.CASCADE)
-    enabled = models.BooleanField(default=False, verbose_name=u"Enabled")
+    enabled = models.BooleanField(default=False, verbose_name="Enabled")
     site_values = JSONField(
         null=False,
         blank=True,
@@ -513,7 +513,7 @@ class SiteConfigurationHistory(TimeStampedModel):
 
     def __str__(self):
         # pylint: disable=line-too-long
-        return u"<SiteConfigurationHistory: {site}, Last Modified: {modified} >".format(  # xss-lint: disable=python-wrap-html
+        return "<SiteConfigurationHistory: {site}, Last Modified: {modified} >".format(  # xss-lint: disable=python-wrap-html
             modified=self.modified,
             site=self.site,
         )

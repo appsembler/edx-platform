@@ -8,7 +8,7 @@ View for Courseware Index
 import beeline
 import logging
 
-import six
+import urllib
 from django.conf import settings
 from django.contrib.auth.views import redirect_to_login
 from django.db import transaction
@@ -25,7 +25,6 @@ from edx_django_utils.monitoring import set_custom_attributes_for_course_key
 from edx_toggles.toggles import LegacyWaffleSwitchNamespace
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey, UsageKey
-from six.moves import urllib
 from web_fragments.fragment import Fragment
 
 from common.djangoapps.edxmako.shortcuts import render_to_response, render_to_string
@@ -45,6 +44,7 @@ from openedx.features.course_experience import (
     default_course_url_name
 )
 from openedx.features.course_experience.views.course_sock import CourseSockFragmentView
+from openedx.features.course_experience.url_helpers import make_learning_mfe_courseware_url
 from openedx.features.enterprise_support.api import data_sharing_consent_required
 from common.djangoapps.student.models import CourseEnrollment
 from common.djangoapps.util.views import ensure_valid_course_key
@@ -65,8 +65,7 @@ from ..masquerade import check_content_start_date_for_masquerade_user, setup_mas
 from ..model_data import FieldDataCache
 from ..module_render import get_module_for_descriptor, toc_for_course
 from ..permissions import MASQUERADE_AS_STUDENT
-from ..toggles import COURSEWARE_MICROFRONTEND_COURSE_TEAM_PREVIEW, REDIRECT_TO_COURSEWARE_MICROFRONTEND
-from ..url_helpers import get_microfrontend_url
+from ..toggles import courseware_legacy_is_visible, courseware_mfe_is_visible
 from .views import CourseTabView
 
 log = logging.getLogger("edx.courseware.views.index")
@@ -177,24 +176,24 @@ class CoursewareIndex(View):
 
     def _redirect_to_learning_mfe(self):
         """
-        Redirect to the new courseware micro frontend,
-        unless this is a time limited exam.
+        Can the user access this sequence in Legacy courseware? If not, redirect to MFE.
+
+        We specifically allow users to stay in the Legacy frontend for special
+        (ie timed/proctored) exams since they're not yet supported by the MFE.
         """
-        # DENY: feature disabled globally
-        if not settings.FEATURES.get('ENABLE_COURSEWARE_MICROFRONTEND'):
+        # STAY: if the course run as a whole is visible in the Legacy experience.
+        if courseware_legacy_is_visible(
+                course_key=self.course_key,
+                is_global_staff=self.request.user.is_staff,
+                is_course_staff=self.is_staff,
+        ):
             return
-        # DENY: staff access
-        if self.is_staff:
-            return
-        # DENY: Old Mongo courses, until removed from platform
-        if self.course_key.deprecated:
-            return
-        # DENY: Timed Exams, until supported
+        # STAY: if we are in a special (ie proctored/timed) exam, which isn't yet
+        #       supported on the MFE.
         if getattr(self.section, 'is_time_limited', False):
             return
-        # ALLOW: when flag set for course
-        if REDIRECT_TO_COURSEWARE_MICROFRONTEND.is_enabled(self.course_key):
-            raise Redirect(self.microfrontend_url)
+        # REDIRECT otherwise.
+        raise Redirect(self.microfrontend_url)
 
     @property
     def microfrontend_url(self):
@@ -210,7 +209,7 @@ class CoursewareIndex(View):
                 unit_key = None
         except InvalidKeyError:
             unit_key = None
-        url = get_microfrontend_url(
+        url = make_learning_mfe_courseware_url(
             self.course_key,
             self.section.location if self.section else None,
             unit_key
@@ -239,7 +238,7 @@ class CoursewareIndex(View):
                                                          self.course.start, self.chapter.start, self.section.start)
 
         if not request.user.is_authenticated:
-            qs = six.moves.urllib.parse.urlencode({
+            qs = urllib.parse.urlencode({
                 'course_id': self.course_key,
                 'enrollment_action': 'enroll',
                 'email_opt_in': False,
@@ -250,15 +249,15 @@ class CoursewareIndex(View):
             if not allow_anonymous:
                 PageLevelMessages.register_warning_message(
                     request,
-                    Text(_(u"You are not signed in. To see additional course content, {sign_in_link} or "
-                           u"{register_link}, and enroll in this course.")).format(
-                        sign_in_link=HTML(u'<a href="{url}">{sign_in_label}</a>').format(
+                    Text(_("You are not signed in. To see additional course content, {sign_in_link} or "
+                           "{register_link}, and enroll in this course.")).format(
+                        sign_in_link=HTML('<a href="{url}">{sign_in_label}</a>').format(
                             sign_in_label=_('sign in'),
                             url='{}?{}'.format(reverse('signin_user'), qs),
                         ),
-                        register_link=HTML(u'<a href="/{url}">{register_label}</a>').format(
+                        register_link=HTML('<a href="/{url}">{register_label}</a>').format(
                             register_label=_('register'),
-                            url=u'{}?{}'.format(reverse('register_user'), qs),
+                            url='{}?{}'.format(reverse('register_user'), qs),
                         ),
                     )
                 )
@@ -281,7 +280,7 @@ class CoursewareIndex(View):
                 reverse(
                     'courseware_section',
                     kwargs={
-                        'course_id': six.text_type(self.course_key),
+                        'course_id': str(self.course_key),
                         'chapter': self.chapter.url_name,
                         'section': self.section.url_name,
                     },
@@ -297,7 +296,7 @@ class CoursewareIndex(View):
             try:
                 self.position = max(int(self.position), 1)
             except ValueError:
-                raise Http404(u"Position {} is not an integer!".format(self.position))
+                raise Http404(f"Position {self.position} is not an integer!")  # lint-amnesty, pylint: disable=raise-missing-from
 
     @beeline.traced(name="CoursewareIndex._reset_section_to_exam_if_required")
     def _reset_section_to_exam_if_required(self):
@@ -350,7 +349,7 @@ class CoursewareIndex(View):
             if not child:
                 # User may be trying to access a child that isn't live yet
                 if not self._is_masquerading_as_student():
-                    raise Http404(u'No {block_type} found with name {url_name}'.format(
+                    raise Http404('No {block_type} found with name {url_name}'.format(
                         block_type=block_type,
                         url_name=url_name,
                     ))
@@ -437,7 +436,7 @@ class CoursewareIndex(View):
         """
 
         course_url_name = default_course_url_name(self.course.id)
-        course_url = reverse(course_url_name, kwargs={'course_id': six.text_type(self.course.id)})
+        course_url = reverse(course_url_name, kwargs={'course_id': str(self.course.id)})
         show_search = (
             settings.FEATURES.get('ENABLE_COURSEWARE_SEARCH') or
             (settings.FEATURES.get('ENABLE_COURSEWARE_SEARCH_FOR_COURSE_STAFF') and self.is_staff)
@@ -564,7 +563,7 @@ class CoursewareIndex(View):
             return "{url}?child={requested_child}".format(
                 url=reverse(
                     'courseware_section',
-                    args=[six.text_type(self.course_key), section_info['chapter_url_name'], section_info['url_name']],
+                    args=[str(self.course_key), section_info['chapter_url_name'], section_info['url_name']],
                 ),
                 requested_child=requested_child,
             )
@@ -575,7 +574,7 @@ class CoursewareIndex(View):
         section_context = {
             'activate_block_id': self.request.GET.get('activate_block_id'),
             'requested_child': self.request.GET.get("child"),
-            'progress_url': reverse('progress', kwargs={'course_id': six.text_type(self.course_key)}),
+            'progress_url': reverse('progress', kwargs={'course_id': str(self.course_key)}),
             'user_authenticated': self.request.user.is_authenticated,
             'position': position,
         }
@@ -598,7 +597,7 @@ def render_accordion(request, course, table_of_contents):
     context = dict(
         [
             ('toc', table_of_contents),
-            ('course_id', six.text_type(course.id)),
+            ('course_id', str(course.id)),
             ('csrf', csrf(request)['csrf_token']),
             ('due_date_display_format', course.due_date_display_format),
         ] + list(TEMPLATE_IMPORTS.items())
@@ -652,28 +651,8 @@ def show_courseware_mfe_link(user, staff_access, course_key):
     """
     Return whether to display the button to switch to the Courseware MFE.
     """
-    # The MFE isn't enabled at all, so don't show the button.
-    if not settings.FEATURES.get('ENABLE_COURSEWARE_MICROFRONTEND'):
-        return False
-
-    # MFE does not work for Old Mongo courses.
-    if course_key.deprecated:
-        return False
-
-    # Global staff members always get to see the courseware MFE button if the
-    # platform and course are capable, regardless of rollout waffle flags.
-    if user.is_staff:
-        return True
-
-    # If you have course staff access, you can see this link if...
-    if staff_access:
-        # (a) we've turned on the redirect for your students, or...
-        mfe_enabled_for_course = REDIRECT_TO_COURSEWARE_MICROFRONTEND.is_enabled(course_key)
-        if mfe_enabled_for_course:
-            return True
-        # (b) we've enabled the course team preview.
-        mfe_enabled_for_course_team = COURSEWARE_MICROFRONTEND_COURSE_TEAM_PREVIEW.is_enabled(course_key)
-        if mfe_enabled_for_course_team:
-            return True
-
-    return False
+    return courseware_mfe_is_visible(
+        course_key=course_key,
+        is_global_staff=user.is_staff,
+        is_course_staff=staff_access,
+    )

@@ -4,15 +4,16 @@ Test the enterprise support utils.
 
 import json
 import uuid
+from unittest import mock
 
 import ddt
-import mock
 from django.conf import settings
 from django.test import TestCase
 from django.test.utils import override_settings
 from django.urls import NoReverseMatch
-
 from edx_toggles.toggles.testutils import override_waffle_flag
+
+from common.djangoapps.student.tests.factories import UserFactory
 from openedx.core.djangolib.testing.utils import skip_unless_lms
 from openedx.features.enterprise_support.tests import FEATURES_WITH_ENTERPRISE_ENABLED
 from openedx.features.enterprise_support.tests.factories import (
@@ -36,9 +37,8 @@ from openedx.features.enterprise_support.utils import (
     is_enterprise_learner,
     update_account_settings_context_for_enterprise,
     update_logistration_context_for_enterprise,
-    update_third_party_auth_context_for_enterprise,
+    update_third_party_auth_context_for_enterprise
 )
-from common.djangoapps.student.tests.factories import UserFactory
 
 
 @ddt.ddt
@@ -52,18 +52,23 @@ class TestEnterpriseUtils(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = UserFactory.create(password='password')
-        super(TestEnterpriseUtils, cls).setUpTestData()
+        super().setUpTestData()
 
     @mock.patch('openedx.features.enterprise_support.utils.get_cache_key')
     def test_get_data_consent_share_cache_key(self, mock_get_cache_key):
         expected_cache_key = mock_get_cache_key.return_value
 
-        assert expected_cache_key == get_data_consent_share_cache_key('some-user-id', 'some-course-id')
+        assert expected_cache_key == get_data_consent_share_cache_key(
+            'some-user-id',
+            'some-course-id',
+            '1a9cae8f-abb7-4336-b075-6ff32ecf73de'
+        )
 
         mock_get_cache_key.assert_called_once_with(
             type='data_sharing_consent_needed',
             user_id='some-user-id',
             course_id='some-course-id',
+            enterprise_customer_uuid='1a9cae8f-abb7-4336-b075-6ff32ecf73de'
         )
 
     @mock.patch('openedx.features.enterprise_support.utils.get_cache_key')
@@ -71,13 +76,15 @@ class TestEnterpriseUtils(TestCase):
     def test_clear_data_consent_share_cache(self, mock_tiered_cache, mock_get_cache_key):
         user_id = 'some-user-id'
         course_id = 'some-course-id'
+        enterprise_customer_uuid = '1a9cae8f-abb7-4336-b075-6ff32ecf73de'
 
-        clear_data_consent_share_cache(user_id, course_id)
+        clear_data_consent_share_cache(user_id, course_id, enterprise_customer_uuid)
 
         mock_get_cache_key.assert_called_once_with(
             type='data_sharing_consent_needed',
             user_id='some-user-id',
             course_id='some-course-id',
+            enterprise_customer_uuid=enterprise_customer_uuid
         )
         mock_tiered_cache.delete_all_tiers.assert_called_once_with(mock_get_cache_key.return_value)
 
@@ -149,7 +156,7 @@ class TestEnterpriseUtils(TestCase):
         assert 'pied-piper' == actual_result['enterprise_name']
         expected_logo_url = branding_configuration.get('logo', '')
         assert expected_logo_url == actual_result['enterprise_logo_url']
-        self.assertIn('pied-piper', str(actual_result['enterprise_branded_welcome_string']))
+        assert 'pied-piper' in str(actual_result['enterprise_branded_welcome_string'])
 
     @ddt.data(
         ('notfoundpage', 0),
@@ -165,7 +172,7 @@ class TestEnterpriseUtils(TestCase):
             'openedx.features.enterprise_support.api.enterprise_customer_for_request'
         ) as mock_customer_request:
             self.client.get(resource)
-            self.assertEqual(mock_customer_request.call_count, expected_calls)
+            assert mock_customer_request.call_count == expected_calls
 
     @mock.patch('openedx.features.enterprise_support.utils.configuration_helpers.get_value')
     def test_enterprise_fields_only(self, mock_get_value):
@@ -202,21 +209,12 @@ class TestEnterpriseUtils(TestCase):
         # This will directly modify context
         update_third_party_auth_context_for_enterprise(request, context, enterprise_customer)
 
-        self.assertIn(
-            'We are sorry, you are not authorized',
-            str(context['data']['third_party_auth']['errorMessage'])
-        )
-        self.assertIn(
-            'Widget error.',
-            str(context['data']['third_party_auth']['errorMessage'])
-        )
+        assert 'We are sorry, you are not authorized' in str(context['data']['third_party_auth']['errorMessage'])
+        assert 'Widget error.' in str(context['data']['third_party_auth']['errorMessage'])
         assert [] == context['data']['third_party_auth']['providers']
         assert [] == context['data']['third_party_auth']['secondaryProviders']
-        self.assertFalse(context['data']['third_party_auth']['autoSubmitRegForm'])
-        self.assertIn(
-            'Just a couple steps',
-            str(context['data']['third_party_auth']['autoRegisterWelcomeMessage'])
-        )
+        assert not context['data']['third_party_auth']['autoSubmitRegForm']
+        assert 'Just a couple steps' in str(context['data']['third_party_auth']['autoRegisterWelcomeMessage'])
         assert 'Continue' == str(context['data']['third_party_auth']['registerFormSubmitButtonText'])
         mock_tpa.pipeline.get.assert_called_once_with(request)
 
@@ -263,7 +261,7 @@ class TestEnterpriseUtils(TestCase):
     @mock.patch('openedx.features.enterprise_support.utils.get_current_request')
     @mock.patch('openedx.features.enterprise_support.api.enterprise_customer_for_request')
     def test_get_enterprise_readonly_account_fields_no_sync_learner_profile_data(
-            self, mock_customer_for_request, mock_get_current_request
+            self, mock_customer_for_request, mock_get_current_request,
     ):
         mock_get_current_request.return_value = mock.Mock(
             GET={'enterprise_customer': 'some-uuid'},
@@ -271,6 +269,7 @@ class TestEnterpriseUtils(TestCase):
         mock_customer_for_request.return_value = {
             'uuid': 'some-uuid',
             'identity_provider': None,
+            'identity_providers': [],
         }
         user = mock.Mock()
 
@@ -292,6 +291,11 @@ class TestEnterpriseUtils(TestCase):
         mock_customer_for_request.return_value = {
             'uuid': 'some-uuid',
             'identity_provider': 'mock-idp',
+            'identity_providers': [
+                {
+                    "provider_id": "mock-idp",
+                },
+            ]
         }
         mock_idp = mock.MagicMock(
             backend_name='mock-backend',
@@ -308,11 +312,10 @@ class TestEnterpriseUtils(TestCase):
         mock_get_current_request.assert_called_once_with()
 
         mock_tpa.provider.Registry.get.assert_called_with(provider_id='mock-idp')
-
         mock_select_related = mock_user_social_auth.objects.select_related
         mock_select_related.assert_called_once_with('user')
         mock_select_related.return_value.filter.assert_called_once_with(
-            provider=mock_idp.backend_name,
+            provider__in=[mock_idp.backend_name],
             user=user
         )
 
@@ -423,11 +426,11 @@ class TestEnterpriseUtils(TestCase):
         request.GET = {'enterprise_customer': uuid.uuid4()}
 
         portal = get_enterprise_learner_portal(request)
-        self.assertIsNone(portal)
+        assert portal is None
 
     def test_get_enterprise_learner_generic_name_404_pages(self):
         request = mock.Mock(view_name='404')
-        self.assertIsNone(get_enterprise_learner_generic_name(request))
+        assert get_enterprise_learner_generic_name(request) is None
 
     @mock.patch('openedx.features.enterprise_support.api.enterprise_customer_for_request')
     def test_get_enterprise_learner_generic_name_with_replacement(self, mock_customer_for_request):
@@ -454,27 +457,27 @@ class TestEnterpriseUtils(TestCase):
             'django.core.cache.cache.set'
         ) as mock_cache_set:
             EnterpriseCustomerUserFactory.create(active=True, user_id=self.user.id)
-            self.assertTrue(is_enterprise_learner(self.user))
+            assert is_enterprise_learner(self.user)
 
-        self.assertTrue(mock_cache_set.called)
+        assert mock_cache_set.called
 
     def test_is_enterprise_learner_no_enterprise_user(self):
         with mock.patch(
             'django.core.cache.cache.set'
         ) as mock_cache_set:
-            self.assertFalse(is_enterprise_learner(self.user))
+            assert not is_enterprise_learner(self.user)
 
-        self.assertFalse(mock_cache_set.called)
+        assert not mock_cache_set.called
 
     @mock.patch('openedx.features.enterprise_support.utils.reverse')
     def test_get_enterprise_slug_login_url_no_reverse_match(self, mock_reverse):
         mock_reverse.side_effect = NoReverseMatch
-        self.assertIsNone(get_enterprise_slug_login_url())
+        assert get_enterprise_slug_login_url() is None
         mock_reverse.assert_called_once_with('enterprise_slug_login')
 
     @mock.patch('openedx.features.enterprise_support.utils.reverse')
     def test_get_enterprise_slug_login_url_with_match(self, mock_reverse):
-        self.assertIsNotNone(get_enterprise_slug_login_url())
+        assert get_enterprise_slug_login_url() is not None
         mock_reverse.assert_called_once_with('enterprise_slug_login')
 
     def test_fetch_enterprise_customer_by_id(self):
@@ -511,4 +514,4 @@ class TestEnterpriseUtils(TestCase):
             mock_tpa.pipeline.AUTH_ENTRY_LOGIN,
             redirect_url=redirect_url,
         )
-        self.assertFalse(mock_next_login_url.called)
+        assert not mock_next_login_url.called

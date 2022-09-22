@@ -14,7 +14,7 @@ from common.djangoapps.course_modes.models import CourseMode
 from common.djangoapps.course_modes.tests.factories import CourseModeFactory
 from common.djangoapps.student.tests.factories import UserFactory
 from lms.djangoapps.courseware.models import DynamicUpgradeDeadlineConfiguration
-from openedx.core.djangoapps.schedules.tests.factories import ScheduleFactory
+from openedx.core.djangoapps.schedules.models import Schedule
 from openedx.core.djangoapps.user_api.preferences.api import set_user_preference
 from openedx.core.djangolib.testing.utils import CacheIsolationTestCase
 from openedx.features.course_duration_limits.access import (
@@ -32,17 +32,17 @@ from common.djangoapps.util.date_utils import strftime_localized
 class TestAccess(CacheIsolationTestCase):
     """Tests of openedx.features.course_duration_limits.access"""
     def setUp(self):
-        super(TestAccess, self).setUp()
+        super().setUp()  # lint-amnesty, pylint: disable=super-with-arguments
 
         CourseDurationLimitConfig.objects.create(enabled=True, enabled_as_of=datetime(2018, 1, 1, tzinfo=UTC))
         DynamicUpgradeDeadlineConfiguration.objects.create(enabled=True)
 
-    def assertDateInMessage(self, date, message):
+    def assertDateInMessage(self, date, message):  # lint-amnesty, pylint: disable=missing-function-docstring
         # First, check that the formatted version is in there
-        self.assertIn(strftime_localized(date, '%b %-d, %Y'), message)
+        assert strftime_localized(date, 'SHORT_DATE') in message
 
         # But also that the machine-readable version is in there
-        self.assertIn('data-datetime="%s"' % date.isoformat(), message)
+        assert 'data-datetime="%s"' % date.isoformat() in message
 
     def test_get_access_expiration_data(self):
         enrollment = CourseEnrollmentFactory()
@@ -62,15 +62,16 @@ class TestAccess(CacheIsolationTestCase):
         )
 
         expiration_date = get_user_course_expiration_date(user, overview)
-        self.assertIsNotNone(expiration_date)
+        assert expiration_date is not None
 
         data = get_access_expiration_data(user, overview)
-        self.assertEqual(data, {
-            'expiration_date': expiration_date,
-            'masquerading_expired_course': False,
-            'upgrade_deadline': upgrade_deadline,
-            'upgrade_url': '/dashboard',
-        })
+        assert data == \
+               {
+                   'expiration_date': expiration_date,
+                   'masquerading_expired_course': False,
+                   'upgrade_deadline': upgrade_deadline,
+                   'upgrade_url': '/dashboard'
+               }
 
     @ddt.data(
         *itertools.product(
@@ -112,18 +113,15 @@ class TestAccess(CacheIsolationTestCase):
             course_id=enrollment.course.id,
             mode_slug=CourseMode.AUDIT,
         )
-        ScheduleFactory.create(
-            enrollment=enrollment,
-            upgrade_deadline=schedule_upgrade_deadline,
-        )
+        Schedule.objects.update(upgrade_deadline=schedule_upgrade_deadline)
 
         duration_limit_upgrade_deadline = get_user_course_expiration_date(enrollment.user, enrollment.course)
-        self.assertIsNotNone(duration_limit_upgrade_deadline)
+        assert duration_limit_upgrade_deadline is not None
 
         message = generate_course_expired_message(enrollment.user, enrollment.course)
 
         self.assertDateInMessage(duration_limit_upgrade_deadline, message)
-        self.assertIn('data-timezone="Asia/Tokyo"', message)
+        assert 'data-timezone="Asia/Tokyo"' in message
 
         soft_upgradeable = schedule_upgrade_deadline is not None and now < schedule_upgrade_deadline
         upgradeable = course_upgrade_deadline is None or now < course_upgrade_deadline
@@ -134,7 +132,7 @@ class TestAccess(CacheIsolationTestCase):
         elif upgradeable and has_upgrade_deadline:
             self.assertDateInMessage(course_upgrade_deadline, message)
         else:
-            self.assertNotIn("Upgrade by", message)
+            assert 'Upgrade by' not in message
 
     def test_schedule_start_date_in_past(self):
         """
@@ -154,15 +152,12 @@ class TestAccess(CacheIsolationTestCase):
             course_id=enrollment.course.id,
             mode_slug=CourseMode.AUDIT,
         )
-        ScheduleFactory.create(
-            enrollment=enrollment,
-            start_date=datetime(2017, 1, 1, tzinfo=UTC),
-        )
+        Schedule.objects.update(start_date=datetime(2017, 1, 1, tzinfo=UTC))
 
         content_availability_date = max(enrollment.created, enrollment.course.start)
         access_duration = get_user_course_duration(enrollment.user, enrollment.course)
         expected_course_expiration_date = content_availability_date + access_duration
 
         duration_limit_upgrade_deadline = get_user_course_expiration_date(enrollment.user, enrollment.course)
-        self.assertIsNotNone(duration_limit_upgrade_deadline)
-        self.assertEqual(duration_limit_upgrade_deadline, expected_course_expiration_date)
+        assert duration_limit_upgrade_deadline is not None
+        assert duration_limit_upgrade_deadline == expected_course_expiration_date

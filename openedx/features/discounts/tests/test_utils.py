@@ -1,10 +1,9 @@
 """
 Tests of the openedx.features.discounts.utils module.
 """
-from mock import patch, Mock
+from unittest.mock import patch, Mock
 
 import ddt
-import six
 from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase
 from django.utils.translation import override as override_lang
@@ -33,7 +32,7 @@ class TestStrikeoutPrice(TestCase):
         ):
             content, has_discount = utils.format_strikeout_price(Mock(name='user'), Mock(name='course'))
 
-        assert six.text_type(content) == u"<span class='price'>$100</span>"
+        assert str(content) == "<span class='price'>$100</span>"
         assert not has_discount
 
     @ddt.data((15, 100, "$100", "$85",), (50, 50, "$50", "$25"), (10, 99, "$99", "$89.10"))
@@ -47,12 +46,12 @@ class TestStrikeoutPrice(TestCase):
         ):
             content, has_discount = utils.format_strikeout_price(Mock(name='user'), Mock(name='course'))
 
-        assert six.text_type(content) == (
-            u"<span class='sr-only'>"
-            u"Original price: <span class='price original'>{original_price}</span>, discount price: "
-            u"</span>"
-            u"<span class='price discount'>{discount_price}</span> "
-            u"<del aria-hidden='true'><span class='price original'>{original_price}</span></del>"
+        assert str(content) == (
+            "<span class='sr-only'>"
+            "Original price: <span class='price original'>{original_price}</span>, discount price: "
+            "</span>"
+            "<span class='price discount'>{discount_price}</span> "
+            "<del aria-hidden='true'><span class='price original'>{original_price}</span></del>"
         ).format(original_price=formatted_base_price, discount_price=final_price)
         assert has_discount
 
@@ -72,22 +71,22 @@ class TestOfferData(TestCase):
         CourseEnrollment.enroll(self.user, self.overview.id, CourseMode.AUDIT)
 
     def test_happy_path(self):
-        self.assertEqual(utils.generate_offer_data(self.user, self.overview), {
+        assert utils.generate_offer_data(self.user, self.overview) == {
             'code': 'EDXWELCOME',
             'expiration_date': get_discount_expiration_date(self.user, self.overview),
             'original_price': '$149',
             'discounted_price': '$126.65',
             'percentage': 15,
-            'upgrade_url': '/dashboard',
-        })
+            'upgrade_url': '/dashboard'
+        }
 
     def test_spanish_code(self):
         with override_lang('es-419'):
-            self.assertEqual(utils.generate_offer_data(self.user, self.overview)['code'], 'BIENVENIDOAEDX')
+            assert utils.generate_offer_data(self.user, self.overview)['code'] == 'BIENVENIDOAEDX'
 
     def test_anonymous(self):
-        self.assertIsNone(utils.generate_offer_data(AnonymousUser(), self.overview))
+        assert utils.generate_offer_data(AnonymousUser(), self.overview) is None
 
     @patch('openedx.features.discounts.utils.can_receive_discount', return_value=False)
     def test_no_discount(self, _mock):
-        self.assertIsNone(utils.generate_offer_data(self.user, self.overview))
+        assert utils.generate_offer_data(self.user, self.overview) is None

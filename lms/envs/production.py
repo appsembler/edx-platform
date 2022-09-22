@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 This is the default template for our main set of AWS servers.
 
@@ -43,8 +41,8 @@ def get_env_setting(setting):
     try:
         return os.environ[setting]
     except KeyError:
-        error_msg = u"Set the %s env variable" % setting
-        raise ImproperlyConfigured(error_msg)
+        error_msg = "Set the %s env variable" % setting
+        raise ImproperlyConfigured(error_msg)  # lint-amnesty, pylint: disable=raise-missing-from
 
 ################################ ALWAYS THE SAME ##############################
 
@@ -135,11 +133,11 @@ CELERYD_PREFETCH_MULTIPLIER = 1
 
 QUEUE_VARIANT = CONFIG_PREFIX.lower()
 
-CELERY_DEFAULT_EXCHANGE = 'edx.{0}core'.format(QUEUE_VARIANT)
+CELERY_DEFAULT_EXCHANGE = f'edx.{QUEUE_VARIANT}core'
 
-HIGH_PRIORITY_QUEUE = 'edx.{0}core.high'.format(QUEUE_VARIANT)
-DEFAULT_PRIORITY_QUEUE = 'edx.{0}core.default'.format(QUEUE_VARIANT)
-HIGH_MEM_QUEUE = 'edx.{0}core.high_mem'.format(QUEUE_VARIANT)
+HIGH_PRIORITY_QUEUE = f'edx.{QUEUE_VARIANT}core.high'
+DEFAULT_PRIORITY_QUEUE = f'edx.{QUEUE_VARIANT}core.default'
+HIGH_MEM_QUEUE = f'edx.{QUEUE_VARIANT}core.high_mem'
 
 CELERY_DEFAULT_QUEUE = DEFAULT_PRIORITY_QUEUE
 CELERY_DEFAULT_ROUTING_KEY = DEFAULT_PRIORITY_QUEUE
@@ -189,7 +187,7 @@ SESSION_COOKIE_DOMAIN = ENV_TOKENS.get('SESSION_COOKIE_DOMAIN')
 SESSION_COOKIE_HTTPONLY = ENV_TOKENS.get('SESSION_COOKIE_HTTPONLY', True)
 
 DCS_SESSION_COOKIE_SAMESITE = ENV_TOKENS.get('DCS_SESSION_COOKIE_SAMESITE', DCS_SESSION_COOKIE_SAMESITE)
-DCS_SESSION_COOKIE_SAMESITE_FORCE_ALL = ENV_TOKENS.get('DCS_SESSION_COOKIE_SAMESITE_FORCE_ALL', DCS_SESSION_COOKIE_SAMESITE_FORCE_ALL)
+DCS_SESSION_COOKIE_SAMESITE_FORCE_ALL = ENV_TOKENS.get('DCS_SESSION_COOKIE_SAMESITE_FORCE_ALL', DCS_SESSION_COOKIE_SAMESITE_FORCE_ALL)  # lint-amnesty, pylint: disable=line-too-long
 
 AWS_SES_REGION_NAME = ENV_TOKENS.get('AWS_SES_REGION_NAME', 'us-east-1')
 AWS_SES_REGION_ENDPOINT = ENV_TOKENS.get('AWS_SES_REGION_ENDPOINT', 'email.us-east-1.amazonaws.com')
@@ -339,12 +337,10 @@ COMMENTS_SERVICE_URL = ENV_TOKENS.get("COMMENTS_SERVICE_URL", '')
 COMMENTS_SERVICE_KEY = ENV_TOKENS.get("COMMENTS_SERVICE_KEY", '')
 CERT_QUEUE = ENV_TOKENS.get("CERT_QUEUE", 'test-pull')
 
-# git repo loading  environment
-GIT_REPO_DIR = ENV_TOKENS.get('GIT_REPO_DIR', '/edx/var/edxapp/course_repos')
-GIT_IMPORT_STATIC = ENV_TOKENS.get('GIT_IMPORT_STATIC', True)
-GIT_IMPORT_PYTHON_LIB = ENV_TOKENS.get('GIT_IMPORT_PYTHON_LIB', True)
+# Python lib settings
 PYTHON_LIB_FILENAME = ENV_TOKENS.get('PYTHON_LIB_FILENAME', 'python_lib.zip')
 
+# Code jail settings
 for name, value in ENV_TOKENS.get("CODE_JAIL", {}).items():
     oldvalue = CODE_JAIL.get(name)
     if isinstance(oldvalue, dict):
@@ -363,7 +359,7 @@ if "TRACKING_IGNORE_URL_PATTERNS" in ENV_TOKENS:
 SSL_AUTH_EMAIL_DOMAIN = ENV_TOKENS.get("SSL_AUTH_EMAIL_DOMAIN", "MIT.EDU")
 SSL_AUTH_DN_FORMAT_STRING = ENV_TOKENS.get(
     "SSL_AUTH_DN_FORMAT_STRING",
-    u"/C=US/ST=Massachusetts/O=Massachusetts Institute of Technology/OU=Client CA v1/CN={0}/emailAddress={1}"
+    "/C=US/ST=Massachusetts/O=Massachusetts Institute of Technology/OU=Client CA v1/CN={0}/emailAddress={1}"
 )
 
 # Video Caching. Pairing country codes with CDN URLs.
@@ -537,11 +533,11 @@ CELERY_BROKER_VHOST = ENV_TOKENS.get("CELERY_BROKER_VHOST", "")
 CELERY_BROKER_USER = AUTH_TOKENS.get("CELERY_BROKER_USER", "")
 CELERY_BROKER_PASSWORD = AUTH_TOKENS.get("CELERY_BROKER_PASSWORD", "")
 
-BROKER_URL = "{0}://{1}:{2}@{3}/{4}".format(CELERY_BROKER_TRANSPORT,
-                                            CELERY_BROKER_USER,
-                                            CELERY_BROKER_PASSWORD,
-                                            CELERY_BROKER_HOSTNAME,
-                                            CELERY_BROKER_VHOST)
+BROKER_URL = "{}://{}:{}@{}/{}".format(CELERY_BROKER_TRANSPORT,
+                                       CELERY_BROKER_USER,
+                                       CELERY_BROKER_PASSWORD,
+                                       CELERY_BROKER_HOSTNAME,
+                                       CELERY_BROKER_VHOST)
 BROKER_USE_SSL = ENV_TOKENS.get('CELERY_BROKER_USE_SSL', False)
 
 BROKER_TRANSPORT_OPTIONS = {
@@ -608,11 +604,17 @@ MAX_FAILED_LOGIN_ATTEMPTS_LOCKOUT_PERIOD_SECS = ENV_TOKENS.get(
 ##### LOGISTRATION RATE LIMIT SETTINGS #####
 LOGISTRATION_RATELIMIT_RATE = ENV_TOKENS.get('LOGISTRATION_RATELIMIT_RATE', LOGISTRATION_RATELIMIT_RATE)
 LOGISTRATION_API_RATELIMIT = ENV_TOKENS.get('LOGISTRATION_API_RATELIMIT', LOGISTRATION_API_RATELIMIT)
+RESET_PASSWORD_TOKEN_VALIDATE_API_RATELIMIT = ENV_TOKENS.get(
+    'RESET_PASSWORD_TOKEN_VALIDATE_API_RATELIMIT', RESET_PASSWORD_TOKEN_VALIDATE_API_RATELIMIT
+)
+RESET_PASSWORD_API_RATELIMIT = ENV_TOKENS.get('RESET_PASSWORD_API_RATELIMIT', RESET_PASSWORD_API_RATELIMIT)
 
 ##### REGISTRATION RATE LIMIT SETTINGS #####
 REGISTRATION_VALIDATION_RATELIMIT = ENV_TOKENS.get(
     'REGISTRATION_VALIDATION_RATELIMIT', REGISTRATION_VALIDATION_RATELIMIT
 )
+
+REGISTRATION_RATELIMIT = ENV_TOKENS.get('REGISTRATION_RATELIMIT', REGISTRATION_RATELIMIT)
 
 #### PASSWORD POLICY SETTINGS #####
 AUTH_PASSWORD_VALIDATORS = ENV_TOKENS.get("AUTH_PASSWORD_VALIDATORS", AUTH_PASSWORD_VALIDATORS)
@@ -625,6 +627,8 @@ TIME_ZONE_DISPLAYED_FOR_DEADLINES = ENV_TOKENS.get("TIME_ZONE_DISPLAYED_FOR_DEAD
                                                    TIME_ZONE_DISPLAYED_FOR_DEADLINES)
 
 ##### Third-party auth options ################################################
+ENABLE_REQUIRE_THIRD_PARTY_AUTH = ENV_TOKENS.get('ENABLE_REQUIRE_THIRD_PARTY_AUTH', False)
+
 if FEATURES.get('ENABLE_THIRD_PARTY_AUTH'):
     tmp_backends = ENV_TOKENS.get('THIRD_PARTY_AUTH_BACKENDS', [
         'social_core.backends.google.GoogleOAuth2',
@@ -975,8 +979,8 @@ derive_settings(__name__)
 # (0.0 = 0%, 1.0 = 100%)
 COMPLETION_VIDEO_COMPLETE_PERCENTAGE = ENV_TOKENS.get('COMPLETION_VIDEO_COMPLETE_PERCENTAGE',
                                                       COMPLETION_VIDEO_COMPLETE_PERCENTAGE)
-COMPLETION_VIDEO_COMPLETE_PERCENTAGE = ENV_TOKENS.get('COMPLETION_BY_VIEWING_DELAY_MS',
-                                                      COMPLETION_BY_VIEWING_DELAY_MS)
+COMPLETION_BY_VIEWING_DELAY_MS = ENV_TOKENS.get('COMPLETION_BY_VIEWING_DELAY_MS',
+                                                COMPLETION_BY_VIEWING_DELAY_MS)
 
 ################# Settings for brand logos. #################
 LOGO_URL = ENV_TOKENS.get('LOGO_URL', LOGO_URL)
@@ -1042,3 +1046,8 @@ EXPLICIT_QUEUES = {
     'openedx.core.djangoapps.coursegraph.dump_course_to_neo4j': {
         'queue': COURSEGRAPH_JOB_QUEUE},
 }
+
+LOGO_IMAGE_EXTRA_TEXT = ENV_TOKENS.get('LOGO_IMAGE_EXTRA_TEXT', '')
+
+############## XBlock extra mixins ############################
+XBLOCK_MIXINS += tuple(XBLOCK_EXTRA_MIXINS)

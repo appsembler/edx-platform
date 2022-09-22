@@ -5,7 +5,6 @@ Helpers for API tests.
 import base64
 import json
 import re
-import six
 
 from django.test import TestCase
 from django.test.utils import override_settings
@@ -40,7 +39,7 @@ class ApiTestCase(TestCase):
         """Make a request with the given args and return the parsed JSON response"""
         resp = self.request_with_auth("get", *args, **kwargs)
         self.assertHttpOK(resp)
-        self.assertTrue(resp["Content-Type"].startswith("application/json"))
+        assert resp['Content-Type'].startswith('application/json')
         return json.loads(resp.content.decode('utf-8'))
 
     def assertAllowedMethods(self, uri, expected_methods):
@@ -48,34 +47,34 @@ class ApiTestCase(TestCase):
         resp = self.request_with_auth("options", uri)
         self.assertHttpOK(resp)
         allow_header = resp.get("Allow")
-        self.assertIsNotNone(allow_header)
+        assert allow_header is not None
         allowed_methods = re.split('[^A-Z]+', allow_header)
-        six.assertCountEqual(self, allowed_methods, expected_methods)
+        self.assertCountEqual(allowed_methods, expected_methods)
 
     def assertSelfReferential(self, obj):
         """Assert that accessing the "url" entry in the given object returns the same object"""
         copy = self.get_json(obj["url"])
-        self.assertEqual(obj, copy)
+        assert obj == copy
 
     def assertHttpOK(self, response):
         """Assert that the given response has the status code 200"""
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
 
     def assertHttpCreated(self, response):
         """Assert that the given response has the status code 201"""
-        self.assertEqual(response.status_code, 201)
+        assert response.status_code == 201
 
     def assertHttpForbidden(self, response):
         """Assert that the given response has the status code 403"""
-        self.assertEqual(response.status_code, 403)
+        assert response.status_code == 403
 
     def assertHttpBadRequest(self, response):
         """Assert that the given response has the status code 400"""
-        self.assertEqual(response.status_code, 400)
+        assert response.status_code == 400
 
     def assertHttpMethodNotAllowed(self, response):
         """Assert that the given response has the status code 405"""
-        self.assertEqual(response.status_code, 405)
+        assert response.status_code == 405
 
     def assertAuthDisabled(self, method, uri):
         """
@@ -86,6 +85,6 @@ class ApiTestCase(TestCase):
         # Django rest framework interprets basic auth headers
         # as an attempt to authenticate with the API.
         # We don't want this for views available to anonymous users.
-        basic_auth_header = "Basic " + base64.b64encode('username:password'.encode('utf-8')).decode('utf-8')
+        basic_auth_header = "Basic " + base64.b64encode(b'username:password').decode('utf-8')
         response = getattr(self.client, method)(uri, HTTP_AUTHORIZATION=basic_auth_header)
-        self.assertNotEqual(response.status_code, 403)
+        assert response.status_code != 403

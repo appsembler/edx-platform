@@ -5,7 +5,7 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User  # lint-amnesty, pylint: disable=imported-auth-user
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseNotFound
 from django.utils.translation import ugettext as _
@@ -142,7 +142,7 @@ def _course_team_user(request, course_key, email):
     except Exception:  # pylint: disable=broad-except
         log.exception('Failed finding user by email (%s) for course (%s) team invite.', email, course_key)
         msg = {
-            "error": _(u"Could not find user by email address '{email}'.").format(email=email),
+            "error": _("Could not find user by email address '{email}'.").format(email=email),
         }
         return JsonResponse(msg, 404)
 
@@ -185,7 +185,7 @@ def _course_team_user(request, course_key, email):
     # can't modify an inactive user but can remove it
     if not (user.is_active or new_role is None):
         msg = {
-            "error": _(u'User {email} has registered but has not yet activated their account.').format(email=email),
+            "error": _('User {email} has registered but has not yet activated their account.').format(email=email),
         }
         return JsonResponse(msg, 400)
 
@@ -201,7 +201,7 @@ def _course_team_user(request, course_key, email):
                 role_added = True
             else:
                 return permissions_error_response
-        elif role.has_user(user, check_user_activation=False):
+        elif role.has_user(user, check_user_activation=False):  # pylint: disable=no-value-for-parameter
             # Remove the user from this old role:
             old_roles.add(role)
 

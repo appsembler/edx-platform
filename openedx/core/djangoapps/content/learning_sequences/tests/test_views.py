@@ -14,9 +14,7 @@ Where possible, seed data using public API methods (e.g. replace_course_outline
 from this app, edx-when's set_dates_for_course).
 """
 from datetime import datetime, timezone
-
-from django.contrib.auth.models import User
-from opaque_keys.edx.keys import CourseKey, UsageKey
+from opaque_keys.edx.keys import CourseKey  # lint-amnesty, pylint: disable=unused-import
 from rest_framework.test import APITestCase, APIClient
 
 from openedx.core.djangolib.testing.utils import CacheIsolationTestCase
@@ -27,10 +25,10 @@ from ..data import CourseOutlineData, CourseVisibility
 from ..api.tests.test_data import generate_sections
 
 
-class CourseOutlineViewTest(CacheIsolationTestCase, APITestCase):
+class CourseOutlineViewTest(CacheIsolationTestCase, APITestCase):  # lint-amnesty, pylint: disable=missing-class-docstring
 
     @classmethod
-    def setUpTestData(cls):
+    def setUpTestData(cls):  # lint-amnesty, pylint: disable=super-method-not-called
         cls.staff = UserFactory.create(
             username='staff', email='staff@example.com', is_staff=True, password='staff_pass'
         )
@@ -58,7 +56,7 @@ class CourseOutlineViewTest(CacheIsolationTestCase, APITestCase):
 
     @classmethod
     def url_for(cls, course_key):
-        return '/api/learning_sequences/v1/course_outline/{}'.format(course_key)
+        return f'/api/learning_sequences/v1/course_outline/{course_key}'
 
     def test_student_access_denied(self):
         """
@@ -69,6 +67,15 @@ class CourseOutlineViewTest(CacheIsolationTestCase, APITestCase):
         self.client.login(username='student', password='student_pass')
         result = self.client.get(self.course_url)
         assert result.status_code == 403
+
+    def test_non_existent_course_404(self):
+        """
+        We should 404, not 500, when asking for a course that isn't there.
+        """
+        self.client.login(username='staff', password='staff_pass')
+        fake_course_key = self.course_key.replace(run="not_real")
+        result = self.client.get(self.url_for(fake_course_key))
+        assert result.status_code == 404
 
     def test_deprecated_course_key(self):
         """

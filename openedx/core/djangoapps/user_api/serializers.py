@@ -3,8 +3,8 @@ Django REST Framework serializers for the User API application
 """
 
 
-from django.contrib.auth.models import User
-from django.utils.timezone import now
+from django.contrib.auth.models import User  # lint-amnesty, pylint: disable=imported-auth-user
+from django.utils.timezone import now  # lint-amnesty, pylint: disable=unused-import
 from rest_framework import serializers
 
 from lms.djangoapps.verify_student.models import (
@@ -34,7 +34,7 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
         """
         return UserPreference.get_all_preferences(user)
 
-    class Meta(object):
+    class Meta:
         model = User
         # This list is the minimal set required by the notification service
         fields = ("id", "url", "email", "name", "username", "preferences")
@@ -49,7 +49,7 @@ class UserPreferenceSerializer(serializers.HyperlinkedModelSerializer):
     """
     user = UserSerializer()
 
-    class Meta(object):
+    class Meta:
         model = UserPreference
         depth = 1
         fields = ('user', 'key', 'value', 'url')
@@ -61,13 +61,13 @@ class RawUserPreferenceSerializer(serializers.ModelSerializer):
     """
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
 
-    class Meta(object):
+    class Meta:
         model = UserPreference
         depth = 1
         fields = ('user', 'key', 'value', 'url')
 
 
-class ReadOnlyFieldsSerializerMixin(object):
+class ReadOnlyFieldsSerializerMixin:
     """
     Mixin for use with Serializers that provides a method
     `get_read_only_fields`, which returns a tuple of all read-only
@@ -101,14 +101,15 @@ class CountryTimeZoneSerializer(serializers.Serializer):  # pylint: disable=abst
     description = serializers.CharField()
 
 
-class IDVerificationDetailsSerializer(serializers.Serializer):
+class IDVerificationDetailsSerializer(serializers.Serializer):  # lint-amnesty, pylint: disable=abstract-method, missing-class-docstring
     type = serializers.SerializerMethodField()
     status = serializers.CharField()
     expiration_datetime = serializers.DateTimeField()
     message = serializers.SerializerMethodField()
     updated_at = serializers.DateTimeField()
+    receipt_id = serializers.SerializerMethodField()
 
-    def get_type(self, obj):
+    def get_type(self, obj):  # lint-amnesty, pylint: disable=missing-function-docstring
         if isinstance(obj, SoftwareSecurePhotoVerification):
             return 'Software Secure'
         elif isinstance(obj, ManualVerification):
@@ -116,10 +117,16 @@ class IDVerificationDetailsSerializer(serializers.Serializer):
         else:
             return 'SSO'
 
-    def get_message(self, obj):
+    def get_message(self, obj):  # lint-amnesty, pylint: disable=missing-function-docstring
         if isinstance(obj, SoftwareSecurePhotoVerification):
             return obj.error_msg
         elif isinstance(obj, ManualVerification):
             return obj.reason
         else:
             return ''
+
+    def get_receipt_id(self, obj):
+        if isinstance(obj, SoftwareSecurePhotoVerification):
+            return obj.receipt_id
+        else:
+            return None

@@ -2,7 +2,7 @@
 Utilities related to API views
 """
 
-from collections import Sequence
+from collections import Sequence  # lint-amnesty, pylint: disable=no-name-in-module
 from functools import wraps
 
 from django.core.exceptions import NON_FIELD_ERRORS, ObjectDoesNotExist, ValidationError
@@ -20,7 +20,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import clone_request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from six import text_type, iteritems
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.user_api.accounts import BIO_MAX_LENGTH
@@ -35,11 +34,11 @@ class DeveloperErrorResponseException(Exception):
     Intended to be used with and by DeveloperErrorViewMixin.
     """
     def __init__(self, response):
-        super(DeveloperErrorResponseException, self).__init__()
+        super().__init__()
         self.response = response
 
 
-class DeveloperErrorViewMixin(object):
+class DeveloperErrorViewMixin:
     """
     A view mixin to handle common error cases other than validation failure
     (auth failure, method not allowed, etc.) by generating an error response
@@ -92,20 +91,20 @@ class DeveloperErrorViewMixin(object):
             return exc.response
         elif isinstance(exc, APIException):
             return self._make_error_response(exc.status_code, exc.detail)
-        elif isinstance(exc, Http404) or isinstance(exc, ObjectDoesNotExist):
-            return self._make_error_response(404, text_type(exc) or "Not found.")
+        elif isinstance(exc, Http404) or isinstance(exc, ObjectDoesNotExist):  # lint-amnesty, pylint: disable=consider-merging-isinstance
+            return self._make_error_response(404, str(exc) or "Not found.")
         elif isinstance(exc, ValidationError):
             return self._make_validation_error_response(exc)
         else:
-            raise
+            raise  # lint-amnesty, pylint: disable=misplaced-bare-raise
 
 
-class ExpandableFieldViewMixin(object):
+class ExpandableFieldViewMixin:
     """A view mixin to add expansion information to the serializer context for later use by an ExpandableField."""
 
     def get_serializer_context(self):
         """Adds expand information from query parameters to the serializer context to support expandable fields."""
-        result = super(ExpandableFieldViewMixin, self).get_serializer_context()
+        result = super().get_serializer_context()
         result['expand'] = [x for x in self.request.query_params.get('expand', '').split(',') if x]
         return result
 
@@ -141,7 +140,7 @@ def clean_errors(error):
     This cursively handles the nesting of errors.
     """
     if isinstance(error, ErrorDetail):
-        return text_type(error)
+        return str(error)
     if isinstance(error, list):
         return [clean_errors(el) for el in error]
     else:
@@ -153,15 +152,15 @@ def add_serializer_errors(serializer, data, field_errors):
     """Adds errors from serializer validation to field_errors. data is the original data to deserialize."""
     if not serializer.is_valid():
         errors = serializer.errors
-        for key, error in iteritems(errors):
+        for key, error in errors.items():
             error = clean_errors(error)
             if key == 'bio':
-                user_message = _(u"The about me field must be at most {} characters long.".format(BIO_MAX_LENGTH))
+                user_message = _(f"The about me field must be at most {BIO_MAX_LENGTH} characters long.")  # lint-amnesty, pylint: disable=translation-of-non-string
             else:
-                user_message = _(u"This value is invalid.")
+                user_message = _("This value is invalid.")
 
             field_errors[key] = {
-                'developer_message': u"Value '{field_value}' is not valid for field '{field_name}': {error}".format(
+                'developer_message': "Value '{field_value}' is not valid for field '{field_name}': {error}".format(
                     field_value=data.get(key, ''), field_name=key, error=error
                 ),
                 'user_message': user_message,
@@ -180,7 +179,7 @@ def build_api_error(message, **kwargs):
     """
     return {
         'developer_message': message.format(**kwargs),
-        'user_message': _(message).format(**kwargs),
+        'user_message': _(message).format(**kwargs),  # lint-amnesty, pylint: disable=translation-of-non-string
     }
 
 
@@ -290,7 +289,7 @@ class LazySequence(Sequence):
                     self._data.append(next(self.iterable))
                 except StopIteration:
                     self._exhausted = True
-                    raise IndexError("Underlying sequence exhausted")
+                    raise IndexError("Underlying sequence exhausted")  # lint-amnesty, pylint: disable=raise-missing-from
 
             return self._data[index]
         elif isinstance(index, slice):
@@ -323,12 +322,12 @@ class LazySequence(Sequence):
 
     def __repr__(self):
         if self._exhausted:
-            return u"LazySequence({!r}, {!r})".format(
+            return "LazySequence({!r}, {!r})".format(
                 self._data,
                 self.est_len,
             )
         else:
-            return u"LazySequence(itertools.chain({!r}, {!r}), {!r})".format(
+            return "LazySequence(itertools.chain({!r}, {!r}), {!r})".format(
                 self._data,
                 self.iterable,
                 self.est_len,
@@ -346,10 +345,10 @@ class PaginatedAPIView(APIView):
         The paginator instance associated with the view, or `None`.
         """
         if not hasattr(self, '_paginator'):
-            if self.pagination_class is None:
+            if self.pagination_class is None:  # lint-amnesty, pylint: disable=no-member
                 self._paginator = None
             else:
-                self._paginator = self.pagination_class()
+                self._paginator = self.pagination_class()  # lint-amnesty, pylint: disable=no-member
         return self._paginator
 
     def paginate_queryset(self, queryset):
@@ -386,7 +385,7 @@ def require_post_params(required_params):
             request = args[0]
             missing_params = set(required_params) - set(request.POST.keys())
             if missing_params:
-                msg = u"Missing POST parameters: {missing}".format(
+                msg = "Missing POST parameters: {missing}".format(
                     missing=", ".join(missing_params)
                 )
                 return HttpResponseBadRequest(msg)
@@ -417,7 +416,7 @@ def verify_course_exists(view_func):
         try:
             course_key = get_course_key(request, kwargs.get('course_id'))
         except InvalidKeyError:
-            raise self.api_error(
+            raise self.api_error(  # lint-amnesty, pylint: disable=raise-missing-from
                 status_code=status.HTTP_404_NOT_FOUND,
                 developer_message='The provided course key cannot be parsed.',
                 error_code='invalid_course_key'
@@ -426,7 +425,7 @@ def verify_course_exists(view_func):
         if not CourseOverview.course_exists(course_key):
             raise self.api_error(
                 status_code=status.HTTP_404_NOT_FOUND,
-                developer_message=u"Requested grade for unknown course {course}".format(course=text_type(course_key)),
+                developer_message="Requested grade for unknown course {course}".format(course=str(course_key)),
                 error_code='course_does_not_exist'
             )
 

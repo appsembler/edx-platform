@@ -14,10 +14,11 @@ urlpatterns = [
         username=settings.USERNAME_PATTERN,
         course_key=settings.COURSE_ID_PATTERN),
         EnrollmentView.as_view(), name='courseenrollment'),
-    url(r'^enrollment/{course_key}$'.format(course_key=settings.COURSE_ID_PATTERN),
+    url(fr'^enrollment/{settings.COURSE_ID_PATTERN}$',
         EnrollmentView.as_view(), name='courseenrollment'),
     url(r'^enrollment$', EnrollmentListView.as_view(), name='courseenrollments'),
-    url(r'^course/{course_key}$'.format(course_key=settings.COURSE_ID_PATTERN),
+    url(r'^enrollments/?$', CourseEnrollmentsApiListView.as_view(), name='courseenrollmentsapilist'),
+    url(fr'^course/{settings.COURSE_ID_PATTERN}$',
         EnrollmentCourseDetailView.as_view(), name='courseenrollmentdetails'),
     url(r'^unenroll/$', UnenrollmentView.as_view(), name='unenrollment'),
 ]

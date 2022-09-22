@@ -6,9 +6,9 @@ This file contains celery tasks for sending email
 import logging
 
 from celery.exceptions import MaxRetriesExceededError
-from celery.task import task
+from celery import shared_task
 from django.conf import settings
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User  # lint-amnesty, pylint: disable=imported-auth-user
 from django.contrib.sites.models import Site
 from edx_ace import ace
 from edx_ace.errors import RecoverableChannelDeliveryError
@@ -20,7 +20,7 @@ from openedx.core.lib.celery.task_utils import emulate_http_request
 log = logging.getLogger('edx.celery.task')
 
 
-@task(bind=True, name='student.send_activation_email')
+@shared_task(bind=True)
 @set_code_owner_attribute
 def send_activation_email(self, msg_string, site_id, from_address=None):
     """
@@ -35,11 +35,10 @@ def send_activation_email(self, msg_string, site_id, from_address=None):
 
     dest_addr = msg.recipient.email_address
 
-    user = User.objects.get(username=msg.recipient.username)
-
     # Tahoe: `get_current_site()` don't work in celery tasks because there's no `request`.
     #        Getting the `site` from the caller instead.
     site = Site.objects.get(pk=site_id)
+    user = User.objects.get(id=msg.recipient.lms_user_id)
 
     try:
         with emulate_http_request(site=site, user=user):
@@ -65,4 +64,4 @@ def send_activation_email(self, msg_string, site_id, from_address=None):
             from_address,
             dest_addr,
         )
-        raise e
+        raise Exception  # lint-amnesty, pylint: disable=raise-missing-from
