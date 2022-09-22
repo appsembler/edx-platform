@@ -1,7 +1,7 @@
+# lint-amnesty, pylint: disable=missing-module-docstring
 import logging
 
 from django.contrib.auth import get_user_model
-from opaque_keys.edx.keys import CourseKey
 from common.djangoapps.util import milestones_helpers
 
 from .base import OutlineProcessor

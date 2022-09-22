@@ -36,7 +36,7 @@ except InvalidCacheBackendError:
 MAX_BLOCKSTORE_CACHE_DELAY = 60 * 5
 
 
-class BundleCache(object):
+class BundleCache:
     """
     Data cache that ties every key-value to a particular version of a blockstore
     bundle/draft, so that if/when the bundle/draft is updated, the cache is
@@ -102,7 +102,7 @@ class BundleCache(object):
         cache.delete(cache_key)
 
 
-def _construct_versioned_cache_key(bundle_uuid, version_num, key_parts, draft_name=None):
+def _construct_versioned_cache_key(bundle_uuid, version_num, key_parts, draft_name=None):  # lint-amnesty, pylint: disable=missing-function-docstring
     cache_key = str(bundle_uuid)
     if draft_name:
         cache_key += ":" + draft_name
@@ -147,7 +147,7 @@ def get_bundle_version_number(bundle_uuid, draft_name=None):
             # Cache the draft files using the version.  This saves an API call when the draft is first retrieved.
             draft_files = list(draft_metadata.files.values())
             draft_files_cache_key = _construct_versioned_cache_key(
-                bundle_uuid, version, ('bundle_draft_files_v2', ), draft_name)
+                bundle_uuid, version, ('bundle_draft_files', ), draft_name)
             cache.set(draft_files_cache_key, draft_files)
     # If we're not using a draft or the draft does not exist [anymore], fall
     # back to the bundle version, if any versions have been published:
@@ -165,7 +165,7 @@ def get_bundle_version_files_cached(bundle_uuid, bundle_version):
     # Use the blockstore django cache directly; this can't use BundleCache because BundleCache only associates data
     # with the most recent bundleversion, not a specified bundleversion
     # This key is '_v2' to avoid reading invalid values cached by a past version of this code with no timeout.
-    cache_key = 'bundle_version_files_v2:{}:{}'.format(bundle_uuid, bundle_version)
+    cache_key = f'bundle_version_files_v2:{bundle_uuid}:{bundle_version}'
     result = cache.get(cache_key)
     if result is None:
         result = blockstore_api.get_bundle_version_files(bundle_uuid, bundle_version)
@@ -183,8 +183,7 @@ def get_bundle_draft_files_cached(bundle_uuid, draft_name):
     """
     bundle_cache = BundleCache(bundle_uuid, draft_name)
 
-    # This key is `_v2` to avoid reading invalid values cached by a past version of this code with no timeout.
-    cache_key = ('bundle_draft_files_v2', )
+    cache_key = ('bundle_draft_files', )
     result = bundle_cache.get(cache_key)
     if result is None:
         result = list(blockstore_api.get_bundle_files(bundle_uuid, use_draft=draft_name))
@@ -213,7 +212,7 @@ def get_bundle_file_metadata_with_cache(bundle_uuid, path, bundle_version=None, 
     for file_info in get_bundle_files_cached(bundle_uuid, bundle_version, draft_name):
         if file_info.path == path:
             return file_info
-    raise blockstore_api.BundleFileNotFound("Could not load {} from bundle {}".format(path, bundle_uuid))
+    raise blockstore_api.BundleFileNotFound(f"Could not load {path} from bundle {bundle_uuid}")
 
 
 def get_bundle_file_data_with_cache(bundle_uuid, path, bundle_version=None, draft_name=None):
@@ -243,7 +242,7 @@ def get_bundle_version_direct_links_cached(bundle_uuid, bundle_version):
     """
     # Use the blockstore django cache directly; this can't use BundleCache because BundleCache only associates data
     # with the most recent bundleversion, not a specified bundleversion
-    cache_key = 'bundle_version_direct_links:{}:{}'.format(bundle_uuid, bundle_version)
+    cache_key = f'bundle_version_direct_links:{bundle_uuid}:{bundle_version}'
     result = cache.get(cache_key)
     if result is None:
         result = {

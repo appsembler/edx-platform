@@ -9,7 +9,7 @@ from django.test import TestCase
 from rest_framework.test import APIRequestFactory, force_authenticate
 from tahoe_sites.tests.utils import create_organization_mapping
 
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 
 import ddt
 import mock

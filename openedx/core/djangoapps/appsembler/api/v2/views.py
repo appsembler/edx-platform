@@ -16,7 +16,7 @@ from rest_framework.response import Response
 
 from openedx.core.djangoapps.appsembler.api.helpers import normalize_bool_param
 from openedx.core.djangoapps.user_authn.views.register import create_account_with_params
-from student.helpers import AccountValidationError
+from common.djangoapps.student.helpers import AccountValidationError
 
 from openedx.core.djangoapps.user_authn.views.password_reset import PasswordResetFormNoActive
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers

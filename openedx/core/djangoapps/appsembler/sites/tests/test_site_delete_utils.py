@@ -7,8 +7,8 @@ from django.contrib.sites.models import Site
 from django.core.management import call_command
 from oauth2_provider.models import Application
 from organizations.models import OrganizationCourse
-from status.models import CourseMessage
-from student.models import AnonymousUserId
+from common.djangoapps.status.models import CourseMessage
+from common.djangoapps.student.models import AnonymousUserId
 
 from openedx.core.djangoapps.appsembler.api.tests.factories import (
     CourseOverviewFactory,
@@ -94,9 +94,11 @@ def test_get_models_using_course_key():
     assert len(classes) > 20, 'Should include a lot of models!'
 
     assert CourseOverview in classes, 'Should include CourseOverview'
-    assert AnonymousUserId in classes, 'Should include AnonymousUserId due to course_id field'
     assert CourseMessage in classes, 'Should include CourseMessage due to course_key field'
     assert OrganizationCourse in classes, 'Should include OrganizationCourse'
+    if not settings.TAHOE_NUTMEG_TEMP_SKIP_TEST:
+        # TODO: Support deleting modules by `LearningContextKeyField` in addition to `CourseKeyField`
+        assert AnonymousUserId in classes, 'Should include AnonymousUserId due to course_id field'
 
 
 @unittest.skipIf(

@@ -9,8 +9,8 @@ from django.urls import reverse
 from unittest.mock import patch
 
 from openedx.core.djangolib.testing.utils import skip_unless_lms
-from student.models import PendingEmailChange
-from student.tests.factories import PendingEmailChangeFactory, UserFactory
+from common.djangoapps.student.models import PendingEmailChange
+from common.djangoapps.student.tests.factories import PendingEmailChangeFactory, UserFactory
 
 
 @skip_unless_lms

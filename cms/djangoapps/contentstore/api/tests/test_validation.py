@@ -12,8 +12,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from lms.djangoapps.courseware.tests.factories import StaffFactory
 from common.djangoapps.student.tests.factories import UserFactory
+from lms.djangoapps.courseware.tests.factories import StaffFactory
 from xmodule.modulestore.tests.django_utils import TEST_DATA_SPLIT_MODULESTORE, SharedModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
 
@@ -26,7 +26,7 @@ class CourseValidationViewTest(SharedModuleStoreTestCase, APITestCase):
 
     @classmethod
     def setUpClass(cls):
-        super(CourseValidationViewTest, cls).setUpClass()
+        super().setUpClass()
 
         cls.course = CourseFactory.create(display_name='test course', run="Testing_course")
         cls.course_key = cls.course.id
@@ -52,7 +52,7 @@ class CourseValidationViewTest(SharedModuleStoreTestCase, APITestCase):
             update_key.course_key,
             update_key.block_type,
             block_id=update_key.block_id,
-            fields=dict(data=u"<ol><li><h2>Date</h2>Hello world!</li></ol>"),
+            fields=dict(data="<ol><li><h2>Date</h2>Hello world!</li></ol>"),
         )
 
         section = ItemFactory.create(

@@ -13,7 +13,7 @@ from tahoe_sites import api as tahoe_sites_apis
 from openedx.core.djangoapps.appsembler.tahoe_idp import helpers
 from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
 
-from student.roles import (
+from common.djangoapps.student.roles import (
     CourseAccessRole,
     CourseCreatorRole,
     CourseInstructorRole,
@@ -22,7 +22,7 @@ from student.roles import (
     OrgStaffRole,
 )
 
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 
 
 @pytest.fixture

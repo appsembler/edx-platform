@@ -3,9 +3,9 @@
 
 import json
 import unittest
+from unittest import mock
 
 import ddt
-import mock
 
 from lms.djangoapps.program_enrollments.management.commands.tests.utils import UserSocialAuthFactory
 from common.djangoapps.third_party_auth import pipeline
@@ -24,7 +24,7 @@ class ProviderUserStateTestCase(testutil.TestCase):
     def test_get_unlink_form_name(self):
         google_provider = self.configure_google_provider(enabled=True)
         state = pipeline.ProviderUserState(google_provider, object(), None)
-        self.assertEqual(google_provider.provider_id + '_unlink_form', state.get_unlink_form_name())
+        assert (google_provider.provider_id + '_unlink_form') == state.get_unlink_form_name()
 
     @ddt.data(
         ('saml', 'tpa-saml'),
@@ -38,7 +38,7 @@ class ProviderUserStateTestCase(testutil.TestCase):
         self.enable_saml()
         idp_slug = "test"
         idp_config = {"logout_url": "http://example.com/logout"}
-        getattr(self, 'configure_{idp_type}_provider'.format(idp_type=idp_type))(
+        getattr(self, f'configure_{idp_type}_provider')(
             enabled=True,
             name="Test Provider",
             slug=idp_slug,
@@ -53,7 +53,7 @@ class ProviderUserStateTestCase(testutil.TestCase):
         }
         with simulate_running_pipeline("common.djangoapps.third_party_auth.pipeline", backend_name, **kwargs):
             logout_url = pipeline.get_idp_logout_url_from_running_pipeline(request)
-            self.assertEqual(idp_config['logout_url'], logout_url)
+            assert idp_config['logout_url'] == logout_url
 
 
 @skip_unless_thirdpartyauth()
@@ -64,7 +64,7 @@ class PipelineOverridesTest(SamlIntegrationTestUtilities, IntegrationTestMixin, 
     """
 
     def setUp(self):
-        super(PipelineOverridesTest, self).setUp()
+        super().setUp()
         self.enable_saml()
         self.provider = self.configure_saml_provider(
             enabled=True,
@@ -99,7 +99,7 @@ class PipelineOverridesTest(SamlIntegrationTestUtilities, IntegrationTestMixin, 
             type(uuid4).hex = mock.PropertyMock(return_value='9fe2c4e93f654fdbb24c02b15259716c')
             mock_uuid.return_value = uuid4
             final_username = pipeline.get_username(strategy, details, self.provider.backend_class())
-            self.assertEqual(expected_username, final_username['username'])
+            assert expected_username == final_username['username']
 
 
 @unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
@@ -147,8 +147,8 @@ class PipelineLoginAnalyticsTest(IntegrationTestMixin, testutil.TestCase):
         pipeline_kws = {'uid': social.uid, 'user': user, 'social': social}
 
         # don't decorate whole test method with these since they can be called creating UserSocialAuth
-        with mock.patch("third_party_auth.pipeline.tracker.emit") as mock_tracker_emit:
-            with mock.patch("third_party_auth.pipeline.segment.track") as mock_segment_track:
+        with mock.patch("common.djangoapps.third_party_auth.pipeline.tracker.emit") as mock_tracker_emit:
+            with mock.patch("common.djangoapps.third_party_auth.pipeline.segment.track") as mock_segment_track:
                 pipeline.login_analytics(
                     strategy=strategy, backend=self.provider.backend_class(),
                     pipeline_index=0, auth_entry='login', **pipeline_kws

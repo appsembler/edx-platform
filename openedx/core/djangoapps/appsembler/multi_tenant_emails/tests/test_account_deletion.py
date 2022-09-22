@@ -82,7 +82,8 @@ class MultiTenantDeactivateLogoutViewTest(APITestCase):
                     'user_message': ('It looks like {} belongs to an existing account. '
                                      'Try again with a different email address.').format(email)
                 }
-            ]
+            ],
+            'error_code': 'duplicate-email'
         }
         assert res.json() == error_response, '{}: {}'.format(
             'Should complain of retired email',

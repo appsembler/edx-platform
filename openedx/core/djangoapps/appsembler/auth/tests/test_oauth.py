@@ -10,7 +10,7 @@ from oauth2_provider.models import (get_application_model,
                                     AccessToken,
                                     RefreshToken)
 
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 
 from openedx.core.djangoapps.oauth_dispatch.api import destroy_oauth_tokens
 

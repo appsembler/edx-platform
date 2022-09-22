@@ -12,8 +12,8 @@ from django.utils.http import urlencode
 from site_config_client.openedx import api as config_client_api
 
 from tahoe_sites.api import is_active_admin_on_organization, get_organization_for_user
-import third_party_auth
-from third_party_auth.pipeline import running as pipeline_running
+import common.djangoapps.third_party_auth as third_party_auth
+from common.djangoapps.third_party_auth.pipeline import running as pipeline_running
 
 
 from .constants import (
@@ -21,7 +21,7 @@ from .constants import (
     TAHOE_IDP_PROVIDER_NAME,
 )
 
-from student.roles import (
+from common.djangoapps.student.roles import (
     CourseAccessRole,
     CourseCreatorRole,
     CourseInstructorRole,

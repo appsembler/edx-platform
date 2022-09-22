@@ -22,7 +22,7 @@ from openedx.core.djangoapps.site_configuration.tests.factories import (
     SiteFactory,
 )
 
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 
 from openedx.core.djangoapps.appsembler.api import sites as aapi_sites
 

@@ -6,7 +6,7 @@ from django.conf import settings
 from django.dispatch.dispatcher import receiver
 from xmodule.modulestore.django import SignalHandler
 
-from course_modes.models import CourseMode
+from common.djangoapps.course_modes.models import CourseMode
 
 
 @receiver(SignalHandler.course_published)
@@ -25,7 +25,7 @@ def set_default_mode_on_course_publish(sender, course_key, **kwargs):  # pylint:
     from lms.djangoapps.certificates.models import (
         CertificateGenerationCourseSetting
     )
-    CertificateGenerationCourseSetting.set_self_generatation_enabled_for_course(
+    CertificateGenerationCourseSetting.set_self_generation_enabled_for_course(
         course_key,
         True
     )

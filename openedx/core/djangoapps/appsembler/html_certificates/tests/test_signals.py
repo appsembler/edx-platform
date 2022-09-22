@@ -8,12 +8,12 @@ from openedx.core.djangoapps.appsembler.html_certificates.signals import (
     set_default_mode_on_course_publish
 )
 from lms.djangoapps.certificates.models import CertificateGenerationCourseSetting
-from course_modes.models import CourseMode
+from common.djangoapps.course_modes.models import CourseMode
 from openedx.core.djangoapps.content.course_overviews.tests.factories import (
     CourseOverviewFactory
 )
 
-from course_modes.tests.factories import CourseModeFactory
+from common.djangoapps.course_modes.tests.factories import CourseModeFactory
 
 from openedx.core.djangoapps.appsembler.html_certificates.tests.factories import (
     CertificateGenerationCourseSettingFactory

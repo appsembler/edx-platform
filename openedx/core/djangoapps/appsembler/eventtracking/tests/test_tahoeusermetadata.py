@@ -8,7 +8,7 @@ from openedx.core.djangoapps.appsembler.eventtracking.tahoeusermetadata import (
     TahoeUserMetadataProcessor,
     # TahoeUserProfileMetadataCache
 )
-from student.tests.factories import UserFactory, UserProfileFactory
+from common.djangoapps.student.tests.factories import UserFactory, UserProfileFactory
 
 
 EVENTTRACKING_MODULE = 'openedx.core.djangoapps.appsembler.eventtracking'

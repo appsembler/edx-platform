@@ -1,24 +1,23 @@
-# -*- coding: utf-8 -*-
 """
 Tests for BundleCache
 """
 
 import unittest
+from unittest.mock import patch
 
 from django.conf import settings
-from mock import patch
 from openedx.core.djangolib.blockstore_cache import BundleCache
 from openedx.core.lib import blockstore_api as api
 
 
-class TestWithBundleMixin(object):
+class TestWithBundleMixin:
     """
     Mixin that gives every test method access to a bundle + draft
     """
 
     @classmethod
     def setUpClass(cls):
-        super(TestWithBundleMixin, cls).setUpClass()
+        super().setUpClass()
         cls.collection = api.create_collection(title="Collection")
         cls.bundle = api.create_bundle(cls.collection.uuid, title="Test Bundle", slug="test")
         cls.draft = api.get_or_create_bundle_draft(cls.bundle.uuid, draft_name="test-draft")
@@ -44,8 +43,8 @@ class BundleCacheTest(TestWithBundleMixin, unittest.TestCase):
         cache.set(key1, value1)
         value2 = {"this is": "a dict", "for": "key2"}
         cache.set(key2, value2)
-        self.assertEqual(cache.get(key1), value1)
-        self.assertEqual(cache.get(key2), value2)
+        assert cache.get(key1) == value1
+        assert cache.get(key2) == value2
 
         # Now publish a new version of the bundle:
         api.write_draft_file(self.draft.uuid, "test.txt", "we need a changed file in order to publish a new version")
@@ -53,8 +52,8 @@ class BundleCacheTest(TestWithBundleMixin, unittest.TestCase):
 
         # Now the cache should be invalidated
         # (immediately since we set MAX_BLOCKSTORE_CACHE_DELAY to 0)
-        self.assertEqual(cache.get(key1), None)
-        self.assertEqual(cache.get(key2), None)
+        assert cache.get(key1) is None
+        assert cache.get(key2) is None
 
     def test_bundle_draft_cache(self):
         """
@@ -69,16 +68,16 @@ class BundleCacheTest(TestWithBundleMixin, unittest.TestCase):
         cache.set(key1, value1)
         value2 = {"this is": "a dict", "for": "key2"}
         cache.set(key2, value2)
-        self.assertEqual(cache.get(key1), value1)
-        self.assertEqual(cache.get(key2), value2)
+        assert cache.get(key1) == value1
+        assert cache.get(key2) == value2
 
         # Now make a change to the draft (doesn't matter if we commit it or not)
         api.write_draft_file(self.draft.uuid, "test.txt", "we need a changed file in order to publish a new version")
 
         # Now the cache should be invalidated
         # (immediately since we set MAX_BLOCKSTORE_CACHE_DELAY to 0)
-        self.assertEqual(cache.get(key1), None)
-        self.assertEqual(cache.get(key2), None)
+        assert cache.get(key1) is None
+        assert cache.get(key2) is None
 
 
 @unittest.skipUnless(settings.RUN_BLOCKSTORE_TESTS, "Requires a running Blockstore server")
@@ -99,7 +98,7 @@ class BundleCacheClearTest(TestWithBundleMixin, unittest.TestCase):
         key1 = ("some", "key", "1")
         value1 = "value1"
         cache.set(key1, value1)
-        self.assertEqual(cache.get(key1), value1)
+        assert cache.get(key1) == value1
 
         # Now publish a new version of the bundle:
         api.write_draft_file(self.draft.uuid, "test.txt", "we need a changed file in order to publish a new version")
@@ -108,7 +107,7 @@ class BundleCacheClearTest(TestWithBundleMixin, unittest.TestCase):
         # Now the cache will not be immediately invalidated; it takes up to MAX_BLOCKSTORE_CACHE_DELAY seconds.
         # Since this is a new bundle and we _just_ accessed the cache for the first time, we can be confident
         # it won't yet be automatically invalidated.
-        self.assertEqual(cache.get(key1), value1)
+        assert cache.get(key1) == value1
         # Now "clear" the cache, forcing the check of the new version:
         cache.clear()
-        self.assertEqual(cache.get(key1), None)
+        assert cache.get(key1) is None

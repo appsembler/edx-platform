@@ -11,8 +11,8 @@ from django.urls import reverse
 from django.utils.translation import ngettext, gettext as _
 
 from common.lib.xmodule.xmodule.util.misc import is_xblock_an_assignment
-from lms.djangoapps.course_home_api.utils import is_request_from_learning_mfe
 from openedx.core.lib.mobile_utils import is_request_from_mobile_app
+from openedx.features.course_experience.url_helpers import is_request_from_learning_mfe
 from openedx.features.course_experience.utils import dates_banner_should_display
 
 log = logging.getLogger(__name__)
@@ -150,6 +150,10 @@ class PersonalizedLearnerScheduleCallToAction:
                         'course_id': str(course_key),
                     },
                     'url': '{}{}'.format(settings.LMS_ROOT_URL, reverse('course-experience-reset-course-deadlines')),
+                },
+                'research_event_data': {
+                    'block_id': str(xblock.location),
+                    'location': f'{xblock.category}-view',
                 },
             }
 

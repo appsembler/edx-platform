@@ -57,7 +57,8 @@ class MultiTenantRegistrationViewTest(APITestCase):
                 ).format(
                     self.EMAIL
                 )
-            }]
+            }],
+            'error_code': 'duplicate-email'
         }, color
 
     def test_register_duplicate_email(self):

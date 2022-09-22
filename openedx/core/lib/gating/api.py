@@ -6,7 +6,7 @@ import json
 import logging
 
 from completion.models import BlockCompletion
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User  # lint-amnesty, pylint: disable=imported-auth-user
 from django.urls import reverse
 from django.utils.translation import ugettext as _
 from milestones import api as milestones_api
@@ -43,13 +43,13 @@ def _get_prerequisite_milestone(prereq_content_key):
     ))
 
     if not milestones:
-        log.warning(u"Could not find gating milestone for prereq UsageKey %s", prereq_content_key)
+        log.warning("Could not find gating milestone for prereq UsageKey %s", prereq_content_key)
         return None
 
     if len(milestones) > 1:
         # We should only ever have one gating milestone per UsageKey
         # Log a warning here and pick the first one
-        log.warning(u"Multiple gating milestones found for prereq UsageKey %s", prereq_content_key)
+        log.warning("Multiple gating milestones found for prereq UsageKey %s", prereq_content_key)
 
     return milestones[0]
 
@@ -68,11 +68,11 @@ def _validate_min_score(min_score):
         GatingValidationError: If the minimum score is not valid
     """
     if min_score:
-        message = _(u"%(min_score)s is not a valid grade percentage") % {'min_score': min_score}
+        message = _("%(min_score)s is not a valid grade percentage") % {'min_score': min_score}
         try:
             min_score = int(min_score)
         except ValueError:
-            raise GatingValidationError(message)
+            raise GatingValidationError(message)  # lint-amnesty, pylint: disable=raise-missing-from
 
         if min_score < 0 or min_score > 100:
             raise GatingValidationError(message)
@@ -183,7 +183,7 @@ def add_prerequisite(course_key, prereq_content_key):
     """
     milestone = milestones_api.add_milestone(
         {
-            'name': _(u'Gating milestone for {usage_key}').format(usage_key=str(prereq_content_key)),
+            'name': _('Gating milestone for {usage_key}').format(usage_key=str(prereq_content_key)),
             'namespace': "{usage_key}{qualifier}".format(
                 usage_key=prereq_content_key,
                 qualifier=GATING_NAMESPACE_QUALIFIER
@@ -294,7 +294,7 @@ def get_gated_content(course, user):
     Returns the unfulfilled gated content usage keys in the given course.
 
     Arguments:
-        course (CourseDescriptor): The course
+        course (CourseBlock): The course
         user (User): The user
 
     Returns:
@@ -445,7 +445,7 @@ def get_subsection_grade_percentage(subsection_usage_key, user):
                 subsection_grade = subsection_grade_factory.update(subsection_structure[subsection_usage_key])
                 return _get_subsection_percentage(subsection_grade)
     except ItemNotFoundError as err:
-        log.warning(u"Could not find course_block for subsection=%s error=%s", subsection_usage_key, err)
+        log.warning("Could not find course_block for subsection=%s error=%s", subsection_usage_key, err)
     return 0.0
 
 
@@ -487,7 +487,7 @@ def get_subsection_completion_percentage(subsection_usage_key, user):
             )
 
     except ItemNotFoundError as err:
-        log.warning(u"Could not find course_block for subsection=%s error=%s", subsection_usage_key, err)
+        log.warning("Could not find course_block for subsection=%s error=%s", subsection_usage_key, err)
 
     return subsection_completion_percentage
 
@@ -505,14 +505,14 @@ def _get_minimum_required_percentage(milestone):
             min_score = int(requirements.get('min_score'))
         except (ValueError, TypeError):
             log.warning(
-                u'Gating: Failed to find minimum score for gating milestone %s, defaulting to 100',
+                'Gating: Failed to find minimum score for gating milestone %s, defaulting to 100',
                 json.dumps(milestone)
             )
         try:
             min_completion = int(requirements.get('min_completion', 0))
         except (ValueError, TypeError):
             log.warning(
-                u'Gating: Failed to find minimum completion percentage for gating milestone %s, defaulting to 100',
+                'Gating: Failed to find minimum completion percentage for gating milestone %s, defaulting to 100',
                 json.dumps(milestone)
             )
     return min_score, min_completion

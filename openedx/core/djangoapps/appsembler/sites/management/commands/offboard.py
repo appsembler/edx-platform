@@ -16,7 +16,7 @@ from tahoe_sites.api import get_organization_by_site, get_uuid_by_organization
 from opaque_keys.edx.keys import CourseKey
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration, SiteConfigurationHistory
-from student.models import (
+from common.djangoapps.student.models import (
     CourseAccessRole,
     CourseEnrollment,
     CourseEnrollmentAllowed,

@@ -57,7 +57,7 @@ class TahoeUserProfileMetadataCache(object):
         self.cache.set(self.CACHE_PREFILLING_KEY, True)
         logger.info("START Prefilling Tahoe UserProfile Metadata Cache...")
 
-        from student.models import UserProfile
+        from common.djangoapps.student.models import UserProfile
 
         for up in UserProfile.objects.all().select_related('user'):
             self.cache.set(up.user.id, up.get_meta().get('tahoe_idp_metadata', {}), True)
@@ -133,7 +133,7 @@ class TahoeUserMetadataProcessor(object):
             return reg_additional
 
         # local import, as module is loaded at startup via eventtracking.django for Processor init
-        from student.models import UserProfile
+        from common.djangoapps.student.models import UserProfile
         try:
             profile = UserProfile.objects.get(user__id=user_id)
         except UserProfile.DoesNotExist:

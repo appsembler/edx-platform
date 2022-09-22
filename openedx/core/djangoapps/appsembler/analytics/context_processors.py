@@ -1,8 +1,8 @@
 import hashlib
 
 from django.conf import settings
-from student.auth import user_has_role
-from student.roles import CourseCreatorRole
+from common.djangoapps.student.auth import user_has_role
+from common.djangoapps.student.roles import CourseCreatorRole
 
 from openedx.core.djangoapps.appsembler.analytics.helpers import (
     should_show_hubspot

@@ -4,12 +4,11 @@ Tests for xblock_utils.py
 
 
 import uuid
+from unittest.mock import patch
 
 import ddt
-import six
 from django.conf import settings
 from django.test.client import RequestFactory
-from mock import patch
 from opaque_keys.edx.asides import AsideUsageKeyV1, AsideUsageKeyV2
 from web_fragments.fragment import Fragment
 from xblock.core import XBlockAside
@@ -41,7 +40,7 @@ class TestXblockUtils(SharedModuleStoreTestCase):
 
     @classmethod
     def setUpClass(cls):
-        super(TestXblockUtils, cls).setUpClass()
+        super().setUpClass()
         cls.course_mongo = CourseFactory.create(
             default_store=ModuleStoreEnum.Type.mongo,
             org='TestX',
@@ -71,9 +70,9 @@ class TestXblockUtils(SharedModuleStoreTestCase):
         new_content = '<p>New Content<p>'
         fragment = self.create_fragment()
         wrapped_fragment = wrap_fragment(fragment, new_content)
-        self.assertEqual('<p>New Content<p>', wrapped_fragment.content)
-        self.assertEqual('body {background-color:red;}', wrapped_fragment.resources[0].data)
-        self.assertEqual('alert("Hi!");', wrapped_fragment.resources[1].data)
+        assert '<p>New Content<p>' == wrapped_fragment.content
+        assert 'body {background-color:red;}' == wrapped_fragment.resources[0].data
+        assert 'alert("Hi!");' == wrapped_fragment.resources[1].data
 
     def test_request_token(self):
         """
@@ -82,13 +81,13 @@ class TestXblockUtils(SharedModuleStoreTestCase):
         request_with_token = RequestFactory().get('/')
         request_with_token._xblock_token = '123'  # pylint: disable=protected-access
         token = request_token(request_with_token)
-        self.assertEqual(token, '123')
+        assert token == '123'
 
         request_without_token = RequestFactory().get('/')
         token = request_token(request_without_token)
         # Test to see if the token is an uuid1 hex value
         test_uuid = uuid.UUID(token, version=1)
-        self.assertEqual(token, test_uuid.hex)
+        assert token == test_uuid.hex
 
     @ddt.data(
         ('course_mongo', 'data-usage-id="i4x:;_;_TestX;_TS01;_course;_2015"'),
@@ -99,7 +98,8 @@ class TestXblockUtils(SharedModuleStoreTestCase):
         """
         Verify that new content is added and the resources are the same.
         """
-        fragment = self.create_fragment(u"<h1>Test!</h1>")
+        fragment = self.create_fragment("<h1>Test!</h1>")
+        fragment.initialize_js('BlockMain')  # wrap_block() sets some attributes only if there is JS.
         course = getattr(self, course_id)
         test_wrap_output = wrap_xblock(
             runtime_class='TestRuntime',
@@ -107,17 +107,17 @@ class TestXblockUtils(SharedModuleStoreTestCase):
             view='baseview',
             frag=fragment,
             context={"wrap_xblock_data": {"custom-attribute": "custom-value"}},
-            usage_id_serializer=lambda usage_id: quote_slashes(six.text_type(usage_id)),
+            usage_id_serializer=lambda usage_id: quote_slashes(str(usage_id)),
             request_token=uuid.uuid1().hex
         )
-        self.assertIsInstance(test_wrap_output, Fragment)
-        self.assertIn('xblock-baseview', test_wrap_output.content)
-        self.assertIn('data-runtime-class="TestRuntime"', test_wrap_output.content)
-        self.assertIn(data_usage_id, test_wrap_output.content)
-        self.assertIn('<h1>Test!</h1>', test_wrap_output.content)
-        self.assertIn('data-custom-attribute="custom-value"', test_wrap_output.content)
-        self.assertEqual(test_wrap_output.resources[0].data, u'body {background-color:red;}')
-        self.assertEqual(test_wrap_output.resources[1].data, 'alert("Hi!");')
+        assert isinstance(test_wrap_output, Fragment)
+        assert 'xblock-baseview' in test_wrap_output.content
+        assert 'data-runtime-class="TestRuntime"' in test_wrap_output.content
+        assert data_usage_id in test_wrap_output.content
+        assert '<h1>Test!</h1>' in test_wrap_output.content
+        assert 'data-custom-attribute="custom-value"' in test_wrap_output.content
+        assert test_wrap_output.resources[0].data == 'body {background-color:red;}'
+        assert test_wrap_output.resources[1].data == 'alert("Hi!");'
 
     @ddt.data('course_mongo', 'course_split')
     def test_replace_jump_to_id_urls(self, course_id):
@@ -133,8 +133,8 @@ class TestXblockUtils(SharedModuleStoreTestCase):
             frag=Fragment('<a href="/jump_to_id/id">'),
             context=None
         )
-        self.assertIsInstance(test_replace, Fragment)
-        self.assertEqual(test_replace.content, '<a href="/base_url/id">')
+        assert isinstance(test_replace, Fragment)
+        assert test_replace.content == '<a href="/base_url/id">'
 
     @ddt.data(
         ('course_mongo', '<a href="/courses/TestX/TS01/2015/id">'),
@@ -153,8 +153,8 @@ class TestXblockUtils(SharedModuleStoreTestCase):
             frag=Fragment('<a href="/course/id">'),
             context=None
         )
-        self.assertIsInstance(test_replace, Fragment)
-        self.assertEqual(test_replace.content, anchor_tag)
+        assert isinstance(test_replace, Fragment)
+        assert test_replace.content == anchor_tag
 
     @ddt.data(
         ('course_mongo', '<a href="/c4x/TestX/TS01/asset/id">'),
@@ -174,8 +174,8 @@ class TestXblockUtils(SharedModuleStoreTestCase):
             frag=Fragment('<a href="/static/id">'),
             context=None
         )
-        self.assertIsInstance(test_replace, Fragment)
-        self.assertEqual(test_replace.content, anchor_tag)
+        assert isinstance(test_replace, Fragment)
+        assert test_replace.content == anchor_tag
 
     def test_sanitize_html_id(self):
         """
@@ -184,7 +184,7 @@ class TestXblockUtils(SharedModuleStoreTestCase):
         dirty_string = 'I:have-un:allowed_characters'
         clean_string = sanitize_html_id(dirty_string)
 
-        self.assertEqual(clean_string, 'I_have_un_allowed_characters')
+        assert clean_string == 'I_have_un_allowed_characters'
 
     @ddt.data(
         (True, ["combined.css"]),
@@ -205,7 +205,7 @@ class TestXblockUtils(SharedModuleStoreTestCase):
         }
         with self.settings(PIPELINE=pipeline):
             css_dependencies = get_css_dependencies("style-group")
-            self.assertEqual(css_dependencies, expected_css_dependencies)
+            assert css_dependencies == expected_css_dependencies
 
     @ddt.data(
         (True, ["combined.js"]),
@@ -226,7 +226,7 @@ class TestXblockUtils(SharedModuleStoreTestCase):
         }
         with self.settings(PIPELINE=pipeline):
             js_dependencies = get_js_dependencies("js-group")
-            self.assertEqual(js_dependencies, expected_js_dependencies)
+            assert js_dependencies == expected_js_dependencies
 
 
 class TestXBlockAside(SharedModuleStoreTestCase):
@@ -234,7 +234,7 @@ class TestXBlockAside(SharedModuleStoreTestCase):
 
     @classmethod
     def setUpClass(cls):
-        super(TestXBlockAside, cls).setUpClass()
+        super().setUpClass()
         cls.course = CourseFactory.create()
         cls.block = ItemFactory.create(category='aside', parent=cls.course)
         cls.aside_v2 = AsideUsageKeyV2(cls.block.scope_ids.usage_id, "aside")
@@ -253,4 +253,4 @@ class TestXBlockAside(SharedModuleStoreTestCase):
     @XBlockAside.register_temp_plugin(AsideTestType, 'test_aside')
     def test_get_aside(self):
         """test get aside success"""
-        assert get_aside_from_xblock(self.block, six.text_type("test_aside")) is not None
+        assert get_aside_from_xblock(self.block, "test_aside") is not None

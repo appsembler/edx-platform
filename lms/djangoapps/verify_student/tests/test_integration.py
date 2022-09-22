@@ -2,7 +2,6 @@
 Integration tests of the payment flow, including course mode selection.
 """
 
-import six
 from django.urls import reverse
 
 from common.djangoapps.course_modes.tests.factories import CourseModeFactory
@@ -23,7 +22,7 @@ class TestProfEdVerification(ModuleStoreTestCase):
     MIN_PRICE = 1438
 
     def setUp(self):
-        super(TestProfEdVerification, self).setUp()
+        super().setUp()
 
         self.user = UserFactory.create(username="rusty", password="test")
         self.client.login(username="rusty", password="test")
@@ -38,7 +37,7 @@ class TestProfEdVerification(ModuleStoreTestCase):
         self.urls = {
             'course_modes_choose': reverse(
                 'course_modes_choose',
-                args=[six.text_type(self.course_key)]
+                args=[str(self.course_key)]
             ),
 
             'verify_student_start_flow': IDVerificationService.get_verify_location(self.course_key),
@@ -57,4 +56,4 @@ class TestProfEdVerification(ModuleStoreTestCase):
 
         # For professional ed courses, expect that the student is NOT enrolled
         # automatically in the course.
-        self.assertFalse(CourseEnrollment.is_enrolled(self.user, self.course_key))
+        assert not CourseEnrollment.is_enrolled(self.user, self.course_key)

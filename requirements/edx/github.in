@@ -54,7 +54,8 @@
 # Python libraries to install directly from github
 
 # Third-party:
--e git+https://github.com/edx/django-wiki.git@0.1.1#egg=django-wiki
+-e git+https://github.com/edx/django-wiki.git@1.0.0#egg=django-wiki
+-e git+https://github.com/openedx/olxcleaner.git@dbe03f73ed8b354eaca8f234958a7b3cff4f0ceb#egg=olxcleaner
 git+https://github.com/edx/MongoDBProxy.git@d92bafe9888d2940f647a7b2b2383b29c752f35a#egg=MongoDBProxy==0.1.0+edx.2
 -e git+https://github.com/jazkarta/edx-jsme.git@690dbf75441fa91c7c4899df0b83d77f7deb5458#egg=edx-jsme
 -e git+https://github.com/technige/py2neo.git@py2neo-3.1.2#egg=py2neo==3.1.2
@@ -73,4 +74,4 @@ git+https://github.com/edx/django-ratelimit-backend.git@v2.0.1a5#egg=django-rate
 # Third Party XBlocks
 
 git+https://github.com/open-craft/xblock-poll@3f09dda40d912735ccbe8781215e8f50b3af368f#egg=xblock-poll==1.11.0  # Tahoe: bumped from 1.9.6 for i18n updates
-git+https://github.com/edx-solutions/xblock-drag-and-drop-v2@v2.2.10#egg=xblock-drag-and-drop-v2==2.2.10
+git+https://github.com/edx-solutions/xblock-drag-and-drop-v2@v2.3.4#egg=xblock-drag-and-drop-v2==2.3.4

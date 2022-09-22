@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Contains code related to computing discount percentage
 and discount applicability.
@@ -36,8 +35,8 @@ from common.djangoapps.track import segment
 # .. toggle_tickets: REVEM-282
 # .. toggle_warnings: This temporary feature toggle does not have a target removal date.
 DISCOUNT_APPLICABILITY_FLAG = LegacyWaffleFlag(
-    waffle_namespace=LegacyWaffleFlagNamespace(name=u'discounts'),
-    flag_name=u'enable_discounting',
+    waffle_namespace=LegacyWaffleFlagNamespace(name='discounts'),
+    flag_name='enable_discounting',
     module_name=__name__,
 )
 
@@ -64,7 +63,7 @@ def get_discount_expiration_date(user, course):
 
     time_limit_start = None
     try:
-        saw_banner = ExperimentData.objects.get(user=user, experiment_id=REV1008_EXPERIMENT_ID, key=str(course))
+        saw_banner = ExperimentData.objects.get(user=user, experiment_id=REV1008_EXPERIMENT_ID, key=str(course.id))
         time_limit_start = parse_datetime(saw_banner.value)
     except ExperimentData.DoesNotExist:
         return None

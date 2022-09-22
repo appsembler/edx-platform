@@ -12,7 +12,7 @@ from openedx.core.djangoapps.appsembler.analytics.context_processors import (
     mixpanel,
     hubspot,
 )
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 
 APPSEMBLER_APP = 'openedx.core.djangoapps.appsembler.analytics'
 

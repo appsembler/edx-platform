@@ -3,14 +3,13 @@
 
 from datetime import date
 import json
-import six
+from unittest.mock import MagicMock, patch
 from django.conf import settings
 from django.http import HttpResponse
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from edx_rest_framework_extensions.auth.jwt.decoder import jwt_decode_handler
 from edx_rest_framework_extensions.auth.jwt.middleware import JwtAuthCookieMiddleware
-from mock import MagicMock, patch
 
 from openedx.core.djangoapps.user_api.accounts.utils import retrieve_last_sitewide_block_completed
 from openedx.core.djangoapps.user_authn import cookies as cookies_api
@@ -24,7 +23,7 @@ from openedx.core.djangoapps.user_api.accounts.image_helpers import get_profile_
 
 class CookieTests(TestCase):
     def setUp(self):
-        super(CookieTests, self).setUp()
+        super().setUp()
         self.user = UserFactory.create()
         self.user.profile = UserProfileFactory.create(user=self.user)
         self.request = RequestFactory().get('/')
@@ -38,7 +37,7 @@ class CookieTests(TestCase):
 
     def _convert_to_absolute_uris(self, request, urls_obj):
         """ Convert relative URL paths to absolute URIs """
-        for url_name, url_path in six.iteritems(urls_obj):
+        for url_name, url_path in urls_obj.items():
             urls_obj[url_name] = request.build_absolute_uri(url_path)
 
         return urls_obj
@@ -70,7 +69,7 @@ class CookieTests(TestCase):
     def _copy_cookies_to_request(self, response, request):
         request.COOKIES = {
             key: val.value
-            for key, val in six.iteritems(response.cookies)
+            for key, val in response.cookies.items()
         }
 
     def _set_use_jwt_cookie_header(self, request):
@@ -85,14 +84,11 @@ class CookieTests(TestCase):
         """
         self._copy_cookies_to_request(response, self.request)
         JwtAuthCookieMiddleware().process_view(self.request, None, None, None)
-        self.assertEqual(
-            cookies_api.jwt_cookies.jwt_cookie_name() in self.request.COOKIES,
-            can_recreate,
-        )
+        assert (cookies_api.jwt_cookies.jwt_cookie_name() in self.request.COOKIES) == can_recreate
         if can_recreate:
             jwt_string = self.request.COOKIES[cookies_api.jwt_cookies.jwt_cookie_name()]
             jwt = jwt_decode_handler(jwt_string)
-            self.assertEqual(jwt['scopes'], ['user_id', 'email', 'profile'])
+            assert jwt['scopes'] == ['user_id', 'email', 'profile']
 
     def _assert_cookies_present(self, response, expected_cookies):
         """ Verify all expected_cookies are present in the response. """
@@ -100,10 +96,7 @@ class CookieTests(TestCase):
 
     def _assert_consistent_expires(self, response, num_of_unique_expires=1):
         """ Verify cookies in the response have the same expiration, as expected. """
-        self.assertEqual(
-            num_of_unique_expires,
-            len(set([response.cookies[c]['expires'] for c in response.cookies])),
-        )
+        assert num_of_unique_expires == len({response.cookies[c]['expires'] for c in response.cookies})
 
     @skip_unless_lms
     def test_get_user_info_cookie_data(self):
@@ -148,11 +141,11 @@ class CookieTests(TestCase):
         setup_login_oauth_client()
         response = cookies_api.set_logged_in_cookies(self.request, HttpResponse(), self.user)
         self._copy_cookies_to_request(response, self.request)
-        self.assertTrue(cookies_api.are_logged_in_cookies_set(self.request))
+        assert cookies_api.are_logged_in_cookies_set(self.request)
 
         cookies_api.delete_logged_in_cookies(response)
         self._copy_cookies_to_request(response, self.request)
-        self.assertFalse(cookies_api.are_logged_in_cookies_set(self.request))
+        assert not cookies_api.are_logged_in_cookies_set(self.request)
 
     @patch.dict("django.conf.settings.FEATURES", {"DISABLE_SET_JWT_COOKIES_FOR_TESTS": False})
     def test_refresh_jwt_cookies(self):
@@ -160,8 +153,8 @@ class CookieTests(TestCase):
         self._set_use_jwt_cookie_header(self.request)
         response = cookies_api.get_response_with_refreshed_jwt_cookies(self.request, self.user)
         data = json.loads(response.content.decode('utf8').replace("'", '"'))
-        self.assertGreater(data['expires_epoch_seconds'], 0)
-        self.assertNotEqual(data['expires'], 'not-found')
+        assert data['expires_epoch_seconds'] > 0
+        assert data['expires'] != 'not-found'
         self._assert_cookies_present(response, cookies_api.JWT_COOKIE_NAMES)
         self._assert_consistent_expires(response, num_of_unique_expires=1)
         self._assert_recreate_jwt_from_cookies(response, can_recreate=True)

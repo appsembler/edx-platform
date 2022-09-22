@@ -21,7 +21,7 @@ from lms.djangoapps.courseware.access_control_backends import (
     access_control_backends,
     AccessControlBackends,
 )
-from student.tests.factories import CourseEnrollmentAllowedFactory, UserFactory
+from common.djangoapps.student.tests.factories import CourseEnrollmentAllowedFactory, UserFactory
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 
 

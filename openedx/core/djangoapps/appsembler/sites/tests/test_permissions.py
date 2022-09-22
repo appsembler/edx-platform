@@ -3,7 +3,7 @@ from organizations.tests.factories import OrganizationFactory
 from rest_framework.test import APIRequestFactory
 
 from tahoe_sites.tests.utils import create_organization_mapping
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 
 from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
 from openedx.core.djangoapps.appsembler.sites.permissions import AMCAdminPermission

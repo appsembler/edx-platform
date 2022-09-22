@@ -8,12 +8,12 @@ import json
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from xmodule.modulestore.tests.factories import LibraryFactory
 
-from contentstore.views import course_team_handler
+from cms.djangoapps.contentstore.views import course_team_handler
 from django.test import RequestFactory
 from django.urls import reverse
 from rest_framework import status
 from django.test.utils import override_settings
-from student.roles import CourseInstructorRole, LibraryUserRole
+from common.djangoapps.student.roles import CourseInstructorRole, LibraryUserRole
 from organizations.models import OrganizationCourse
 from openedx.core.djangoapps.content.course_overviews.tests.factories import CourseOverviewFactory
 from openedx.core.djangoapps.appsembler.multi_tenant_emails.tests.test_utils import (
@@ -21,7 +21,7 @@ from openedx.core.djangoapps.appsembler.multi_tenant_emails.tests.test_utils imp
     create_org_user,
 )
 
-from student.roles import CourseCreatorRole, CourseAccessRole
+from common.djangoapps.student.roles import CourseCreatorRole, CourseAccessRole
 
 
 @patch.dict('django.conf.settings.FEATURES', {'APPSEMBLER_MULTI_TENANT_EMAILS': True})

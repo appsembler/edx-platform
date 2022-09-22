@@ -2,9 +2,9 @@
 Helpers for Intercom integration.
 """
 
-from student.auth import user_has_role
-from student.models import CourseAccessRole
-from student.roles import CourseCreatorRole, CourseInstructorRole, CourseStaffRole
+from common.djangoapps.student.auth import user_has_role
+from common.djangoapps.student.models import CourseAccessRole
+from common.djangoapps.student.roles import CourseCreatorRole, CourseInstructorRole, CourseStaffRole
 
 
 def should_show_intercom_widget(user):

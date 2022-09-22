@@ -7,8 +7,6 @@ derived setting to an actual value.
 
 import sys
 
-import six
-
 # Global list holding all settings which will be derived.
 __DERIVED = []
 
@@ -47,8 +45,8 @@ def derive_settings(module_name):
         module_name (str): Name of module to which the derived settings will be added.
     """
     module = sys.modules[module_name]
-    for derived in __DERIVED:
-        if isinstance(derived, six.string_types):
+    for derived in __DERIVED:  # lint-amnesty, pylint: disable=redefined-outer-name
+        if isinstance(derived, str):
             setting = getattr(module, derived)
             if callable(setting):
                 setting_val = setting(module)

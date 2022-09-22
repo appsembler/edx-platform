@@ -13,7 +13,7 @@ from tahoe_sites.api import get_site_by_organization
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 
-from student.models import CourseEnrollment
+from common.djangoapps.student.models import CourseEnrollment
 
 from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
 

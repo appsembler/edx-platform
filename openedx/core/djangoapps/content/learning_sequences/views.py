@@ -3,7 +3,6 @@ The views.py for this app is intentionally thin, and only exists to translate
 user input/output to and from the business logic in the `api` package.
 """
 from datetime import datetime, timezone
-import json
 import logging
 
 from django.conf import settings
@@ -12,13 +11,14 @@ from edx_rest_framework_extensions.auth.jwt.authentication import JwtAuthenticat
 from edx_rest_framework_extensions.auth.session.authentication import SessionAuthenticationAllowInactiveUser
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import serializers
-import attr
+from rest_framework.exceptions import NotFound
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from openedx.core.lib.api.permissions import IsStaff
 from .api import get_user_course_outline_details
+from .data import CourseOutlineData
 
 User = get_user_model()
 log = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class CourseOutlineView(APIView):
     # For early testing, restrict this to only global staff...
     permission_classes = (IsStaff,)
 
-    class UserCourseOutlineDataSerializer(serializers.BaseSerializer):
+    class UserCourseOutlineDataSerializer(serializers.BaseSerializer):  # lint-amnesty, pylint: disable=abstract-method
         """
         Read-only serializer for CourseOutlineData for this endpoint.
 
@@ -54,7 +54,7 @@ class CourseOutlineView(APIView):
         are a critical part of the internals of edx-platform, so the in-process
         API uses them, but we translate them to "ids" for REST API clients.
         """
-        def to_representation(self, user_course_outline_details):
+        def to_representation(self, user_course_outline_details):  # lint-amnesty, pylint: disable=arguments-differ
             """
             Convert to something DRF knows how to serialize (so no custom types)
 
@@ -150,7 +150,7 @@ class CourseOutlineView(APIView):
                 **schedule_item_dict,
             }
 
-    def get(self, request, course_key_str, format=None):
+    def get(self, request, course_key_str, format=None):  # lint-amnesty, pylint: disable=redefined-builtin, unused-argument
         """
         The CourseOutline, customized for a given user.
 
@@ -165,16 +165,20 @@ class CourseOutlineView(APIView):
         user = self._determine_user(request)
 
         # Grab the user's outline and send our response...
-        user_course_outline_details = get_user_course_outline_details(course_key, user, at_time)
+        try:
+            user_course_outline_details = get_user_course_outline_details(course_key, user, at_time)
+        except CourseOutlineData.DoesNotExist as does_not_exist_err:
+            raise NotFound() from does_not_exist_err
+
         serializer = self.UserCourseOutlineDataSerializer(user_course_outline_details)
         return Response(serializer.data)
 
-    def _validate_course_key(self, course_key_str):
+    def _validate_course_key(self, course_key_str):  # lint-amnesty, pylint: disable=missing-function-docstring
         try:
             course_key = CourseKey.from_string(course_key_str)
         except InvalidKeyError:
-            raise serializers.ValidationError(
-                "{} is not a valid CourseKey".format(course_key_str)
+            raise serializers.ValidationError(  # lint-amnesty, pylint: disable=raise-missing-from
+                f"{course_key_str} is not a valid CourseKey"
             )
         if course_key.deprecated:
             raise serializers.ValidationError(

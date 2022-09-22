@@ -1,4 +1,4 @@
-
+# lint-amnesty, pylint: disable=missing-module-docstring
 
 import datetime
 import logging
@@ -6,9 +6,9 @@ from itertools import groupby
 
 import attr
 from django.conf import settings
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User  # lint-amnesty, pylint: disable=imported-auth-user
 from django.contrib.staticfiles.templatetags.staticfiles import static
-from django.db.models import F, Q
+from django.db.models import Exists, F, OuterRef, Q
 from django.urls import reverse
 from edx_ace.recipient import Recipient
 from edx_ace.recipient_resolver import RecipientResolver
@@ -18,7 +18,9 @@ from lms.djangoapps.courseware.utils import verified_upgrade_deadline_link, can_
 from lms.djangoapps.discussion.notification_prefs.views import UsernameCipher
 from openedx.core.djangoapps.ace_common.template_context import get_base_template_context
 from openedx.core.djangoapps.course_date_signals.utils import get_expected_duration
-from openedx.core.djangoapps.schedules.config import COURSE_UPDATE_SHOW_UNSUBSCRIBE_WAFFLE_SWITCH
+from openedx.core.djangoapps.schedules.config import (
+    COURSE_UPDATE_SHOW_UNSUBSCRIBE_WAFFLE_SWITCH, query_external_updates
+)
 from openedx.core.djangoapps.schedules.content_highlights import get_week_highlights, get_next_section_highlights
 from openedx.core.djangoapps.schedules.exceptions import CourseUpdateDoesNotExist
 from openedx.core.djangoapps.schedules.message_types import CourseUpdate, InstructorLedCourseUpdate
@@ -80,13 +82,13 @@ class BinnedSchedulesBaseResolver(PrefixedDebugLoggerMixin, RecipientResolver):
 
     def __attrs_post_init__(self):
         # TODO: in the next refactor of this task, pass in current_datetime instead of reproducing it here
-        self.current_datetime = self.target_datetime - datetime.timedelta(days=self.day_offset)
+        self.current_datetime = self.target_datetime - datetime.timedelta(days=self.day_offset)  # lint-amnesty, pylint: disable=attribute-defined-outside-init
 
-    def send(self, msg_type):
+    def send(self, msg_type):  # lint-amnesty, pylint: disable=arguments-differ
         for (user, language, context) in self.schedules_for_bin():
             msg = msg_type.personalize(
                 Recipient(
-                    user.username,
+                    user.id,
                     self.override_recipient_email or user.email,
                 ),
                 language,
@@ -113,8 +115,8 @@ class BinnedSchedulesBaseResolver(PrefixedDebugLoggerMixin, RecipientResolver):
         """
         target_day = _get_datetime_beginning_of_day(self.target_datetime)
         schedule_day_equals_target_day_filter = {
-            'courseenrollment__schedule__{}__gte'.format(self.schedule_date_field): target_day,
-            'courseenrollment__schedule__{}__lt'.format(self.schedule_date_field): target_day + datetime.timedelta(days=1),
+            f'courseenrollment__schedule__{self.schedule_date_field}__gte': target_day,
+            f'courseenrollment__schedule__{self.schedule_date_field}__lt': target_day + datetime.timedelta(days=1),  # lint-amnesty, pylint: disable=line-too-long
         }
         users = User.objects.filter(
             courseenrollment__is_active=True,
@@ -127,8 +129,8 @@ class BinnedSchedulesBaseResolver(PrefixedDebugLoggerMixin, RecipientResolver):
         )
 
         schedule_day_equals_target_day_filter = {
-            '{}__gte'.format(self.schedule_date_field): target_day,
-            '{}__lt'.format(self.schedule_date_field): target_day + datetime.timedelta(days=1),
+            f'{self.schedule_date_field}__gte': target_day,
+            f'{self.schedule_date_field}__lt': target_day + datetime.timedelta(days=1),
         }
         schedules = Schedule.objects.select_related(
             'enrollment__user__profile',
@@ -141,8 +143,12 @@ class BinnedSchedulesBaseResolver(PrefixedDebugLoggerMixin, RecipientResolver):
             self.experience_filter,
             enrollment__user__in=users,
             enrollment__is_active=True,
-            active=True,
             **schedule_day_equals_target_day_filter
+        ).annotate(
+            external_updates_enabled=Exists(query_external_updates(OuterRef('enrollment__user_id'),
+                                                                   OuterRef('enrollment__course_id'))),
+        ).exclude(
+            external_updates_enabled=True,
         ).order_by(order_by)
 
         schedules = self.filter_by_org(schedules)
@@ -192,7 +198,7 @@ class BinnedSchedulesBaseResolver(PrefixedDebugLoggerMixin, RecipientResolver):
 
         return schedules.filter(enrollment__course__org__in=org_list)
 
-    def schedules_for_bin(self):
+    def schedules_for_bin(self):  # lint-amnesty, pylint: disable=missing-function-docstring
         schedules = self.get_schedules_with_target_date_by_bin_and_orgs()
         template_context = get_base_template_context(self.site)
 
@@ -211,7 +217,7 @@ class BinnedSchedulesBaseResolver(PrefixedDebugLoggerMixin, RecipientResolver):
 
             yield (user, first_schedule.enrollment.course.closest_released_language, template_context)
 
-    def get_template_context(self, user, user_schedules):
+    def get_template_context(self, user, user_schedules):  # lint-amnesty, pylint: disable=unused-argument
         """
         Given a user and their schedules, build the context needed to render the template for this message.
 
@@ -248,7 +254,7 @@ class RecurringNudgeResolver(BinnedSchedulesBaseResolver):
     num_bins = RECURRING_NUDGE_NUM_BINS
 
     @property
-    def experience_filter(self):
+    def experience_filter(self):  # lint-amnesty, pylint: disable=missing-function-docstring
         if self.day_offset == -3:
             experiences = [ScheduleExperience.EXPERIENCES.default, ScheduleExperience.EXPERIENCES.course_updates]
             return Q(experience__experience_type__in=experiences) | Q(experience__isnull=True)
@@ -323,7 +329,7 @@ class UpgradeReminderResolver(BinnedSchedulesBaseResolver):
         return context
 
 
-def _get_upsell_information_for_schedule(user, schedule):
+def _get_upsell_information_for_schedule(user, schedule):  # lint-amnesty, pylint: disable=missing-function-docstring
     template_context = {}
     enrollment = schedule.enrollment
     course = enrollment.course
@@ -364,7 +370,7 @@ class CourseUpdateResolver(BinnedSchedulesBaseResolver):
         for (user, language, context) in self.schedules_for_bin():
             msg = InstructorLedCourseUpdate().personalize(
                 Recipient(
-                    user.username,
+                    user.id,
                     self.override_recipient_email or user.email,
                 ),
                 language,
@@ -440,12 +446,12 @@ class CourseNextSectionUpdate(PrefixedDebugLoggerMixin, RecipientResolver):
     log_prefix = 'Next Section Course Update'
     experience_filter = Q(experience__experience_type=ScheduleExperience.EXPERIENCES.course_updates)
 
-    def send(self):
+    def send(self):  # lint-amnesty, pylint: disable=arguments-differ
         schedules = self.get_schedules()
         for (user, language, context) in schedules:
             msg = CourseUpdate().personalize(
                 Recipient(
-                    user.username,
+                    user.id,
                     self.override_recipient_email or user.email,
                 ),
                 language,
@@ -470,7 +476,6 @@ class CourseNextSectionUpdate(PrefixedDebugLoggerMixin, RecipientResolver):
         course_duration = get_expected_duration(self.course_id)
         schedules = Schedule.objects.select_related('enrollment').filter(
             self.experience_filter,
-            active=True,
             enrollment__is_active=True,
             enrollment__course_id=self.course_id,
             enrollment__user__is_active=True,

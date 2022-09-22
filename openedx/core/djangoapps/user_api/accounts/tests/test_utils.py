@@ -25,8 +25,8 @@ from ..utils import format_social_link, validate_social_link
 class UserAccountSettingsTest(TestCase):
     """Unit tests for setting Social Media Links."""
 
-    def setUp(self):
-        super(UserAccountSettingsTest, self).setUp()
+    def setUp(self):  # lint-amnesty, pylint: disable=useless-super-delegation
+        super().setUp()
 
     def validate_social_link(self, social_platform, link):
         """
@@ -61,9 +61,9 @@ class UserAccountSettingsTest(TestCase):
         """
         Verify that social links are correctly validated and formatted.
         """
-        self.assertEqual(is_valid_expected, self.validate_social_link(platform_name, link_input))
+        assert is_valid_expected == self.validate_social_link(platform_name, link_input)
 
-        self.assertEqual(formatted_link_expected, format_social_link(platform_name, link_input))
+        assert formatted_link_expected == format_social_link(platform_name, link_input)
 
 
 @ddt.ddt
@@ -75,7 +75,7 @@ class CompletionUtilsTestCase(SharedModuleStoreTestCase, FilteredQueryCountMixin
         """
         Creates a test course that can be used for non-destructive tests
         """
-        super(CompletionUtilsTestCase, self).setUp()
+        super().setUp()
         self.override_waffle_switch(True)
         self.engaged_user = UserFactory.create()
         self.cruft_user = UserFactory.create()
@@ -128,14 +128,15 @@ class CompletionUtilsTestCase(SharedModuleStoreTestCase, FilteredQueryCountMixin
         self.assertEqual(
             block_url,
             # Appsembler: We're omitting the domain name because our users are always on a single site.
-            u'/courses/{org}/{course}/{run}/jump_to/i4x://{org}/{course}/vertical/{vertical_id}'.format(
+            '/courses/{org}/{course}/{run}/jump_to/i4x://{org}/{course}/vertical/{vertical_id}'.format(
                 org=self.course.location.course_key.org,
                 course=self.course.location.course_key.course,
                 run=self.course.location.course_key.run,
                 vertical_id=self.vertical2.location.block_id,
             )
         )
-        self.assertEqual(empty_block_url, None)
+
+        assert empty_block_url is None
 
     @override_settings(LMS_ROOT_URL='test_url:9999')
     def test_retrieve_last_sitewide_block_performance_with_site(self):

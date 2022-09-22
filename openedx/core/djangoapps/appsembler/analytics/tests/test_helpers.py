@@ -7,7 +7,7 @@ from django.test import TestCase
 from tahoe_sites.api import update_admin_role_in_organization
 from tahoe_sites.tests.utils import create_organization_mapping
 
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 from openedx.core.djangoapps.appsembler.analytics.helpers import should_show_hubspot
 from openedx.core.djangoapps.appsembler.api.tests.factories import OrganizationFactory
 

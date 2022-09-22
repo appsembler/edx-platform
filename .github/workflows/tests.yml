@@ -17,7 +17,7 @@ jobs:
           - 27017:27017
     strategy:
       matrix:
-        python-version: [3.5]
+        python-version: [3.8]
         tox-env:
 #          - pep8  # disabled during the upgrade process
           - common

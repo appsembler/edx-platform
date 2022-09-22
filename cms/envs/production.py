@@ -22,9 +22,9 @@ from openedx.core.djangoapps.plugins.constants import ProjectType, SettingsType
 
 from .common import *
 
-from openedx.core.lib.derived import derive_settings
-from openedx.core.lib.logsettings import get_logger_config
-from xmodule.modulestore.modulestore_settings import convert_module_store_setting_if_needed
+from openedx.core.lib.derived import derive_settings  # lint-amnesty, pylint: disable=wrong-import-order
+from openedx.core.lib.logsettings import get_logger_config  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.modulestore_settings import convert_module_store_setting_if_needed  # lint-amnesty, pylint: disable=wrong-import-order
 
 
 def get_env_setting(setting):
@@ -32,8 +32,8 @@ def get_env_setting(setting):
     try:
         return os.environ[setting]
     except KeyError:
-        error_msg = u"Set the %s env variable" % setting
-        raise ImproperlyConfigured(error_msg)
+        error_msg = "Set the %s env variable" % setting
+        raise ImproperlyConfigured(error_msg)  # lint-amnesty, pylint: disable=raise-missing-from
 
 ############### ALWAYS THE SAME ################################
 
@@ -123,10 +123,10 @@ CELERYD_PREFETCH_MULTIPLIER = 1
 
 QUEUE_VARIANT = CONFIG_PREFIX.lower()
 
-CELERY_DEFAULT_EXCHANGE = 'edx.{0}core'.format(QUEUE_VARIANT)
+CELERY_DEFAULT_EXCHANGE = f'edx.{QUEUE_VARIANT}core'
 
-HIGH_PRIORITY_QUEUE = 'edx.{0}core.high'.format(QUEUE_VARIANT)
-DEFAULT_PRIORITY_QUEUE = 'edx.{0}core.default'.format(QUEUE_VARIANT)
+HIGH_PRIORITY_QUEUE = f'edx.{QUEUE_VARIANT}core.high'
+DEFAULT_PRIORITY_QUEUE = f'edx.{QUEUE_VARIANT}core.default'
 
 CELERY_DEFAULT_QUEUE = DEFAULT_PRIORITY_QUEUE
 CELERY_DEFAULT_ROUTING_KEY = DEFAULT_PRIORITY_QUEUE
@@ -267,6 +267,7 @@ TIME_ZONE = ENV_TOKENS.get('CELERY_TIMEZONE', CELERY_TIMEZONE)
 REGISTRATION_VALIDATION_RATELIMIT = ENV_TOKENS.get(
     'REGISTRATION_VALIDATION_RATELIMIT', REGISTRATION_VALIDATION_RATELIMIT
 )
+REGISTRATION_RATELIMIT = ENV_TOKENS.get('REGISTRATION_RATELIMIT', REGISTRATION_RATELIMIT)
 
 # Push to LMS overrides
 GIT_REPO_EXPORT_DIR = ENV_TOKENS.get('GIT_REPO_EXPORT_DIR', '/edx/var/edxapp/export_course_repos')
@@ -351,6 +352,13 @@ else:
 
 USER_TASKS_ARTIFACT_STORAGE = COURSE_IMPORT_EXPORT_STORAGE
 
+COURSE_METADATA_EXPORT_BUCKET = ENV_TOKENS.get('COURSE_METADATA_EXPORT_BUCKET', '')
+
+if COURSE_METADATA_EXPORT_BUCKET:
+    COURSE_METADATA_EXPORT_STORAGE = 'cms.djangoapps.export_course_metadata.storage.CourseMetadataExportS3Storage'
+else:
+    COURSE_METADATA_EXPORT_STORAGE = DEFAULT_FILE_STORAGE
+
 DATABASES = AUTH_TOKENS['DATABASES']
 
 # The normal database user does not have enough permissions to run migrations.
@@ -403,11 +411,11 @@ CELERY_BROKER_VHOST = ENV_TOKENS.get("CELERY_BROKER_VHOST", "")
 CELERY_BROKER_USER = AUTH_TOKENS.get("CELERY_BROKER_USER", "")
 CELERY_BROKER_PASSWORD = AUTH_TOKENS.get("CELERY_BROKER_PASSWORD", "")
 
-BROKER_URL = "{0}://{1}:{2}@{3}/{4}".format(CELERY_BROKER_TRANSPORT,
-                                            CELERY_BROKER_USER,
-                                            CELERY_BROKER_PASSWORD,
-                                            CELERY_BROKER_HOSTNAME,
-                                            CELERY_BROKER_VHOST)
+BROKER_URL = "{}://{}:{}@{}/{}".format(CELERY_BROKER_TRANSPORT,
+                                       CELERY_BROKER_USER,
+                                       CELERY_BROKER_PASSWORD,
+                                       CELERY_BROKER_HOSTNAME,
+                                       CELERY_BROKER_VHOST)
 BROKER_USE_SSL = ENV_TOKENS.get('CELERY_BROKER_USE_SSL', False)
 
 BROKER_TRANSPORT_OPTIONS = {
@@ -601,3 +609,5 @@ EXPLICIT_QUEUES = {
     'cms.djangoapps.contentstore.tasks.update_search_index': {
         'queue': UPDATE_SEARCH_INDEX_JOB_QUEUE},
 }
+
+LOGO_IMAGE_EXTRA_TEXT = ENV_TOKENS.get('LOGO_IMAGE_EXTRA_TEXT', '')

@@ -15,7 +15,7 @@ import mock
 from organizations.models import Organization
 
 from tahoe_sites.tests.utils import create_organization_mapping
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 from openedx.core.djangoapps.site_configuration.tests.factories import (
     SiteConfigurationFactory,
     SiteFactory,

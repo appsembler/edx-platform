@@ -8,7 +8,7 @@ from django.test import TestCase
 
 
 from openedx.core.djangoapps.user_authn.views.register import _skip_activation_email
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 
 
 class TestSkipActivationEmail(TestCase):

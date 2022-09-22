@@ -5,7 +5,7 @@ import pytest
 
 from common.djangoapps.student.roles import CourseCreatorRole, OrgStaffRole
 
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 
 from .. import course_roles
 

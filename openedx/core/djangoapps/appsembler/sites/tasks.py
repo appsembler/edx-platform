@@ -19,7 +19,7 @@ from opaque_keys.edx.keys import CourseKey
 
 from organizations.models import Organization, OrganizationCourse
 
-from student.models import CourseEnrollmentAllowed
+from common.djangoapps.student.models import CourseEnrollmentAllowed
 from xmodule.contentstore.django import contentstore
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.django import modulestore, SignalHandler

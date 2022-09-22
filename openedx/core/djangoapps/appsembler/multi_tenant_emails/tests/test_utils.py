@@ -16,7 +16,7 @@ from tahoe_sites.tests.utils import create_organization_mapping
 
 from openedx.core.djangoapps.site_configuration.tests.test_util import with_site_configuration_context
 
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 
 
 @contextlib.contextmanager

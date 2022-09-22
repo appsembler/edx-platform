@@ -1,12 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 Discussion XBlock
 """
 
 import logging
-import six
-from six.moves import urllib
-from six.moves.urllib.parse import urlparse  # pylint: disable=import-error
+import urllib
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.urls import reverse
 from django.utils.translation import get_language_bidi
@@ -19,7 +16,6 @@ from xblockutils.studio_editable import StudioEditableXBlockMixin
 
 from openedx.core.djangolib.markup import HTML, Text
 from openedx.core.lib.xblock_builtin import get_css_dependencies, get_js_dependencies
-from xmodule.raw_module import RawDescriptor
 from xmodule.xml_module import XmlParserMixin
 
 
@@ -36,7 +32,7 @@ def _(text):
 
 @XBlock.needs('user')  # pylint: disable=abstract-method
 @XBlock.needs('i18n')
-class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, XmlParserMixin):
+class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, XmlParserMixin):  # lint-amnesty, pylint: disable=abstract-method
     """
     Provides a discussion forum that is inline with other content in the courseware.
     """
@@ -74,7 +70,7 @@ class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, XmlParserMixin):
     has_author_view = True  # Tells Studio to use author_view
 
     # support for legacy OLX format - consumed by XmlParserMixin.load_metadata
-    metadata_translations = dict(RawDescriptor.metadata_translations)
+    metadata_translations = dict(XmlParserMixin.metadata_translations)
     metadata_translations['id'] = 'discussion_id'
     metadata_translations['for'] = 'discussion_target'
 
@@ -181,13 +177,13 @@ class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, XmlParserMixin):
                 'enrollment_action': 'enroll',
                 'email_opt_in': False,
             })
-            login_msg = Text(_(u"You are not signed in. To view the discussion content, {sign_in_link} or "
-                               u"{register_link}, and enroll in this course.")).format(
-                sign_in_link=HTML(u'<a href="{url}">{sign_in_label}</a>').format(
+            login_msg = Text(_("You are not signed in. To view the discussion content, {sign_in_link} or "
+                               "{register_link}, and enroll in this course.")).format(
+                sign_in_link=HTML('<a href="{url}">{sign_in_label}</a>').format(
                     sign_in_label=_('sign in'),
                     url='{}?{}'.format(reverse('signin_user'), qs),
                 ),
-                register_link=HTML(u'<a href="/{url}">{register_label}</a>').format(
+                register_link=HTML('<a href="/{url}">{register_label}</a>').format(
                     register_label=_('register'),
                     url='{}?{}'.format(reverse('register_user'), qs),
                 ),
@@ -242,7 +238,7 @@ class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, XmlParserMixin):
         XBlock.parse_xml. Otherwise this method parses file in "discussion" folder (known as definition_xml), applies
         policy.json and updates fields accordingly.
         """
-        block = super(DiscussionXBlock, cls).parse_xml(node, runtime, keys, id_generator)
+        block = super().parse_xml(node, runtime, keys, id_generator)
 
         cls._apply_translations_to_node_attributes(block, node)
         cls._apply_metadata_and_policy(block, node, runtime)
@@ -254,7 +250,7 @@ class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, XmlParserMixin):
         """
         Applies metadata translations for attributes stored on an inlined XML element.
         """
-        for old_attr, target_attr in six.iteritems(cls.metadata_translations):
+        for old_attr, target_attr in cls.metadata_translations.items():
             if old_attr in node.attrib and hasattr(block, target_attr):
                 setattr(block, target_attr, node.attrib[old_attr])
 
@@ -269,7 +265,7 @@ class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, XmlParserMixin):
             definition_xml, _ = cls.load_definition_xml(node, runtime, block.scope_ids.def_id)
         except Exception as err:  # pylint: disable=broad-except
             log.info(
-                u"Exception %s when trying to load definition xml for block %s - assuming XBlock export format",
+                "Exception %s when trying to load definition xml for block %s - assuming XBlock export format",
                 err,
                 block
             )
@@ -278,6 +274,6 @@ class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, XmlParserMixin):
         metadata = cls.load_metadata(definition_xml)
         cls.apply_policy(metadata, runtime.get_policy(block.scope_ids.usage_id))
 
-        for field_name, value in six.iteritems(metadata):
+        for field_name, value in metadata.items():
             if field_name in block.fields:
                 setattr(block, field_name, value)

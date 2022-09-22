@@ -10,7 +10,7 @@ from lms.djangoapps.courseware.access import has_access
 
 from openedx.core.djangoapps.appsembler.settings.helpers import get_tahoe_multitenant_auth_backends
 from openedx.core.djangolib.testing.utils import skip_unless_lms
-from student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import UserFactory
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory
 

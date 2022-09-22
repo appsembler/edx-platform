@@ -4,7 +4,7 @@
 import logging
 import mimetypes
 
-from django.conf import settings
+from django.conf import settings  # lint-amnesty, pylint: disable=unused-import
 from django.test import TestCase
 
 log = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class LmsModuleTests(TestCase):
         extensions = ['eot', 'otf', 'ttf', 'woff']
         for extension in extensions:
             mimetype, _ = mimetypes.guess_type('test.' + extension)
-            self.assertIsNotNone(mimetype)
+            assert mimetype is not None
 
     def test_api_docs(self):
         """

@@ -5,7 +5,7 @@ Tests for the `CourseEnrollment.enroll_by_email` method with `APPSEMBLER_MULTI_T
 import pytest
 
 from django.contrib.auth import get_user_model
-from student.models import CourseEnrollment
+from common.djangoapps.student.models import CourseEnrollment
 
 from openedx.core.djangoapps.appsembler.api.tests.factories import CourseOverviewFactory
 from openedx.core.djangoapps.appsembler.multi_tenant_emails.tests.test_utils import (

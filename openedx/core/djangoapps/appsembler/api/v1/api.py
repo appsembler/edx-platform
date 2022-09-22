@@ -9,11 +9,11 @@ from lms.djangoapps.instructor.enrollment import (
     get_user_email_language,
 )
 
-from student.models import (email_exists_or_retired,
+from common.djangoapps.student.models import (email_exists_or_retired,
                             username_exists_or_retired)
 from lms.djangoapps.instructor.views.tools import get_student_from_identifier
 
-from student.models import (
+from common.djangoapps.student.models import (
     ALLOWEDTOENROLL_TO_ENROLLED,
     ENROLLED_TO_ENROLLED,
     DEFAULT_TRANSITION_STATE,
@@ -38,7 +38,7 @@ def account_exists(email, username):
 
     Do we need to check secondary email? If so then check if the email exists:
     ```
-    from student.models import AccountRecovery
+    from common.djangoapps.student.models import AccountRecovery
     AccountRecovery.objects.filter(secondary_email=email).exists()
     ```
     """

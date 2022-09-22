@@ -4,8 +4,8 @@ Utility methods related to course
 
 
 import logging
+from urllib.parse import urlencode
 
-import six
 from django.conf import settings
 from django.utils.timezone import now
 
@@ -33,8 +33,8 @@ def get_encoded_course_sharing_utm_params():
     Returns encoded Course Sharing UTM Parameters.
     """
     return {
-        utm_source: six.moves.urllib.parse.urlencode(utm_params)
-        for utm_source, utm_params in six.iteritems(COURSE_SHARING_UTM_PARAMETERS)
+        utm_source: urlencode(utm_params)
+        for utm_source, utm_params in COURSE_SHARING_UTM_PARAMETERS.items()
     }
 
 
@@ -65,9 +65,9 @@ def get_link_for_about_page(course):
             protocol=protocol,
         )
 
-        course_about_url = u'{about_base_url}/courses/{course_key}/about'.format(
+        course_about_url = '{about_base_url}/courses/{course_key}/about'.format(
             about_base_url=about_base,
-            course_key=six.text_type(course.id),
+            course_key=str(course.id),
         )
 
     return course_about_url
