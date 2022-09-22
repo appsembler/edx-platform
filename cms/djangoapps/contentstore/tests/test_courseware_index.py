@@ -457,7 +457,7 @@ class TestCoursewareSearchIndexer(MixedWithOptionsTestCase):
         self.update_item(store, self.course)
         self.reindex_course(store)
         response = self.searcher.search(
-            field_dictionary={"course": six.text_type(self.course.id)}
+            field_dictionary={"course": str(self.course.id)}
         )
         self.assertEqual(response["total"], 1)
         print(response["results"][0]["data"])

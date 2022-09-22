@@ -134,7 +134,7 @@ def enqueue_async_migrate_transcripts_tasks(course_keys,
     for course_key in course_keys:
         try:
             with transaction.atomic():
-                async_migrate_transcript(text_type(course_key), **kwargs)
+                async_migrate_transcript(str(course_key), **kwargs)
         except ItemNotFoundError as not_found_exc:
             LOGGER.info(
                 '[%s] [run=%s] [course-transcript-migration-failed-with-not-found-error-exc] [course=%s] [exc=%s]',
@@ -201,7 +201,7 @@ def async_migrate_transcript(course_key, **kwargs):   # pylint: disable=unused-a
                 all_transcripts.update({'en': video.sub})
 
             sub_tasks = []
-            video_location = text_type(video.location)
+            video_location = str(video.location)
             for lang in all_transcripts:
                 sub_tasks.append(True)
                 async_migrate_transcript_subtask(
