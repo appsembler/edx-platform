@@ -3,7 +3,8 @@ Tests for Outline Tab API in the Course Home API
 """
 
 import itertools
-from datetime import datetime
+from datetime import datetime, timezone
+from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
 from unittest.mock import Mock, patch
 
 import ddt
@@ -16,8 +17,10 @@ from common.djangoapps.student.models import CourseEnrollment
 from common.djangoapps.student.roles import CourseInstructorRole
 from common.djangoapps.student.tests.factories import UserFactory
 from lms.djangoapps.course_home_api.tests.utils import BaseCourseHomeTests
-from lms.djangoapps.course_home_api.toggles import COURSE_HOME_MICROFRONTEND, COURSE_HOME_MICROFRONTEND_OUTLINE_TAB
-from lms.djangoapps.experiments.testutils import override_experiment_waffle_flag
+from lms.djangoapps.course_home_api.toggles import COURSE_HOME_USE_LEGACY_FRONTEND
+from openedx.core.djangoapps.content.learning_sequences.api import replace_course_outline
+from openedx.core.djangoapps.content.learning_sequences.data import CourseOutlineData, CourseVisibility
+from openedx.core.djangoapps.content.learning_sequences.toggles import USE_FOR_OUTLINES
 from openedx.core.djangoapps.course_date_signals.utils import MIN_DURATION
 from openedx.core.djangoapps.user_api.preferences.api import set_user_preference
 from openedx.core.djangoapps.user_api.tests.factories import UserCourseTagFactory
@@ -43,8 +46,6 @@ class OutlineTabTestViews(BaseCourseHomeTests):
         self.url = reverse('course-home-outline-tab', args=[self.course.id])
 
     @override_waffle_flag(ENABLE_COURSE_GOALS, active=True)
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     @ddt.data(CourseMode.AUDIT, CourseMode.VERIFIED)
     def test_get_authenticated_enrolled_user(self, enrollment_mode):
         CourseEnrollment.enroll(self.user, self.course.id, enrollment_mode)
@@ -68,17 +69,20 @@ class OutlineTabTestViews(BaseCourseHomeTests):
         dates_widget = response.data.get('dates_widget')
         assert dates_widget
         date_blocks = dates_widget.get('course_date_blocks')
-        assert all(((block.get('title') != '') for block in date_blocks))
-        assert all((block.get('date') for block in date_blocks))
+        assert all((block.get('title') != '') for block in date_blocks)
+        assert all(block.get('date') for block in date_blocks)
 
         resume_course = response.data.get('resume_course')
         resume_course_url = resume_course.get('url')
         if resume_course_url:
             assert 'http://' in resume_course_url
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
-    def test_get_authenticated_user_not_enrolled(self):
+    @ddt.data(True, False)
+    def test_get_authenticated_user_not_enrolled(self, has_previously_enrolled):
+        if has_previously_enrolled:
+            # Create an enrollment, then unenroll to set is_active to False
+            CourseEnrollment.enroll(self.user, self.course.id)
+            CourseEnrollment.unenroll(self.user, self.course.id)
         response = self.client.get(self.url)
         assert response.status_code == 200
 
@@ -91,11 +95,9 @@ class OutlineTabTestViews(BaseCourseHomeTests):
         dates_widget = response.data.get('dates_widget')
         assert dates_widget
         date_blocks = dates_widget.get('course_date_blocks')
-        assert all(((block.get('title') != '') for block in date_blocks))
-        assert all((block.get('date') for block in date_blocks))
+        assert all((block.get('title') != '') for block in date_blocks)
+        assert all(block.get('date') for block in date_blocks)
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     def test_get_unauthenticated_user(self):
         self.client.logout()
         response = self.client.get(self.url)
@@ -112,8 +114,6 @@ class OutlineTabTestViews(BaseCourseHomeTests):
         date_blocks = dates_widget.get('course_date_blocks')
         assert len(date_blocks) == 0
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     def test_masquerade(self):
         user = UserFactory()
         set_user_preference(user, 'time_zone', 'Asia/Tokyo')
@@ -128,8 +128,6 @@ class OutlineTabTestViews(BaseCourseHomeTests):
         self.update_masquerade(username=user.username)
         assert self.client.get(self.url).data['dates_widget']['user_timezone'] == 'Asia/Tokyo'
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     def test_course_staff_can_see_non_user_specific_content_in_masquerade(self):
         """
         Test that course staff can see the outline and other non-user-specific content when masquerading as a learner
@@ -140,7 +138,7 @@ class OutlineTabTestViews(BaseCourseHomeTests):
 
         instructor = UserFactory(
             username='instructor',
-            email=u'instructor@example.com',
+            email='instructor@example.com',
             password='foo',
             is_staff=False
         )
@@ -151,31 +149,24 @@ class OutlineTabTestViews(BaseCourseHomeTests):
         assert response.data['course_blocks'] is not None
         assert response.data['handouts_html'] is not None
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     @override_waffle_flag(COURSE_ENABLE_UNENROLLED_ACCESS_FLAG, active=True)
     def test_handouts(self):
         CourseEnrollment.enroll(self.user, self.course.id)
         self.store.create_item(self.user.id, self.course.id, 'course_info', 'handouts', fields={'data': '<p>Hi</p>'})
         assert self.client.get(self.url).data['handouts_html'] == '<p>Hi</p>'
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     def test_get_unknown_course(self):
         url = reverse('course-home-outline-tab', args=['course-v1:unknown+course+2T2020'])
         response = self.client.get(url)
         assert response.status_code == 404
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=False)
+    @override_waffle_flag(COURSE_HOME_USE_LEGACY_FRONTEND, active=True)
     @ddt.data(CourseMode.AUDIT, CourseMode.VERIFIED)
-    def test_waffle_flag_disabled(self, enrollment_mode):
+    def test_legacy_view_enabled(self, enrollment_mode):
         CourseEnrollment.enroll(self.user, self.course.id, enrollment_mode)
         response = self.client.get(self.url)
         assert response.status_code == 404
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     @ddt.data(True, False)
     def test_welcome_message(self, welcome_message_is_dismissed):
         CourseEnrollment.enroll(self.user, self.course.id)
@@ -201,8 +192,6 @@ class OutlineTabTestViews(BaseCourseHomeTests):
         welcome_message_html = self.client.get(self.url).data['welcome_message_html']
         assert welcome_message_html == (None if welcome_message_is_dismissed else '<p>Welcome</p>')
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     def test_offer(self):
         CourseEnrollment.enroll(self.user, self.course.id)
 
@@ -215,8 +204,6 @@ class OutlineTabTestViews(BaseCourseHomeTests):
             # Just a quick spot check that the dictionary looks like what we expect
             assert response.data['offer']['code'] == 'EDXWELCOME'
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     def test_access_expiration(self):
         enrollment = CourseEnrollment.enroll(self.user, self.course.id, CourseMode.VERIFIED)
         CourseDurationLimitConfig.objects.create(enabled=True, enabled_as_of=datetime(2018, 1, 1))
@@ -232,8 +219,6 @@ class OutlineTabTestViews(BaseCourseHomeTests):
         assert response.data['access_expiration']['expiration_date'] == deadline
 
     @override_waffle_flag(ENABLE_COURSE_GOALS, active=True)
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     def test_post_course_goal(self):
         CourseEnrollment.enroll(self.user, self.course.id, CourseMode.AUDIT)
 
@@ -252,8 +237,6 @@ class OutlineTabTestViews(BaseCourseHomeTests):
         assert selected_goal is not None
         assert selected_goal['key'] == 'certify'
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     @patch.dict('django.conf.settings.FEATURES', {'ENABLE_SPECIAL_EXAMS': True})
     @patch('lms.djangoapps.course_api.blocks.transformers.milestones.get_attempt_status_summary')
     def test_proctored_exam(self, mock_summary):
@@ -296,25 +279,17 @@ class OutlineTabTestViews(BaseCourseHomeTests):
         assert exam_data['due'] is not None
         assert exam_data['icon'] == 'fa-foo-bar'
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     def test_assignment(self):
         course = CourseFactory.create()
         with self.store.bulk_operations(course.id):
             chapter = ItemFactory.create(category='chapter', parent_location=course.location)
             sequential = ItemFactory.create(display_name='Test', category='sequential', graded=True, has_score=True,
                                             parent_location=chapter.location)
-            problem1 = ItemFactory.create(category='problem', graded=True, has_score=True,
-                                          parent_location=sequential.location)
-            problem2 = ItemFactory.create(category='problem', graded=True, has_score=True,
-                                          parent_location=sequential.location)
+            ItemFactory.create(category='problem', graded=True, has_score=True, parent_location=sequential.location)
+            ItemFactory.create(category='problem', graded=True, has_score=True, parent_location=sequential.location)
             sequential2 = ItemFactory.create(display_name='Ungraded', category='sequential',
                                              parent_location=chapter.location)
-            problem3 = ItemFactory.create(category='problem', parent_location=sequential2.location)
-        course.children = [chapter]
-        chapter.children = [sequential, sequential2]
-        sequential.children = [problem1, problem2]
-        sequential2.children = [problem3]
+            ItemFactory.create(category='problem', parent_location=sequential2.location)
         url = reverse('course-home-outline-tab', args=[course.id])
 
         CourseEnrollment.enroll(self.user, course.id)
@@ -329,8 +304,6 @@ class OutlineTabTestViews(BaseCourseHomeTests):
         assert ungraded_data['display_name'] == 'Ungraded'
         assert ungraded_data['icon'] is None
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     @override_waffle_flag(COURSE_ENABLE_UNENROLLED_ACCESS_FLAG, active=True)
     @patch('lms.djangoapps.course_home_api.outline.v1.views.generate_offer_data', new=Mock(return_value={'a': 1}))
     @patch('lms.djangoapps.course_home_api.outline.v1.views.get_access_expiration_data', new=Mock(return_value={'b': 1}))
@@ -368,19 +341,59 @@ class OutlineTabTestViews(BaseCourseHomeTests):
         assert (data['access_expiration'] is not None) == show_enrolled
         assert (data['resume_course']['url'] is not None) == show_enrolled
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     @ddt.data(True, False)
     def test_can_show_upgrade_sock(self, sock_enabled):
         with override_waffle_flag(DISPLAY_COURSE_SOCK_FLAG, active=sock_enabled):
             response = self.client.get(self.url)
             assert response.data['can_show_upgrade_sock'] == sock_enabled
 
-    @override_experiment_waffle_flag(COURSE_HOME_MICROFRONTEND, active=True)
-    @override_waffle_flag(COURSE_HOME_MICROFRONTEND_OUTLINE_TAB, active=True)
     def test_verified_mode(self):
         enrollment = CourseEnrollment.enroll(self.user, self.course.id)
         CourseDurationLimitConfig.objects.create(enabled=True, enabled_as_of=datetime(2018, 1, 1))
 
         response = self.client.get(self.url)
         assert response.data['verified_mode'] == {'access_expiration_date': (enrollment.created + MIN_DURATION), 'currency': 'USD', 'currency_symbol': '$', 'price': 149, 'sku': 'ABCD1234', 'upgrade_url': '/dashboard'}
+
+    def test_hide_learning_sequences(self):
+        """
+        Check that Learning Sequences filters out sequences.
+        """
+        CourseEnrollment.enroll(self.user, self.course.id, CourseMode.VERIFIED)
+
+        # Normal behavior: the sequence exists
+        response = self.client.get(self.url)
+        assert response.status_code == 200
+        blocks = response.data['course_blocks']['blocks']
+        seq_block_id = next(
+            block_id
+            for block_id, block in blocks.items()
+            if block['type'] == 'sequential'
+        )
+
+        # With Learning Sequences active and a course outline loaded, the same
+        # sequence is removed.
+        with override_waffle_flag(USE_FOR_OUTLINES, active=True):
+            new_learning_seq_outline = CourseOutlineData(
+                course_key=self.course.id,
+                title="Test Course Outline!",
+                published_at=datetime(2021, 6, 14, tzinfo=timezone.utc),
+                published_version="5ebece4b69dd593d82fe2022",
+                entrance_exam_id=None,
+                days_early_for_beta=None,
+                sections=[],
+                self_paced=False,
+                course_visibility=CourseVisibility.PRIVATE
+            )
+            replace_course_outline(new_learning_seq_outline)
+            response = self.client.get(self.url)
+            blocks = response.data['course_blocks']['blocks']
+            assert seq_block_id not in blocks
+
+    def test_user_has_passing_grade(self):
+        CourseEnrollment.enroll(self.user, self.course.id)
+        self.course._grading_policy['GRADE_CUTOFFS']['Pass'] = 0
+        self.update_course(self.course, self.user.id)
+        CourseGradeFactory().update(self.user, self.course)
+        response = self.client.get(self.url)
+        assert response.status_code == 200
+        assert response.data['user_has_passing_grade'] is True

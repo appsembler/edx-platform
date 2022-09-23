@@ -28,8 +28,10 @@ from common.djangoapps.student.roles import (
     CourseStaffRole
 )
 from common.djangoapps.student.tests.factories import CourseEnrollmentFactory, UserFactory
-from lms.djangoapps.certificates.models import CertificateStatuses, GeneratedCertificate
-from lms.djangoapps.courseware.tests.factories import InstructorFactory, StaffFactory
+from common.djangoapps.student.tests.factories import InstructorFactory
+from common.djangoapps.student.tests.factories import StaffFactory
+from lms.djangoapps.certificates.data import CertificateStatuses
+from lms.djangoapps.certificates.models import GeneratedCertificate
 from lms.djangoapps.grades.config.waffle import WRITABLE_GRADEBOOK, waffle_flags
 from lms.djangoapps.grades.constants import GradeOverrideFeatureEnum
 from lms.djangoapps.grades.course_data import CourseData
@@ -1042,7 +1044,7 @@ class GradebookViewTest(GradebookViewTestBase):
                 assert status.HTTP_200_OK == resp.status_code
                 actual_data = dict(resp.data)
                 expected_page_size = page_size or CourseEnrollmentPagination.page_size
-                if expected_page_size > user_size:
+                if expected_page_size > user_size:  # lint-amnesty, pylint: disable=consider-using-min-builtin
                     expected_page_size = user_size
                 assert len(actual_data['results']) == expected_page_size
 
@@ -1820,7 +1822,7 @@ class SubsectionGradeViewTest(GradebookViewTestBase):
                 'subsection_id': subsection_id or self.subsection_id,
             }
         )
-        return "{}?user_id={}".format(base_url, user_id or self.user_id)
+        return f"{base_url}?user_id={user_id or self.user_id}"
 
     @patch('lms.djangoapps.grades.subsection_grade_factory.SubsectionGradeFactory.create')
     @ddt.data(

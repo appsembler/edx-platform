@@ -13,9 +13,10 @@ import urllib
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as django_login
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User  # lint-amnesty, pylint: disable=imported-auth-user
 from django.contrib import admin
+from django.db.models import Q
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -39,11 +40,13 @@ from openedx.core.djangoapps.user_authn.exceptions import AuthFailedError
 from openedx.core.djangoapps.user_authn.toggles import should_redirect_to_authn_microfrontend
 from openedx.core.djangoapps.util.user_messages import PageLevelMessages
 from openedx.core.djangoapps.user_authn.views.password_reset import send_password_reset_email_for_user
-from openedx.core.djangoapps.user_authn.views.utils import ENTERPRISE_ENROLLMENT_URL_REGEX, UUID4_REGEX
+from openedx.core.djangoapps.user_authn.views.utils import (
+    ENTERPRISE_ENROLLMENT_URL_REGEX, UUID4_REGEX, API_V1
+)
 from openedx.core.djangoapps.user_authn.toggles import is_require_third_party_auth_enabled
 from openedx.core.djangoapps.user_authn.config.waffle import ENABLE_LOGIN_USING_THIRDPARTY_AUTH_ONLY
 from openedx.core.djangolib.markup import HTML, Text
-from openedx.core.lib.api.view_utils import require_post_params
+from openedx.core.lib.api.view_utils import require_post_params  # lint-amnesty, pylint: disable=unused-import
 from openedx.features.enterprise_support.api import activate_learner_enterprise, get_enterprise_learner_data_from_api
 from common.djangoapps.student.helpers import get_next_url_for_login_page, get_redirect_url_with_host
 from common.djangoapps.student.models import LoginFailures, AllowedAuthUser, UserProfile
@@ -60,6 +63,7 @@ from openedx.core.djangoapps.appsembler.sites.utils import get_current_organizat
 
 log = logging.getLogger("edx.student")
 AUDIT_LOG = logging.getLogger("audit")
+USER_MODEL = get_user_model()
 
 
 def _do_third_party_auth(request):
@@ -75,7 +79,7 @@ def _do_third_party_auth(request):
 
     try:
         return pipeline.get_authenticated_user(requested_provider, username, third_party_uid)
-    except User.DoesNotExist:
+    except USER_MODEL.DoesNotExist:
         AUDIT_LOG.info(
             "Login failed - user with username {username} has no social auth "
             "with backend_name {backend_name}".format(
@@ -138,9 +142,26 @@ def _get_user_by_email(request):
             raise
     else:
         try:
-            return User.objects.get(email=email)
-        except User.DoesNotExist:
+            return USER_MODEL.objects.get(email=email)
+        except USER_MODEL.DoesNotExist:
             _log_failed_get_user_by_email(email)
+
+
+def _get_user_by_email_or_username(request):
+    """
+    Finds a user object in the database based on the given request, ignores all fields except for email and username.
+    """
+    if 'email_or_username' not in request.POST or 'password' not in request.POST:
+        raise AuthFailedError(_('There was an error receiving your login information. Please email us.'))
+
+    email_or_username = request.POST.get('email_or_username', None)
+    try:
+        return USER_MODEL.objects.get(
+            Q(username=email_or_username) | Q(email=email_or_username)
+        )
+    except USER_MODEL.DoesNotExist:
+        digest = hashlib.shake_128(email_or_username.encode('utf-8')).hexdigest(16)  # pylint: disable=too-many-function-args
+        AUDIT_LOG.warning(f"Login failed - Unknown user username/email {digest}")
 
 
 def _check_excessive_login_attempts(user):
@@ -241,6 +262,7 @@ def _handle_failed_authentication(user, authenticated_user):
     """
     Handles updating the failed login count, inactive user notifications, and logging failed authentications.
     """
+    failure_count = 0
     if user:
         if LoginFailures.is_feature_enabled():
             LoginFailures.increment_lockout_counter(user)
@@ -276,12 +298,18 @@ def _handle_failed_authentication(user, authenticated_user):
                     error_code='failed-login-attempt',
                     context={
                         'remaining_attempts': remaining_attempts,
+                        'allowed_failure_attempts': max_failures_allowed,
+                        'failure_count': failure_count,
                     }
                 )
 
             _generate_locked_out_error_message()
 
-    raise AuthFailedError(_('Email or password is incorrect.'), error_code='incorrect-email-or-password')
+    raise AuthFailedError(
+        _('Email or password is incorrect.'),
+        error_code='incorrect-email-or-password',
+        context={'failure_count': failure_count},
+    )
 
 
 def _handle_successful_authentication_and_login(user, request):
@@ -477,7 +505,7 @@ def enterprise_selection_page(request, user, next_url):
     rate=settings.LOGISTRATION_RATELIMIT_RATE,
     method='POST',
 )  # lint-amnesty, pylint: disable=too-many-statements
-def login_user(request):
+def login_user(request, api_version='v1'):
     """
     AJAX request to log in the user.
 
@@ -520,6 +548,7 @@ def login_user(request):
         return HttpResponseForbidden(
             "Third party authentication is required to login. Username and password were received instead."
         )
+    possibly_authenticated_user = None
     try:
         if third_party_auth_requested and not first_party_auth_requested:
             # The user has already authenticated via third-party auth and has not
@@ -542,9 +571,11 @@ def login_user(request):
                 # user successfully authenticated with a third party provider, but has no linked Open edX account
                 response_content = e.get_response()
                 return JsonResponse(response_content, status=403)
-        else:
+        elif api_version == API_V1:
             # Appsembler: _get_user_by_email makes sure to return the correct user object, from the right organization.
             user = _get_user_by_email(request)
+        else:
+            user = _get_user_by_email_or_username(request)
 
         _check_excessive_login_attempts(user)
 
@@ -596,10 +627,11 @@ def login_user(request):
         error_code = response_content.get('error_code')
         if error_code:
             set_custom_attribute('login_error_code', error_code)
-
-        if error_code == 'inactive-user':
-            response_content['email'] = user.email
-
+        email_or_username_key = 'email' if api_version == API_V1 else 'email_or_username'
+        email_or_username = request.POST.get(email_or_username_key, None)
+        email_or_username = possibly_authenticated_user.email \
+            if possibly_authenticated_user else email_or_username
+        response_content['email'] = email_or_username
         response = JsonResponse(response_content, status=400)
         set_custom_attribute('login_user_auth_failed_error', True)
         set_custom_attribute('login_user_response_status', response.status_code)
@@ -642,12 +674,11 @@ class LoginSessionView(APIView):
     authentication_classes = []
 
     @method_decorator(ensure_csrf_cookie)
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         return HttpResponse(get_login_session_form(request).to_json(), content_type="application/json")  # lint-amnesty, pylint: disable=http-response-with-content-type-json
 
-    @method_decorator(require_post_params(["email", "password"]))
     @method_decorator(csrf_protect)
-    def post(self, request):
+    def post(self, request, api_version):
         """Log in a user.
 
         See `login_user` for details.
@@ -660,7 +691,7 @@ class LoginSessionView(APIView):
             200 {'success': true}
 
         """
-        return login_user(request)
+        return login_user(request, api_version)
 
     @method_decorator(sensitive_post_parameters("password"))
     def dispatch(self, request, *args, **kwargs):

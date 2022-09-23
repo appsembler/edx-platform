@@ -63,7 +63,7 @@ class CourseOverview(TimeStampedModel):
         app_label = 'course_overviews'
 
     # IMPORTANT: Bump this whenever you modify this model and/or add a migration.
-    VERSION = 12  # this one goes to thirteen
+    VERSION = 15
 
     # Cache entry versioning.
     version = IntegerField()
@@ -76,12 +76,15 @@ class CourseOverview(TimeStampedModel):
     display_number_with_default = TextField()
     display_org_with_default = TextField()
 
-    # Start/end dates
-    # TODO Remove 'start' & 'end' in removing field in column renaming, DE-1822
     start = DateTimeField(null=True)
     end = DateTimeField(null=True)
+
+    # These are deprecated and unused, but cannot be dropped via simple migration due to the size of the downstream
+    # history table. See DENG-19 for details.
+    # Please use start and end above for these values.
     start_date = DateTimeField(null=True)
     end_date = DateTimeField(null=True)
+
     advertised_start = TextField(null=True)
     announcement = DateTimeField(null=True)
 
@@ -128,6 +131,12 @@ class CourseOverview(TimeStampedModel):
 
     # Course highlight info, used to guide course update emails
     has_highlights = NullBooleanField(default=None)  # if None, you have to look up the answer yourself
+
+    # Proctoring
+    enable_proctored_exams = BooleanField(default=False)
+    proctoring_provider = TextField(null=True)
+    proctoring_escalation_email = TextField(null=True)
+    allow_proctoring_opt_out = BooleanField(default=False)
 
     language = TextField(null=True)
 
@@ -194,10 +203,7 @@ class CourseOverview(TimeStampedModel):
         course_overview.display_org_with_default = course.display_org_with_default
 
         course_overview.start = start
-        # Add writes to new fields 'start_date' & 'end_date'.
-        course_overview.start_date = start
         course_overview.end = end
-        course_overview.end_date = end
         course_overview.advertised_start = course.advertised_start
         course_overview.announcement = course.announcement
 
@@ -233,6 +239,11 @@ class CourseOverview(TimeStampedModel):
         course_overview.self_paced = course.self_paced
 
         course_overview.has_highlights = cls._get_course_has_highlights(course)
+
+        course_overview.enable_proctored_exams = course.enable_proctored_exams
+        course_overview.proctoring_provider = course.proctoring_provider
+        course_overview.proctoring_escalation_email = course.proctoring_escalation_email
+        course_overview.allow_proctoring_opt_out = course.allow_proctoring_opt_out
 
         if not CatalogIntegration.is_enabled():
             course_overview.language = course.language

@@ -75,7 +75,7 @@ class BlockListGetForm(Form):
         try:
             usage_key = UsageKey.from_string(usage_key)
         except InvalidKeyError:
-            raise ValidationError("'{}' is not a valid usage key.".format(str(usage_key)))  # lint-amnesty, pylint: disable=raise-missing-from
+            raise ValidationError(f"'{str(usage_key)}' is not a valid usage key.")  # lint-amnesty, pylint: disable=raise-missing-from
 
         return usage_key.replace(course_key=modulestore().fill_in_run(usage_key.course_key))
 
@@ -139,6 +139,8 @@ class BlockListGetForm(Form):
             return self._verify_anonymous_user(requested_username, course_key, all_blocks)
 
         if all_blocks:
+            if requesting_user.has_perm('instructor.research', course_key):
+                return requesting_user
             return self._verify_all_blocks(requesting_user, course_key)
         elif requesting_user.username.lower() == requested_username.lower():
             return self._verify_requesting_user(requesting_user, course_key)

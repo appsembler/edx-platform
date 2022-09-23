@@ -7,17 +7,18 @@ from datetime import datetime
 
 import unittest
 from django.conf import settings
-
+from django.test.utils import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from common.djangoapps.student.tests.factories import StaffFactory
 from common.djangoapps.student.tests.factories import UserFactory
-from lms.djangoapps.courseware.tests.factories import StaffFactory
 from xmodule.modulestore.tests.django_utils import TEST_DATA_SPLIT_MODULESTORE, SharedModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
 
 
+@override_settings(PROCTORING_BACKENDS={'DEFAULT': 'null', 'proctortrack': {}})
 class CourseValidationViewTest(SharedModuleStoreTestCase, APITestCase):
     """
     Test course validation view via a RESTful API
@@ -28,7 +29,12 @@ class CourseValidationViewTest(SharedModuleStoreTestCase, APITestCase):
     def setUpClass(cls):
         super().setUpClass()
 
-        cls.course = CourseFactory.create(display_name='test course', run="Testing_course")
+        cls.course = CourseFactory.create(
+            display_name='test course',
+            run="Testing_course",
+            proctoring_provider='proctortrack',
+            proctoring_escalation_email='test@example.com',
+        )
         cls.course_key = cls.course.id
 
         cls.password = 'test'
@@ -109,6 +115,10 @@ class CourseValidationViewTest(SharedModuleStoreTestCase, APITestCase):
             'grades': {
                 'has_grading_policy': False,
                 'sum_of_weights': 1.0,
+            },
+            'proctoring': {
+                'needs_proctoring_escalation_email': True,
+                'has_proctoring_escalation_email': True,
             },
             'is_self_paced': True,
         }

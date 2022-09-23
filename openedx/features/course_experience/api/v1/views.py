@@ -20,7 +20,7 @@ from edx_rest_framework_extensions.auth.session.authentication import SessionAut
 from opaque_keys.edx.keys import CourseKey
 
 from lms.djangoapps.course_api.api import course_detail
-from lms.djangoapps.course_home_api.toggles import course_home_mfe_dates_tab_is_active
+from lms.djangoapps.course_home_api.toggles import course_home_legacy_is_active
 from lms.djangoapps.courseware.access import has_access
 from lms.djangoapps.courseware.courses import get_course_with_access
 from lms.djangoapps.courseware.masquerade import is_masquerading, setup_masquerade
@@ -73,8 +73,12 @@ def reset_course_deadlines(request):
             has_access(request.user, 'staff', course_key)
         )
 
-        missed_deadlines, missed_gated_content = dates_banner_should_display(course_key, user)
-        if missed_deadlines and not missed_gated_content:
+        # We ignore the missed_deadlines because this endpoint is used in the Learning MFE for
+        # learners who have remaining attempts on a problem and reset their due dates in order to
+        # submit additional attempts. This can apply for 'completed' (submitted) content that would
+        # not be marked as past_due
+        _missed_deadlines, missed_gated_content = dates_banner_should_display(course_key, user)
+        if not missed_gated_content:
             reset_self_paced_schedule(user, course_key)
 
             course_overview = course_detail(request, user.username, course_key)
@@ -90,10 +94,10 @@ def reset_course_deadlines(request):
             })
             tracker.emit('edx.ui.lms.reset_deadlines.clicked', research_event_data)
 
-        if course_home_mfe_dates_tab_is_active(course_key):
-            body_link = get_learning_mfe_home_url(course_key=str(course_key), view_name='dates')
-        else:
+        if course_home_legacy_is_active(course_key):
             body_link = '{}{}'.format(settings.LMS_ROOT_URL, reverse('dates', args=[str(course_key)]))
+        else:
+            body_link = get_learning_mfe_home_url(course_key=str(course_key), view_name='dates')
 
         return Response({
             'body': format_html('<a href="{}">{}</a>', body_link, _('View all dates')),
@@ -102,9 +106,9 @@ def reset_course_deadlines(request):
             'link_text': _('View all dates'),
             'message': _('Deadlines successfully reset.'),
         })
-    except Exception as e:
-        log.exception(e)
-        raise UnableToResetDeadlines  # lint-amnesty, pylint: disable=raise-missing-from
+    except Exception as reset_deadlines_exception:
+        log.exception('Error occurred while trying to reset deadlines!')
+        raise UnableToResetDeadlines from reset_deadlines_exception
 
 
 class CourseDeadlinesMobileView(RetrieveAPIView):

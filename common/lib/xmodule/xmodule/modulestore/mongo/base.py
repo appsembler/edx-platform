@@ -24,10 +24,9 @@ from uuid import uuid4
 
 import pymongo
 from bson.son import SON
-from contracts import contract, new_contract
 from fs.osfs import OSFS
 from mongodb_proxy import autoretry_read
-from opaque_keys.edx.keys import AssetKey, CourseKey, UsageKey
+from opaque_keys.edx.keys import CourseKey, UsageKey
 from opaque_keys.edx.locator import BlockUsageLocator, CourseLocator, LibraryLocator
 from path import Path as path
 from pytz import UTC
@@ -54,12 +53,6 @@ from xmodule.partitions.partitions_service import PartitionService
 from xmodule.services import SettingsService
 
 log = logging.getLogger(__name__)
-
-new_contract('CourseKey', CourseKey)
-new_contract('AssetKey', AssetKey)
-new_contract('AssetMetadata', AssetMetadata)
-new_contract('long', int)
-new_contract('BlockUsageLocator', BlockUsageLocator)
 
 # sort order that returns DRAFT items first
 SORT_REVISION_FAVOR_DRAFT = ('_id.revision', pymongo.DESCENDING)
@@ -423,9 +416,6 @@ class CachingDescriptorSystem(MakoDescriptorSystem, EditInfoRuntimeMixin):  # li
         return []
 
 
-new_contract('CachingDescriptorSystem', CachingDescriptorSystem)
-
-
 # The only thing using this w/ wildcards is contentstore.mongo for asset retrieval
 def location_to_query(location, wildcard=True, tag='i4x'):
     """
@@ -513,15 +503,12 @@ class ParentLocationCache(dict):
     Dict-based object augmented with a more cache-like interface, for internal use.
     """
 
-    @contract(key=str)
     def has(self, key):
         return key in self
 
-    @contract(key=str, value="BlockUsageLocator | None")
     def set(self, key, value):
         self[key] = value
 
-    @contract(value="BlockUsageLocator")
     def delete_by_value(self, value):
         keys_to_delete = [k for k, v in self.items() if v == value]
         for key in keys_to_delete:
@@ -882,12 +869,6 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
         return data
 
     @beeline.traced(name="xmodule.mongo.base._load_item")
-    @contract(
-        course_key=CourseKey,
-        item=dict,
-        apply_cached_metadata=bool,
-        using_descriptor_system="None|CachingDescriptorSystem"
-    )
     def _load_item(self, course_key, item, data_cache,
                    apply_cached_metadata=True, using_descriptor_system=None, for_parent=None):
         """
@@ -1329,7 +1310,7 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
         ])
         courses = self.collection.find(course_search_location, projection={'_id': True})
         try:
-            course = courses.next()
+            course = courses.next()  # lint-amnesty, pylint: disable=next-method-called
             raise DuplicateCourseError(course_id, course['_id'])
         except StopIteration:
             pass
@@ -1850,7 +1831,6 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
         """
         return f'assets.{asset_type}'
 
-    @contract(asset_metadata_list='list(AssetMetadata)', user_id='int|long')
     def _save_asset_metadata_list(self, asset_metadata_list, user_id, import_only):
         """
         Internal; saves the info for a particular course's asset.
@@ -1876,7 +1856,6 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
         )
         return True
 
-    @contract(asset_metadata='AssetMetadata', user_id='int|long')
     def save_asset_metadata(self, asset_metadata, user_id, import_only=False):
         """
         Saves the info for a particular course's asset.
@@ -1891,7 +1870,6 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
         """
         return self._save_asset_metadata_list([asset_metadata, ], user_id, import_only)
 
-    @contract(asset_metadata_list='list(AssetMetadata)', user_id='int|long')
     def save_asset_metadata_list(self, asset_metadata_list, user_id, import_only=False):
         """
         Saves the asset metadata for each asset in a list of asset metadata.
@@ -1907,7 +1885,6 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
         """
         return self._save_asset_metadata_list(asset_metadata_list, user_id, import_only)
 
-    @contract(source_course_key='CourseKey', dest_course_key='CourseKey', user_id='int|long')
     def copy_all_asset_metadata(self, source_course_key, dest_course_key, user_id):
         """
         Copy all the course assets from source_course_key to dest_course_key.
@@ -1924,7 +1901,6 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
         # Update the document.
         self.asset_collection.insert_one(dest_assets)
 
-    @contract(asset_key='AssetKey', attr_dict=dict, user_id='int|long')
     def set_asset_metadata_attrs(self, asset_key, attr_dict, user_id):  # lint-amnesty, pylint: disable=arguments-differ
         """
         Add/set the given dict of attrs on the asset at the given location. Value can be any type which pymongo accepts.
@@ -1955,7 +1931,6 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
             {"$set": {self._make_mongo_asset_key(asset_key.asset_type): all_assets}}
         )
 
-    @contract(asset_key='AssetKey', user_id='int|long')
     def delete_asset_metadata(self, asset_key, user_id):
         """
         Internal; deletes a single asset's metadata.
@@ -1980,7 +1955,6 @@ class MongoModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase, Mongo
         )
         return 1
 
-    @contract(course_key='CourseKey', user_id='int|long')
     def delete_all_asset_metadata(self, course_key, user_id):  # lint-amnesty, pylint: disable=unused-argument
         """
         Delete all of the assets which use this course_key as an identifier.

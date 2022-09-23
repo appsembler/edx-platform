@@ -2,7 +2,6 @@
 Common utilities for the course experience, including course outline.
 """
 
-from django.conf import settings
 
 from django.utils import timezone
 from opaque_keys.edx.keys import CourseKey
@@ -107,6 +106,7 @@ def get_course_outline_block_tree(request, course_id, user=None, allow_start_dat
             'effort_time',
             'format',
             'graded',
+            'has_scheduled_content',
             'has_score',
             'show_gated_sections',
             'special_exam_info',
@@ -174,11 +174,9 @@ def dates_banner_should_display(course_key, user):
         return False, False
 
     course_overview = CourseOverview.objects.get(id=str(course_key))
-    course_end_date = getattr(course_overview, 'end_date', None)
-    is_self_paced = getattr(course_overview, 'self_paced', False)
 
     # Only display the banner for self-paced courses
-    if not is_self_paced:
+    if not course_overview.self_paced:
         return False, False
 
     # Only display the banner for enrolled users
@@ -186,7 +184,7 @@ def dates_banner_should_display(course_key, user):
         return False, False
 
     # Don't display the banner if the course has ended
-    if course_end_date and course_end_date < timezone.now():
+    if course_overview.end and course_overview.end < timezone.now():
         return False, False
 
     store = modulestore()

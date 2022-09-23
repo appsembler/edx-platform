@@ -22,7 +22,7 @@ from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
 COURSE_ID_STR_TEMPLATE = 'course-v1:StarFleetAcademy+SFA{}+2161'
 
 
-class CourseOverviewFactory(factory.DjangoModelFactory):
+class CourseOverviewFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = CourseOverview
 

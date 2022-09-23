@@ -6,18 +6,15 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 import unittest
 from unittest.mock import patch
-import pytest
 
 import ddt
 import pytz
 from config_models.models import cache
 from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist
 from django.test import RequestFactory, TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
 from django.utils import timezone
-from edx_toggles.toggles.testutils import override_waffle_flag
 from freezegun import freeze_time
 from opaque_keys.edx.keys import CourseKey
 from opaque_keys.edx.locator import CourseLocator
@@ -30,6 +27,7 @@ from common.djangoapps.course_modes.tests.factories import CourseModeFactory
 from common.djangoapps.student.models import CourseEnrollment
 from common.djangoapps.student.tests.factories import (
     CourseEnrollmentFactory,
+    GlobalStaffFactory,
     UserFactory
 )
 from common.djangoapps.util.testing import EventTestMixin
@@ -41,11 +39,11 @@ from lms.djangoapps.certificates.api import (
     create_or_update_certificate_allowlist_entry,
     example_certificates_status,
     generate_example_certificates,
-    generate_user_certificates,
     get_allowlist_entry,
     get_allowlisted_users,
     get_certificate_footer_context,
     get_certificate_for_user,
+    get_certificate_for_user_id,
     get_certificate_header_context,
     get_certificate_invalidation_entry,
     get_certificate_url,
@@ -56,25 +54,23 @@ from lms.djangoapps.certificates.api import (
     remove_allowlist_entry,
     set_cert_generation_enabled
 )
-from lms.djangoapps.certificates.generation_handler import CERTIFICATES_USE_ALLOWLIST
 from lms.djangoapps.certificates.models import (
     CertificateGenerationConfiguration,
     CertificateStatuses,
-    CertificateWhitelist,
     ExampleCertificate,
     GeneratedCertificate,
     certificate_status_for_student
 )
 from lms.djangoapps.certificates.queue import XQueueAddToQueueError, XQueueCertInterface
 from lms.djangoapps.certificates.tests.factories import (
-    CertificateWhitelistFactory,
+    CertificateAllowlistFactory,
     GeneratedCertificateFactory,
     CertificateInvalidationFactory
 )
-from lms.djangoapps.courseware.tests.factories import GlobalStaffFactory
-from lms.djangoapps.grades.tests.utils import mock_passing_grade
+from openedx.core.djangoapps.content.course_overviews.tests.factories import CourseOverviewFactory
 from openedx.core.djangoapps.site_configuration.tests.test_util import with_site_configuration
 
+CAN_GENERATE_METHOD = 'lms.djangoapps.certificates.generation_handler._can_generate_regular_certificate'
 FEATURES_WITH_CERTS_ENABLED = settings.FEATURES.copy()
 FEATURES_WITH_CERTS_ENABLED['CERTIFICATES_HTML_VIEW'] = True
 
@@ -137,16 +133,24 @@ class CertificateDownloadableStatusTests(WebCertificateTestMixin, ModuleStoreTes
             certificate_available_date=datetime.now(pytz.UTC) - timedelta(days=2)
         )
 
+        GeneratedCertificateFactory.create(
+            user=self.student,
+            course_id=self.course.id,
+            status=CertificateStatuses.downloadable,
+            mode='verified'
+        )
+
         self.request_factory = RequestFactory()
 
     def test_cert_status_with_generating(self):
+        cert_user = UserFactory()
         GeneratedCertificateFactory.create(
-            user=self.student,
+            user=cert_user,
             course_id=self.course.id,
             status=CertificateStatuses.generating,
             mode='verified'
         )
-        assert certificate_downloadable_status(self.student, self.course.id) ==\
+        assert certificate_downloadable_status(cert_user, self.course.id) ==\
                {'is_downloadable': False,
                 'is_generating': True,
                 'is_unverified': False,
@@ -154,14 +158,15 @@ class CertificateDownloadableStatusTests(WebCertificateTestMixin, ModuleStoreTes
                 'uuid': None}
 
     def test_cert_status_with_error(self):
+        cert_user = UserFactory()
         GeneratedCertificateFactory.create(
-            user=self.student,
+            user=cert_user,
             course_id=self.course.id,
             status=CertificateStatuses.error,
             mode='verified'
         )
 
-        assert certificate_downloadable_status(self.student, self.course.id) ==\
+        assert certificate_downloadable_status(cert_user, self.course.id) ==\
                {'is_downloadable': False,
                 'is_generating': True,
                 'is_unverified': False,
@@ -181,15 +186,16 @@ class CertificateDownloadableStatusTests(WebCertificateTestMixin, ModuleStoreTes
         Verifies certificate_downloadable_status returns the
         correct response for PDF certificates.
         """
+        cert_user = UserFactory()
         cert = GeneratedCertificateFactory.create(
-            user=self.student,
+            user=cert_user,
             course_id=self.course.id,
             status=CertificateStatuses.downloadable,
             mode='verified',
             download_url='www.google.com',
         )
 
-        assert certificate_downloadable_status(self.student, self.course.id) ==\
+        assert certificate_downloadable_status(cert_user, self.course.id) ==\
                {'is_downloadable': True,
                 'is_generating': False,
                 'is_unverified': False,
@@ -206,11 +212,6 @@ class CertificateDownloadableStatusTests(WebCertificateTestMixin, ModuleStoreTes
 
     @patch.dict(settings.FEATURES, {'CERTIFICATES_HTML_VIEW': True})
     def test_with_downloadable_web_cert(self):
-        CourseEnrollment.enroll(self.student, self.course.id, mode='honor')
-        self._setup_course_certificate()
-        with mock_passing_grade():
-            generate_user_certificates(self.student, self.course.id)
-
         cert_status = certificate_status_for_student(self.student, self.course.id)
         assert certificate_downloadable_status(self.student, self.course.id) ==\
                {'is_downloadable': True,
@@ -251,10 +252,7 @@ class CertificateDownloadableStatusTests(WebCertificateTestMixin, ModuleStoreTes
         self.course.certificate_available_date = cert_avail_date
         self.course.save()
 
-        CourseEnrollment.enroll(self.student, self.course.id, mode='honor')
         self._setup_course_certificate()
-        with mock_passing_grade():
-            generate_user_certificates(self.student, self.course.id)
 
         downloadable_status = certificate_downloadable_status(self.student, self.course.id)
         assert downloadable_status['is_downloadable'] == cert_downloadable_status
@@ -273,6 +271,9 @@ class CertificateIsInvalid(WebCertificateTestMixin, ModuleStoreTestCase):
             org='edx',
             number='verified',
             display_name='Verified Course'
+        )
+        self.course_overview = CourseOverviewFactory.create(
+            id=self.course.id
         )
         self.global_staff = GlobalStaffFactory()
         self.request_factory = RequestFactory()
@@ -442,6 +443,18 @@ class CertificateGetTests(SharedModuleStoreTestCase):
         assert cert['is_passing'] is True
         assert cert['download_url'] == 'www.google.com'
 
+    def test_get_certificate_for_user_id(self):
+        """
+        Test to get a certificate for a user id for a specific course.
+        """
+        cert = get_certificate_for_user_id(self.student, self.web_cert_course.id)
+
+        assert cert is not None
+        assert cert.course_id == self.web_cert_course.id
+        assert cert.mode == CourseMode.VERIFIED
+        assert cert.status == CertificateStatuses.downloadable
+        assert cert.grade == '0.88'
+
     def test_get_certificates_for_user(self):
         """
         Test to get all the certificates for a user
@@ -563,67 +576,6 @@ class GenerateUserCertificatesTest(EventTestMixin, WebCertificateTestMixin, Modu
         )
         self.enrollment = CourseEnrollment.enroll(self.student, self.course.id, mode='honor')
         self.request_factory = RequestFactory()
-
-    def test_new_cert_requests_into_xqueue_returns_generating(self):
-        with mock_passing_grade():
-            with self._mock_queue():
-                generate_user_certificates(self.student, self.course.id)
-
-        # Verify that the certificate has status 'generating'
-        cert = GeneratedCertificate.eligible_certificates.get(user=self.student, course_id=self.course.id)
-        assert cert.status == CertificateStatuses.generating
-        self.assert_event_emitted(
-            'edx.certificate.created',
-            user_id=self.student.id,
-            course_id=str(self.course.id),
-            certificate_url=get_certificate_url(self.student.id, self.course.id),
-            certificate_id=cert.verify_uuid,
-            enrollment_mode=cert.mode,
-            generation_mode='batch'
-        )
-
-    def test_xqueue_submit_task_error(self):
-        with mock_passing_grade():
-            with self._mock_queue(is_successful=False):
-                generate_user_certificates(self.student, self.course.id)
-
-        # Verify that the certificate has been marked with status error
-        cert = GeneratedCertificate.eligible_certificates.get(user=self.student, course_id=self.course.id)
-        assert cert.status == CertificateStatuses.error
-        assert self.ERROR_REASON in cert.error_reason
-
-    def test_generate_user_certificates_with_unverified_cert_status(self):
-        """
-        Generate user certificate when the certificate is unverified
-        will trigger an update to the certificate if the user has since
-        verified.
-        """
-        self._setup_course_certificate()
-        # generate certificate with unverified status.
-        GeneratedCertificateFactory.create(
-            user=self.student,
-            course_id=self.course.id,
-            status=CertificateStatuses.unverified,
-            mode='verified'
-        )
-
-        with mock_passing_grade():
-            with self._mock_queue():
-                status = generate_user_certificates(self.student, self.course.id)
-                assert status == CertificateStatuses.generating
-
-    @patch.dict(settings.FEATURES, {'CERTIFICATES_HTML_VIEW': True})
-    def test_new_cert_requests_returns_generating_for_html_certificate(self):
-        """
-        Test no message sent to Xqueue if HTML certificate view is enabled
-        """
-        self._setup_course_certificate()
-        with mock_passing_grade():
-            generate_user_certificates(self.student, self.course.id)
-
-        # Verify that the certificate has status 'downloadable'
-        cert = GeneratedCertificate.eligible_certificates.get(user=self.student, course_id=self.course.id)
-        assert cert.status == CertificateStatuses.downloadable
 
     @patch.dict(settings.FEATURES, {'CERTIFICATES_HTML_VIEW': False})
     def test_cert_url_empty_with_invalid_certificate(self):
@@ -818,90 +770,6 @@ class CertificatesBrandingTest(ModuleStoreTestCase):
         assert self.configuration['urls']['TOS_AND_HONOR'] in data['company_tos_url']
 
 
-@override_waffle_flag(CERTIFICATES_USE_ALLOWLIST, active=True)
-class AllowlistTests(ModuleStoreTestCase):
-    """
-    Tests for handling allowlist certificates
-    """
-
-    def setUp(self):
-        super().setUp()
-
-        # Create users, a course run, and enrollments
-        self.user = UserFactory()
-        self.user2 = UserFactory()
-        self.user3 = UserFactory()
-        self.user4 = UserFactory()
-
-        self.course_run = CourseFactory()
-        self.course_run_key = self.course_run.id  # pylint: disable=no-member
-        self.second_course_run = CourseFactory()
-        self.second_course_run_key = self.second_course_run.id  # pylint: disable=no-member
-        self.third_course_run = CourseFactory()
-        self.third_course_run_key = self.third_course_run.id  # pylint: disable=no-member
-
-        CourseEnrollmentFactory(
-            user=self.user,
-            course_id=self.course_run_key,
-            is_active=True,
-            mode="verified",
-        )
-        CourseEnrollmentFactory(
-            user=self.user2,
-            course_id=self.course_run_key,
-            is_active=True,
-            mode="verified",
-        )
-        CourseEnrollmentFactory(
-            user=self.user3,
-            course_id=self.course_run_key,
-            is_active=True,
-            mode="verified",
-        )
-        CourseEnrollmentFactory(
-            user=self.user4,
-            course_id=self.second_course_run_key,
-            is_active=True,
-            mode="verified",
-        )
-
-        # Add user to the allowlist
-        CertificateWhitelistFactory.create(course_id=self.course_run_key, user=self.user)
-        # Add user to the allowlist, but set whitelist to false
-        CertificateWhitelistFactory.create(course_id=self.course_run_key, user=self.user2, whitelist=False)
-        # Add user to the allowlist in the other course
-        CertificateWhitelistFactory.create(course_id=self.second_course_run_key, user=self.user4)
-
-    def test_get_users_allowlist(self):
-        """
-        Test that allowlisted users are returned correctly
-        """
-        users = get_allowlisted_users(self.course_run_key)
-        assert 1 == users.count()
-        assert users[0].id == self.user.id
-
-        users = get_allowlisted_users(self.second_course_run_key)
-        assert 1 == users.count()
-        assert users[0].id == self.user4.id
-
-        users = get_allowlisted_users(self.third_course_run_key)
-        assert 0 == users.count()
-
-    @override_waffle_flag(CERTIFICATES_USE_ALLOWLIST, active=False)
-    def test_get_users_allowlist_false(self):
-        """
-        Test
-        """
-        users = get_allowlisted_users(self.course_run_key)
-        assert 0 == users.count()
-
-        users = get_allowlisted_users(self.second_course_run_key)
-        assert 0 == users.count()
-
-        users = get_allowlisted_users(self.third_course_run_key)
-        assert 0 == users.count()
-
-
 class CertificateAllowlistTests(ModuleStoreTestCase):
     """
     Tests for allowlist functionality.
@@ -934,42 +802,38 @@ class CertificateAllowlistTests(ModuleStoreTestCase):
         result, __ = create_or_update_certificate_allowlist_entry(self.user, self.course_run_key, "New test", False)
 
         assert result.notes == "New test"
-        assert not result.whitelist
+        assert not result.allowlist
 
     def test_remove_allowlist_entry(self):
         """
         Test for removing an allowlist entry for a user in a given course-run.
         """
-        CertificateWhitelistFactory.create(course_id=self.course_run_key, user=self.user)
+        CertificateAllowlistFactory.create(course_id=self.course_run_key, user=self.user)
+        assert is_on_allowlist(self.user, self.course_run_key)
 
         result = remove_allowlist_entry(self.user, self.course_run_key)
         assert result
-
-        with pytest.raises(ObjectDoesNotExist) as error:
-            CertificateWhitelist.objects.get(user=self.user, course_id=self.course_run_key)
-        assert str(error.value) == "CertificateWhitelist matching query does not exist."
+        assert not is_on_allowlist(self.user, self.course_run_key)
 
     def test_remove_allowlist_entry_with_certificate(self):
         """
         Test for removing an allowlist entry. Verify that we also invalidate the certificate for the student.
         """
-        CertificateWhitelistFactory.create(course_id=self.course_run_key, user=self.user)
+        CertificateAllowlistFactory.create(course_id=self.course_run_key, user=self.user)
         GeneratedCertificateFactory.create(
             user=self.user,
             course_id=self.course_run_key,
             status=CertificateStatuses.downloadable,
             mode='verified'
         )
+        assert is_on_allowlist(self.user, self.course_run_key)
 
         result = remove_allowlist_entry(self.user, self.course_run_key)
         assert result
 
         certificate = GeneratedCertificate.objects.get(user=self.user, course_id=self.course_run_key)
         assert certificate.status == CertificateStatuses.unavailable
-
-        with pytest.raises(ObjectDoesNotExist) as error:
-            CertificateWhitelist.objects.get(user=self.user, course_id=self.course_run_key)
-        assert str(error.value) == "CertificateWhitelist matching query does not exist."
+        assert not is_on_allowlist(self.user, self.course_run_key)
 
     def test_remove_allowlist_entry_entry_dne(self):
         """
@@ -982,7 +846,7 @@ class CertificateAllowlistTests(ModuleStoreTestCase):
         """
         Test to verify that we can retrieve an allowlist entry for a learner.
         """
-        allowlist_entry = CertificateWhitelistFactory.create(course_id=self.course_run_key, user=self.user)
+        allowlist_entry = CertificateAllowlistFactory.create(course_id=self.course_run_key, user=self.user)
 
         retrieved_entry = get_allowlist_entry(self.user, self.course_run_key)
 
@@ -1011,7 +875,7 @@ class CertificateAllowlistTests(ModuleStoreTestCase):
         """
         Test to verify that we return True when an allowlist entry exists.
         """
-        CertificateWhitelistFactory.create(course_id=self.course_run_key, user=self.user)
+        CertificateAllowlistFactory.create(course_id=self.course_run_key, user=self.user)
 
         result = is_on_allowlist(self.user, self.course_run_key)
         assert result
@@ -1027,7 +891,7 @@ class CertificateAllowlistTests(ModuleStoreTestCase):
         """
         Test to verify that we will return False when the allowlist entry if it is disabled.
         """
-        CertificateWhitelistFactory.create(course_id=self.course_run_key, user=self.user, whitelist=False)
+        CertificateAllowlistFactory.create(course_id=self.course_run_key, user=self.user, allowlist=False)
 
         result = is_on_allowlist(self.user, self.course_run_key)
         assert not result
@@ -1040,7 +904,7 @@ class CertificateAllowlistTests(ModuleStoreTestCase):
 
     def test_can_be_added_to_allowlist_not_enrolled(self):
         """
-        Test to verify that a learner will be rejected from the allowlist without an active enrollmeint in a
+        Test to verify that a learner will be rejected from the allowlist without an active enrollment in a
         course-run.
         """
         new_course_run = CourseFactory()
@@ -1071,9 +935,107 @@ class CertificateAllowlistTests(ModuleStoreTestCase):
         Test to verify that a learner will be rejected from the allowlist if they currently already appear on the
         allowlist.
         """
-        CertificateWhitelistFactory.create(course_id=self.course_run_key, user=self.user)
+        CertificateAllowlistFactory.create(course_id=self.course_run_key, user=self.user)
 
         assert not can_be_added_to_allowlist(self.user, self.course_run_key)
+
+    def test_get_users_allowlist(self):
+        """
+        Test that allowlisted users are returned correctly
+        """
+        u1 = UserFactory()
+        u2 = UserFactory()
+        u3 = UserFactory()
+        u4 = UserFactory()
+
+        cr1 = CourseFactory()
+        key1 = cr1.id  # pylint: disable=no-member
+        cr2 = CourseFactory()
+        key2 = cr2.id  # pylint: disable=no-member
+        cr3 = CourseFactory()
+        key3 = cr3.id  # pylint: disable=no-member
+
+        CourseEnrollmentFactory(
+            user=u1,
+            course_id=key1,
+            is_active=True,
+            mode="verified",
+        )
+        CourseEnrollmentFactory(
+            user=u2,
+            course_id=key1,
+            is_active=True,
+            mode="verified",
+        )
+        CourseEnrollmentFactory(
+            user=u3,
+            course_id=key1,
+            is_active=True,
+            mode="verified",
+        )
+        CourseEnrollmentFactory(
+            user=u4,
+            course_id=key2,
+            is_active=True,
+            mode="verified",
+        )
+
+        # Add user to the allowlist
+        CertificateAllowlistFactory.create(course_id=key1, user=u1)
+        # Add user to the allowlist, but set allowlist to false
+        CertificateAllowlistFactory.create(course_id=key1, user=u2, allowlist=False)
+        # Add user to the allowlist in the other course
+        CertificateAllowlistFactory.create(course_id=key2, user=u4)
+
+        users = get_allowlisted_users(key1)
+        assert 1 == users.count()
+        assert users[0].id == u1.id
+
+        users = get_allowlisted_users(key2)
+        assert 1 == users.count()
+        assert users[0].id == u4.id
+
+        users = get_allowlisted_users(key3)
+        assert 0 == users.count()
+
+    def test_add_and_update(self):
+        """
+        Test add and update of the allowlist
+        """
+        u1 = UserFactory()
+        notes = 'blah'
+
+        # Check before adding user
+        entry = get_allowlist_entry(u1, self.course_run_key)
+        assert entry is None
+
+        # Add user
+        create_or_update_certificate_allowlist_entry(u1, self.course_run_key, notes)
+        entry = get_allowlist_entry(u1, self.course_run_key)
+        assert entry.notes == notes
+
+        # Update user
+        new_notes = 'really useful info'
+        create_or_update_certificate_allowlist_entry(u1, self.course_run_key, new_notes)
+        entry = get_allowlist_entry(u1, self.course_run_key)
+        assert entry.notes == new_notes
+
+    def test_remove(self):
+        """
+        Test removal from the allowlist
+        """
+        u1 = UserFactory()
+        notes = 'I had a thought....'
+
+        # Add user
+        create_or_update_certificate_allowlist_entry(u1, self.course_run_key, notes)
+        entry = get_allowlist_entry(u1, self.course_run_key)
+        assert entry.notes == notes
+
+        # Remove user
+        remove_allowlist_entry(u1, self.course_run_key)
+        entry = get_allowlist_entry(u1, self.course_run_key)
+        assert entry is None
 
 
 class CertificateInvalidationTests(ModuleStoreTestCase):
