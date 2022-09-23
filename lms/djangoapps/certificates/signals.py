@@ -98,7 +98,7 @@ def _listen_for_failing_grade(sender, user, course_id, grade, **kwargs):  # pyli
     cert = GeneratedCertificate.certificate_for_student(user, course_id)
     # Appsembler fix: If the cert was whitelisted (Exception certificate)
     # we want to keep in "downloadble" status.
-    whitelist_cert = CertificateWhitelist.get_certificate_white_list(course_id, user)
+    whitelist_cert = CertificateAllowlist.get_certificate_allowlist(course_id, user)
     if cert is not None:
         if CertificateStatuses.is_passing_status(cert.status) and len(whitelist_cert) == 0:
             cert.mark_notpassing(grade.percent, source='notpassing_signal')

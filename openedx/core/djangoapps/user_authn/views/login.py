@@ -127,7 +127,7 @@ def _get_user_by_email(request):
         try:
             current_org = get_current_organization()
             return get_organization_user_by_email(email=email, organization=current_org)
-        except User.DoesNotExist:
+        except USER_MODEL.DoesNotExist:
             _log_failed_get_user_by_email(email)
         except MultipleObjectsReturned:
             log.exception(

@@ -16,7 +16,7 @@ from lms.djangoapps.certificates.api import cert_generation_enabled
 from lms.djangoapps.certificates.data import CertificateStatuses
 from lms.djangoapps.certificates.models import (
     CertificateGenerationConfiguration,
-    CertificateWhitelist,
+    CertificateAllowlist,
     GeneratedCertificate
 )
 from lms.djangoapps.certificates.tests.factories import CertificateAllowlistFactory, GeneratedCertificateFactory
@@ -466,10 +466,10 @@ class FailingGradeCertsTestWithWhiteLabelCert(ModuleStoreTestCase):
             is_active=True,
             mode="verified",
         )
-        self.whitelist_cert = CertificateWhitelist.objects.create(
+        self.whitelist_cert = CertificateAllowlist.objects.create(
             user=self.user,
             course_id=self.course.id,
-            whitelist=True
+            allowlist=True
         )
         attempt = SoftwareSecurePhotoVerification.objects.create(
             user=self.user,

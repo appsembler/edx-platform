@@ -289,7 +289,6 @@ class Command(BaseCommand):
             'city': profile.city,
             'country': profile.country.name if profile.country else '',
             'goals': profile.goals,
-            'allow_certificate': profile.allow_certificate,
             'bio': profile.bio,
             'profile_image_uploaded_at': profile.profile_image_uploaded_at,
         }
