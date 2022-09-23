@@ -35,7 +35,6 @@ from lms.djangoapps.instructor_task import views as instructor_task_views
 from lms.djangoapps.staticbook import views as staticbook_views
 from lms.djangoapps.static_template_view import views as static_template_view_views
 from openedx.core.apidocs import api_info
-from openedx.core.djangoapps.appsembler.future_releases_hacks.views import resume_to
 from openedx.core.djangoapps.auth_exchange.views import LoginWithAccessTokenView
 from openedx.core.djangoapps.catalog.models import CatalogIntegration
 from openedx.core.djangoapps.common_views.xblock import xblock_resource
@@ -274,14 +273,6 @@ urlpatterns += [
         ),
         courseware_views.jump_to,
         name='jump_to',
-    ),
-    # Resume URL, Applsembler specific to resolve RED-3276
-    url(
-        r'^courses/{}/resume_to/(?P<location>.*)$'.format(
-            settings.COURSE_ID_PATTERN,
-        ),
-        resume_to,
-        name='resume_to',
     ),
     url(
         r'^courses/{}/jump_to_id/(?P<module_id>.*)$'.format(
