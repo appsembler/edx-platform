@@ -16,9 +16,9 @@ from django.test.utils import override_settings
 from django.urls import reverse
 
 from common.djangoapps.student.models import CourseEnrollment
-from lms.djangoapps.courseware.tests.factories import StaffFactory
 from common.djangoapps.student.tests.factories import GlobalStaffFactory
 from common.djangoapps.student.tests.factories import InstructorFactory
+from common.djangoapps.student.tests.factories import StaffFactory
 from common.djangoapps.student.tests.factories import UserFactory
 from lms.djangoapps.certificates import api as certs_api
 from lms.djangoapps.certificates.data import CertificateStatuses
