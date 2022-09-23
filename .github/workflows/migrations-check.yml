@@ -3,6 +3,8 @@ name: CI
 on:
   workflow_dispatch:
   pull_request:
+    branches:
+      - master  # Tahoe: this line effectively disables it on Tahoe
   push:
     branches:
       - master
