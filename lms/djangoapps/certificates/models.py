@@ -47,29 +47,6 @@ class CertificateSocialNetworks:
     twitter = 'Twitter'
 
 
-class CertificateWhitelist(models.Model):
-    """
-    Tracks students who are whitelisted, all users
-    in this table will always qualify for a certificate
-    regardless of their grade.
-
-    This model is deprecated. CertificateAllowlist should be used in its place.
-
-    .. no_pii:
-    """
-    class Meta:
-        app_label = "certificates"
-        unique_together = [['course_id', 'user']]
-
-    objects = NoneToEmptyManager()
-
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    course_id = CourseKeyField(max_length=255, blank=True, default=None)
-    whitelist = models.BooleanField(default=0)
-    created = AutoCreatedField(_('created'))
-    notes = models.TextField(default=None, null=True)
-
-
 class CertificateAllowlist(TimeStampedModel):
     """
     Tracks students who are on the certificate allowlist for a given course run.
