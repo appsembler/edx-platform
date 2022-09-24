@@ -248,7 +248,7 @@ class CertificatesInstructorApiTest(SharedModuleStoreTestCase):
         cache.clear()
         CertificateGenerationConfiguration.objects.create(enabled=True)
 
-    @ddt.data('generate_example_certificates', 'enable_certificate_generation')
+    @ddt.data('enable_certificate_generation')
     def test_allow_course_staff(self, url_name):
         """
         Tahoe: Certificate views permission.

@@ -2828,23 +2828,6 @@ def _instructor_dash_url(course_key, section=None):
 
 @require_course_permission(permissions.TAHOE_CERTIFICATE_ADMIN)
 @require_POST
-def generate_example_certificates(request, course_id=None):
-    """Start generating a set of example certificates.
-
-    Example certificates are used to verify that certificates have
-    been configured correctly for the course.
-
-    Redirects back to the instructor dashboard once certificate
-    generation has begun.
-
-    """
-    course_key = CourseKey.from_string(course_id)
-    certs_api.generate_example_certificates(course_key)
-    return redirect(_instructor_dash_url(course_key, section='certificates'))
-
-
-@require_course_permission(permissions.TAHOE_CERTIFICATE_ADMIN)
-@require_POST
 def enable_certificate_generation(request, course_id=None):
     """Enable/disable self-generated certificates for a course.
 
