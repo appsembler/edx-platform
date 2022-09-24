@@ -29,7 +29,7 @@ from django.urls import reverse
 
 <%block name="header_extras">
 <link rel="stylesheet" type="text/css" href="${static.url('js/vendor/timepicker/jquery.timepicker.css')}" />
-% for template_name in ['course-outline', 'xblock-string-field-editor', 'basic-modal', 'modal-button', 'course-outline-modal', 'due-date-editor', 'release-date-editor', 'grading-editor', 'publish-editor', 'staff-lock-editor', 'unit-access-editor', 'content-visibility-editor', 'verification-access-editor', 'timed-examination-preference-editor', 'access-editor', 'settings-modal-tabs', 'show-correctness-editor', 'highlights-editor', 'highlights-enable-editor', 'course-highlights-enable']:
+% for template_name in ['course-outline', 'xblock-string-field-editor', 'basic-modal', 'modal-button', 'course-outline-modal', 'due-date-editor', 'self-paced-due-date-editor', 'release-date-editor', 'grading-editor', 'publish-editor', 'staff-lock-editor', 'unit-access-editor', 'content-visibility-editor', 'verification-access-editor', 'timed-examination-preference-editor', 'access-editor', 'settings-modal-tabs', 'show-correctness-editor', 'highlights-editor', 'highlights-enable-editor', 'course-highlights-enable']:
 <script type="text/template" id="${template_name}-tpl">
     <%static:include path="js/${template_name}.underscore" />
 </script>
@@ -115,7 +115,7 @@ from django.urls import reverse
         </div>
       </div>
     %endif
-  
+
   %if proctoring_errors:
     <div class="wrapper wrapper-alert wrapper-alert-error is-shown">
       <div class="alert announcement has-actions">
@@ -124,12 +124,11 @@ from django.urls import reverse
         <div class="exam-settings-alert copy">
           <h2 class="title title-3">${_("This course has proctored exam settings that are incomplete or invalid.")}</h2>
           <p>
-            % if course_authoring_microfrontend_url:
+            % if mfe_proctored_exam_settings_url:
               <% url_encoded_course_id = quote(six.text_type(context_course.id).encode('utf-8'), safe='') %>
               ${Text(_("To update these settings go to the {link_start}Proctored Exam Settings page{link_end}.")).format(
-                link_start=HTML('<a href="{course_authoring_microfrontend_url}/proctored-exam-settings/{url_encoded_course_id}">').format(
-                  course_authoring_microfrontend_url=course_authoring_microfrontend_url,
-                  url_encoded_course_id=url_encoded_course_id,
+                link_start=HTML('<a href="${mfe_proctored_exam_settings_url}">').format(
+                        mfe_proctored_exam_settings_url=mfe_proctored_exam_settings_url
                 ),
                 link_end=HTML("</a>")
               )}

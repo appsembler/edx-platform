@@ -5,6 +5,7 @@ Student Views
 
 import datetime
 import logging
+import urllib.parse
 import uuid
 from collections import namedtuple
 
@@ -42,17 +43,19 @@ from common.djangoapps.course_modes.models import CourseMode
 from lms.djangoapps.courseware.courses import get_courses, sort_by_announcement, sort_by_start_date
 from common.djangoapps.edxmako.shortcuts import marketing_link, render_to_response, render_to_string  # lint-amnesty, pylint: disable=unused-import
 from common.djangoapps.entitlements.models import CourseEntitlement
+from common.djangoapps.student.helpers import get_next_url_for_login_page, get_redirect_url_with_host
 from openedx.core.djangoapps.ace_common.template_context import get_base_template_context
 from openedx.core.djangoapps.catalog.utils import get_programs_with_type
 from openedx.core.djangoapps.appsembler.sites.utils import get_current_organization
 from openedx.core.djangoapps.embargo import api as embargo_api
 from openedx.core.djangoapps.lang_pref import LANGUAGE_KEY
-from openedx.core.djangoapps.programs.models import ProgramsApiConfig
+from openedx.core.djangoapps.programs.models import ProgramsApiConfig  # lint-amnesty, pylint: disable=unused-import
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.theming import helpers as theming_helpers
 from openedx.core.djangoapps.user_api.preferences import api as preferences_api
 from openedx.core.djangoapps.user_authn.toggles import should_redirect_to_authn_microfrontend
 from openedx.core.djangolib.markup import HTML, Text
+from openedx.features.enterprise_support.utils import is_enterprise_learner
 from common.djangoapps.student.email_helpers import generate_activation_email_context
 from common.djangoapps.student.helpers import DISABLE_UNENROLL_CERT_STATES, cert_info
 from common.djangoapps.student.message_types import AccountActivation, EmailChange, EmailChangeConfirmation, RecoveryEmailCreate  # lint-amnesty, pylint: disable=line-too-long
@@ -170,7 +173,7 @@ def index(request, extra_context=None, user=AnonymousUser()):
     return render_to_response('index.html', context)
 
 
-def compose_activation_email(root_url, user, user_registration=None, route_enabled=False, profile_name=''):
+def compose_activation_email(user, user_registration=None, route_enabled=False, profile_name='', redirect_url=None):
     """
     Construct all the required params for the activation email
     through celery task
@@ -180,10 +183,7 @@ def compose_activation_email(root_url, user, user_registration=None, route_enabl
 
     message_context = generate_activation_email_context(user, user_registration)
     message_context.update({
-        'confirm_activation_link': '{root_url}/activate/{activation_key}'.format(
-            root_url=root_url,
-            activation_key=message_context['key']
-        ),
+        'confirm_activation_link': _get_activation_confirmation_link(message_context['key'], redirect_url),
         'route_enabled': route_enabled,
         'routed_user': user.username,
         'routed_user_email': user.email,
@@ -204,7 +204,26 @@ def compose_activation_email(root_url, user, user_registration=None, route_enabl
     return msg
 
 
-def compose_and_send_activation_email(user, profile, user_registration=None):
+def _get_activation_confirmation_link(activation_key, redirect_url=None):
+    """
+    Helper function to build an activation confirmation URL given an activation_key.
+    The confirmation URL will include a "?next={redirect_url}" query if redirect_url
+    is not null.
+    """
+    root_url = configuration_helpers.get_value('LMS_ROOT_URL', settings.LMS_ROOT_URL)
+    confirmation_link = '{root_url}/activate/{activation_key}'.format(
+        root_url=root_url,
+        activation_key=activation_key,
+    )
+    if not redirect_url:
+        return confirmation_link
+
+    scheme, netloc, path, params, _, fragment = urllib.parse.urlparse(confirmation_link)
+    query = urllib.parse.urlencode({'next': redirect_url})
+    return urllib.parse.urlunparse((scheme, netloc, path, params, query, fragment))
+
+
+def compose_and_send_activation_email(user, profile, user_registration=None, redirect_url=None):
     """
     Construct all the required params and send the activation email
     through celery task
@@ -213,15 +232,15 @@ def compose_and_send_activation_email(user, profile, user_registration=None):
         user: current logged-in user
         profile: profile object of the current logged-in user
         user_registration: registration of the current logged-in user
+        redirect_url: The URL to redirect to after successful activation
     """
     route_enabled = settings.FEATURES.get('REROUTE_ACTIVATION_EMAIL')
 
-    root_url = configuration_helpers.get_value('LMS_ROOT_URL', settings.LMS_ROOT_URL)
-    msg = compose_activation_email(root_url, user, user_registration, route_enabled, profile.name)
-
+    msg = compose_activation_email(user, user_registration, route_enabled, profile.name, redirect_url)
     from_address = configuration_helpers.get_value('ACTIVATION_EMAIL_FROM_ADDRESS') or (
         configuration_helpers.get_value('email_from_address', settings.DEFAULT_FROM_EMAIL)
     )
+
     site = theming_helpers.get_current_site()
     send_activation_email.delay(str(msg), site_id=site.pk, from_address=from_address)
 
@@ -505,26 +524,36 @@ def activate_account(request, key):
     # If not, the templates wouldn't be needed for cms, but we still need a way to activate for cms tests.
     monitoring_utils.set_custom_attribute('student_activate_account', 'lms')
     activation_message_type = None
+
+    invalid_message = HTML(_(
+        '{html_start}Your account could not be activated{html_end}'
+        'Something went wrong, please <a href="{support_url}">contact support</a> to resolve this issue.'
+    )).format(
+        support_url=configuration_helpers.get_value(
+            'ACTIVATION_EMAIL_SUPPORT_LINK', settings.ACTIVATION_EMAIL_SUPPORT_LINK
+        ) or settings.SUPPORT_SITE_LINK,
+        html_start=HTML('<p class="message-title">'),
+        html_end=HTML('</p>'),
+    )
+
     try:
         registration = Registration.objects.get(activation_key=key)
     except (Registration.DoesNotExist, Registration.MultipleObjectsReturned):
         activation_message_type = 'error'
         messages.error(
             request,
-            HTML(_(
-                '{html_start}Your account could not be activated{html_end}'
-                'Something went wrong, please <a href="{support_url}">contact support</a> to resolve this issue.'
-            )).format(
-                support_url=configuration_helpers.get_value(
-                    'ACTIVATION_EMAIL_SUPPORT_LINK', settings.ACTIVATION_EMAIL_SUPPORT_LINK
-                ) or settings.SUPPORT_SITE_LINK,
-                html_start=HTML('<p class="message-title">'),
-                html_end=HTML('</p>'),
-            ),
+            invalid_message,
             extra_tags='account-activation aa-icon'
         )
     else:
-        if registration.user.is_active:
+        if request.user.is_authenticated and request.user.id != registration.user.id:
+            activation_message_type = 'error'
+            messages.error(
+                request,
+                invalid_message,
+                extra_tags='account-activation aa-icon'
+            )
+        elif registration.user.is_active:
             activation_message_type = 'info'
             messages.info(
                 request,
@@ -566,11 +595,33 @@ def activate_account(request, key):
                 extra_tags='account-activation aa-icon',
             )
 
+    # If a safe `next` parameter is provided in the request
+    # and it's not the same as the dashboard, redirect there.
+    # The `get_next_url_for_login_page()` function will only return a safe redirect URL.
+    # If the provided `next` URL is not safe, that function will fill `redirect_to`
+    # with a value of `reverse('dashboard')`.
+    redirect_url = None
+    if request.GET.get('next'):
+        redirect_to, root_login_url = get_next_url_for_login_page(request, include_host=True)
+
+        # Don't automatically redirect authenticated users to the redirect_url
+        # if the `next` value is either:
+        # 1. "/dashboard" or
+        # 2. "https://{LMS_ROOT_URL}/dashboard" (which we might provide as a value from the AuthN MFE)
+        if redirect_to not in (
+            root_login_url + reverse('dashboard'),
+            reverse('dashboard')
+        ):
+            redirect_url = get_redirect_url_with_host(root_login_url, redirect_to)
+
     if should_redirect_to_authn_microfrontend() and not request.user.is_authenticated:
-        url_path = f'/login?account_activation_status={activation_message_type}'
+        params = {'account_activation_status': activation_message_type}
+        if redirect_url:
+            params['next'] = redirect_url
+        url_path = '/login?{}'.format(urllib.parse.urlencode(params))
         return redirect(settings.AUTHN_MICROFRONTEND_URL + url_path)
 
-    return redirect('dashboard')
+    return redirect(redirect_url) if redirect_url and is_enterprise_learner(request.user) else redirect('dashboard')
 
 
 @ensure_csrf_cookie
@@ -699,6 +750,7 @@ def do_email_change_request(user, new_email, activation_key=None, secondary_emai
 
     try:
         ace.send(msg)
+        log.info("Email activation link sent to user [%s].", new_email)
     except Exception:
         from_address = configuration_helpers.get_value('email_from_address', settings.DEFAULT_FROM_EMAIL)
         log.error('Unable to send email activation link to user from "%s"', from_address, exc_info=True)

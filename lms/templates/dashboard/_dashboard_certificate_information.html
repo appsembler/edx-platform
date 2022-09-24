@@ -1,10 +1,12 @@
 <%page expression_filter="h" args="cert_status, course_overview, enrollment, reverify_link" />
 
 <%!
+from django.urls import reverse
+
 from django.utils.translation import ugettext as _
 from openedx.core.djangolib.markup import HTML, Text
 from common.djangoapps.course_modes.models import CourseMode
-from common.djangoapps.util.course import should_display_grade
+from lms.djangoapps.certificates.data import CertificateStatuses
 %>
 <%namespace name='static' file='../static_content.html'/>
 
@@ -20,16 +22,17 @@ from common.djangoapps.util.course import should_display_grade
 
 <%
 if cert_status['status'] == 'certificate_earned_but_not_available':
-    status_css_class = 'course-status-processing'
-elif cert_status['status'] == 'generating':
+    status_css_class = 'course-status-earned-not-available'
+elif cert_status['status'] == CertificateStatuses.generating:
     status_css_class = 'course-status-certrendering'
-elif cert_status['status'] == 'downloadable':
+elif cert_status['status'] == CertificateStatuses.downloadable or cert_status['status'] == CertificateStatuses.requesting:
     status_css_class = 'course-status-certavailable'
-elif cert_status['status'] == 'notpassing':
+elif cert_status['status'] == CertificateStatuses.notpassing:
     status_css_class = 'course-status-certnotavailable'
 else:
     status_css_class = 'course-status-processing'
 %>
+<% requesting_post_url = reverse('generate_user_cert', args=[str(course_overview.id)]) %>
 
 % if cert_status['status'] != 'processing':
   % if cert_status['status'] == 'certificate_earned_but_not_available':
@@ -37,25 +40,18 @@ else:
       <p class="message-copy">
         <%
           certificate_available_date_string = course_overview.certificate_available_date.strftime('%Y-%m-%dT%H:%M:%S%z')
-          container_string = _("Your certificate will be available on or before {date}")
+          container_string = _("Your grade and certificate will be ready after {date}.")
           format = 'shortDate'
         %>
         <span class="info-date-block localized-datetime" data-language="${user_language}" data-timezone="${user_timezone}" data-datetime="${certificate_available_date_string}" data-format=${format} data-string="${container_string}"></span>
       </p>
     </div>
   % else:
-    <div class="message message-status ${status_css_class} is-shown">
-      <p class="message-copy">
-        % if should_display_grade(course_overview):
-            ${_("Your final grade:")}
-            <span class="grade-value">${"{0:.0f}%".format(float(cert_status.get('grade', 0))*100)}</span>.
-        % elif course_overview.certificate_available_date:
-          <%
-            cert_available_date = course_overview.certificate_available_date.strftime('%Y-%m-%d')
-          %>
-          ${_("Grades will be finalized on {cert_available_date}".format(cert_available_date=cert_available_date))}
-        % endif
-        % if cert_status['status'] == 'notpassing':
+    <div class="message message-status ${status_css_class} d-flex justify-content-between align-items-center">
+      <div class="message-copy">
+        % if cert_status['status'] == CertificateStatuses.downloadable or cert_status['status'] == CertificateStatuses.requesting:
+            ${_("Congratulations! Your certificate is ready.")}
+        % elif cert_status['status'] == 'notpassing':
           % if enrollment.mode != 'audit':
             ${_("Grade required for a {cert_name_short}:").format(cert_name_short=cert_name_short)}
           % else:
@@ -73,47 +69,51 @@ else:
         % elif cert_status['status'] == 'unverified':
           <p class="message-copy">
             ${Text(_("Your certificate was not issued because you do not have a current verified identity with {platform_name}. ")).format(platform_name=settings.PLATFORM_NAME)}
-            <a href="${reverify_link}"> ${Text(_("Verify your identity now."))}</a>
           </p>
         % endif
+      </div>
 
-      </p>
-
-      % if cert_status['status'] == 'generating' or cert_status['status'] == 'downloadable' or cert_status['show_survey_button']:
+      % if cert_status['status'] == CertificateStatuses.generating or cert_status['status'] == CertificateStatuses.downloadable or cert_status['status'] == CertificateStatuses.requesting or cert_status['show_survey_button']:
         <div class="wrapper-message-primary">
           <ul class="actions actions-primary">
-            % if cert_status['status'] == 'generating':
+            % if cert_status['status'] == CertificateStatuses.generating:
               <li class="action">
                 <span class="disabled">
                   ${_("Your {cert_name_short} is Generating").format(cert_name_short=cert_name_short)}
                 </span>
               </li>
-            % elif cert_status['status'] == 'downloadable' and cert_status.get('show_cert_web_view', False):
+            % elif cert_status['status'] == CertificateStatuses.requesting:
+              <li>
+                  <button class="btn btn-primary request-cert" data-endpoint="${requesting_post_url}">
+                      ${_('Request Certificate')}
+                  </button>
+              </li>
+            % elif cert_status['status'] == CertificateStatuses.downloadable and cert_status.get('show_cert_web_view', False):
               <li>
                 <a class="btn btn-primary" href="${cert_status['cert_web_view_url']}" rel="noopener" target="_blank"
                    title="${_('This link will open the certificate web view')}">
-                  ${_("View {cert_name_short}").format(cert_name_short=cert_name_short,)}
+                  ${_("View my {cert_name_short}").format(cert_name_short=cert_name_short)}
                 </a>
               </li>
-            % elif cert_status['status'] == 'downloadable' and enrollment.mode in CourseMode.NON_VERIFIED_MODES:
+            % elif cert_status['status'] == CertificateStatuses.downloadable and enrollment.mode in CourseMode.NON_VERIFIED_MODES:
               <li>
                 <a class="btn btn-primary" href="${cert_status['download_url']}"
                    title="${_('This link will open/download a PDF document')}">
-                  ${_("Download {cert_name_short} (PDF)").format(cert_name_short=cert_name_short,)}
+                  ${_("Download my {cert_name_short}").format(cert_name_short=cert_name_short,)}
                 </a>
               </li>
-            % elif cert_status['status'] == 'downloadable' and enrollment.mode == 'verified' and cert_status['mode'] == 'honor':
+            % elif cert_status['status'] == CertificateStatuses.downloadable and enrollment.mode == 'verified' and cert_status['mode'] == 'honor':
               <li>
                 <a class="btn btn-primary" href="${cert_status['download_url']}"
                    title="${_('This link will open/download a PDF document')}">
-                  ${_("Download Your {cert_name_short} (PDF)").format(cert_name_short=cert_name_short)}
+                  ${_("Download my {cert_name_short}").format(cert_name_short=cert_name_short)}
                 </a>
               </li>
-            % elif cert_status['status'] == 'downloadable' and enrollment.mode in CourseMode.VERIFIED_MODES:
+            % elif cert_status['status'] == CertificateStatuses.downloadable and enrollment.mode in CourseMode.VERIFIED_MODES:
               <li>
                 <a class="btn btn-primary" href="${cert_status['download_url']}"
                    title="${_('This link will open/download a PDF document of your verified {cert_name_long}.').format(cert_name_long=cert_name_long)}">
-                  ${_("Download Your ID Verified {cert_name_short} (PDF)").format(cert_name_short=cert_name_short)}
+                  ${_("Download my {cert_name_short}").format(cert_name_short=cert_name_short)}
                 </a>
               </li>
             % endif

@@ -30,10 +30,10 @@ from xmodule.exceptions import NotFoundError
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.exceptions import ItemNotFoundError
 
-from openedx.core.djangoapps.appsembler.api.sites import get_site_for_course
-
+from ..exceptions import AssetNotFoundException, AssetSizeTooLargeException
 from ..utils import reverse_course_url
-from .exception import AssetNotFoundException, AssetSizeTooLargeException
+
+from openedx.core.djangoapps.appsembler.api.sites import get_site_for_course
 
 __all__ = ['assets_handler']
 

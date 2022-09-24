@@ -16,7 +16,7 @@ from collections import defaultdict, namedtuple
 from hashlib import sha1
 
 from django.apps import apps
-from django.db import models
+from django.db import models, IntegrityError, transaction
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.timezone import now
 from lazy import lazy
@@ -582,7 +582,7 @@ class PersistentCourseGrade(TimeStampedModel):
         Returns a string representation of this model.
         """
         return ', '.join([
-            "{} user: {}".format(type(self).__name__, self.user_id),
+            f"{type(self).__name__} user: {self.user_id}",
             f"course version: {self.course_version}",
             f"grading policy: {self.grading_policy_hash}",
             f"percent grade: {self.percent_grade}%",
@@ -708,7 +708,7 @@ class PersistentSubsectionGradeOverride(models.Model):
 
     def __str__(self):
         return ', '.join([
-            "{}".format(type(self).__name__),
+            f"{type(self).__name__}",
             f"earned_all_override: {self.earned_all_override}",
             f"possible_all_override: {self.possible_all_override}",
             f"earned_graded_override: {self.earned_graded_override}",

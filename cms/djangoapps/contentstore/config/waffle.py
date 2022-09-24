@@ -40,13 +40,13 @@ def waffle_flags():
 
 
 # TODO: After removing this flag, add a migration to remove waffle flag in a follow-up deployment.
-ENABLE_CHECKLISTS_QUALITY = CourseWaffleFlag(
+ENABLE_CHECKLISTS_QUALITY = CourseWaffleFlag(  # lint-amnesty, pylint: disable=toggle-missing-annotation
     waffle_namespace=waffle_flags(),
     flag_name='enable_checklists_quality',
     module_name=__name__,
 )
 
-SHOW_REVIEW_RULES_FLAG = CourseWaffleFlag(
+SHOW_REVIEW_RULES_FLAG = CourseWaffleFlag(  # lint-amnesty, pylint: disable=toggle-missing-annotation
     waffle_namespace=waffle_flags(),
     flag_name='show_review_rules',
     module_name=__name__,
@@ -67,3 +67,15 @@ REDIRECT_TO_LIBRARY_AUTHORING_MICROFRONTEND = LegacyWaffleFlag(
     flag_name='library_authoring_mfe',
     module_name=__name__,
 )
+
+
+# .. toggle_name: studio.custom_pls
+# .. toggle_implementation: CourseWaffleFlag
+# .. toggle_default: False
+# .. toggle_description: Waffle flag to enable custom pacing for PLS
+# .. toggle_use_cases: temporary
+# .. toggle_creation_date: 2021-07-12
+# .. toggle_target_removal_date: 2021-12-31
+# .. toggle_warnings: For this flag to be active, add flag 'studio.custom_pls' in Django Admin
+# .. toggle_tickets: https://openedx.atlassian.net/browse/AA-844
+CUSTOM_PLS = CourseWaffleFlag(WAFFLE_NAMESPACE, 'custom_pls', module_name=__name__,)

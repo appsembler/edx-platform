@@ -79,9 +79,8 @@
                     this.pipelineUserDetails = options.third_party_auth.pipeline_user_details;
                     this.enterpriseName = options.enterprise_name || '';
                     this.enterpriseSlugLoginURL = options.enterprise_slug_login_url || '';
+                    this.isEnterpriseEnable = options.is_enterprise_enable || false;
                     this.isAccountRecoveryFeatureEnabled = options.is_account_recovery_feature_enabled || false;
-                    this.isMultipleUserEnterprisesFeatureEnabled =
-                        options.is_multiple_user_enterprises_feature_enabled || false;
                     this.is_require_third_party_auth_enabled = options.is_require_third_party_auth_enabled || false;
 
                 // The login view listens for 'sync' events from the reset model
@@ -164,6 +163,7 @@
                             pipelineUserDetails: this.pipelineUserDetails,
                             enterpriseName: this.enterpriseName,
                             enterpriseSlugLoginURL: this.enterpriseSlugLoginURL,
+                            isEnterpriseEnable: this.isEnterpriseEnable,
                             is_require_third_party_auth_enabled: this.is_require_third_party_auth_enabled
                         });
 
@@ -171,7 +171,7 @@
                         this.listenTo(this.subview.login, 'password-help', this.resetPassword);
 
                     // Listen for 'auth-complete' event so we can enroll/redirect the user appropriately.
-                        if (this.isMultipleUserEnterprisesFeatureEnabled === true && !isTpaSaml) {
+                        if (!isTpaSaml) {
                             this.listenTo(this.subview.login, 'auth-complete', this.loginComplete);
                         } else {
                             this.listenTo(this.subview.login, 'auth-complete', this.authComplete);
@@ -197,7 +197,8 @@
                     register: function(data) {
                         var model = new RegisterModel({}, {
                             method: data.method,
-                            url: data.submit_url
+                            url: data.submit_url,
+                            nextUrl: this.nextUrl
                         });
 
                         this.subview.register = new RegisterView({

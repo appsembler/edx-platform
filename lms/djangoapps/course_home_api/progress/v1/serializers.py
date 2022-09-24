@@ -3,6 +3,7 @@ Progress Tab Serializers
 """
 from rest_framework import serializers
 from rest_framework.reverse import reverse
+from lms.djangoapps.course_home_api.mixins import VerifiedModeSerializerMixin
 
 
 class CourseGradeSerializer(serializers.Serializer):
@@ -20,13 +21,29 @@ class SubsectionScoresSerializer(serializers.Serializer):
     """
     assignment_type = serializers.CharField(source='format')
     display_name = serializers.CharField()
+    block_key = serializers.SerializerMethodField()
     has_graded_assignment = serializers.BooleanField(source='graded')
-    num_points_earned = serializers.IntegerField(source='graded_total.earned')
-    num_points_possible = serializers.IntegerField(source='graded_total.possible')
+    learner_has_access = serializers.SerializerMethodField()
+    num_points_earned = serializers.FloatField(source='graded_total.earned')
+    num_points_possible = serializers.FloatField(source='graded_total.possible')
     percent_graded = serializers.FloatField()
+    problem_scores = serializers.SerializerMethodField()
     show_correctness = serializers.CharField()
     show_grades = serializers.SerializerMethodField()
     url = serializers.SerializerMethodField()
+
+    def get_block_key(self, subsection):
+        return str(subsection.location)
+
+    def get_problem_scores(self, subsection):
+        problem_scores = [
+            {
+                'earned': score.earned,
+                'possible': score.possible,
+            }
+            for score in subsection.problem_scores.values()
+        ]
+        return problem_scores
 
     def get_url(self, subsection):
         relative_path = reverse('jump_to', args=[self.context['course_key'], subsection.location])
@@ -35,6 +52,10 @@ class SubsectionScoresSerializer(serializers.Serializer):
 
     def get_show_grades(self, subsection):
         return subsection.show_grades(self.context['staff_access'])
+
+    def get_learner_has_access(self, subsection):
+        course_blocks = self.context['course_blocks']
+        return not course_blocks.get_xblock_field(subsection.location, 'contains_gated_content', False)
 
 
 class SectionScoresSerializer(serializers.Serializer):
@@ -55,6 +76,7 @@ class GradingPolicySerializer(serializers.Serializer):
     def get_assignment_policies(self, grading_policy):
         return [{
             'num_droppable': assignment_policy['drop_count'],
+            'num_total': assignment_policy['min_count'],
             'short_label': assignment_policy.get('short_label', ''),
             'type': assignment_policy['type'],
             'weight': assignment_policy['weight'],
@@ -68,6 +90,7 @@ class CertificateDataSerializer(serializers.Serializer):
     cert_status = serializers.CharField()
     cert_web_view_url = serializers.CharField()
     download_url = serializers.CharField()
+    certificate_available_date = serializers.DateTimeField()
 
 
 class VerificationDataSerializer(serializers.Serializer):
@@ -79,13 +102,17 @@ class VerificationDataSerializer(serializers.Serializer):
     status_date = serializers.DateTimeField()
 
 
-class ProgressTabSerializer(serializers.Serializer):
+class ProgressTabSerializer(VerifiedModeSerializerMixin):
     """
     Serializer for progress tab
     """
+    username = serializers.CharField()
     certificate_data = CertificateDataSerializer()
     completion_summary = serializers.DictField()
     course_grade = CourseGradeSerializer()
+    end = serializers.DateTimeField()
+    user_has_passing_grade = serializers.BooleanField()
+    has_scheduled_content = serializers.BooleanField()
     section_scores = SectionScoresSerializer(many=True)
     enrollment_mode = serializers.CharField()
     grading_policy = GradingPolicySerializer()

@@ -1,5 +1,4 @@
 """ Password reset logic and views . """
-
 import logging
 
 from django import forms
@@ -46,7 +45,7 @@ from openedx.core.djangoapps.user_api.preferences.api import get_user_preference
 from openedx.core.djangoapps.user_authn.message_types import PasswordReset, PasswordResetSuccess
 from openedx.core.djangolib.markup import HTML
 from common.djangoapps.student.forms import send_account_recovery_email_for_user
-from common.djangoapps.student.models import AccountRecovery
+from common.djangoapps.student.models import AccountRecovery, LoginFailures
 from common.djangoapps.util.json_request import JsonResponse
 from common.djangoapps.util.password_policy_validators import normalize_password, validate_password
 
@@ -528,6 +527,10 @@ class PasswordResetConfirmWrapper(PasswordResetConfirmView):
         if password_reset_successful and is_account_recovery:
             self._handle_password_creation(request, updated_user)
 
+        # Handles clearing the failed login counter upon password reset.
+        if LoginFailures.is_feature_enabled():
+            LoginFailures.clear_lockout_counter(updated_user)
+
         send_password_reset_success_email(updated_user, request)
         return response
 
@@ -624,8 +627,11 @@ def password_change_request_handler(request):
 
     """
     user = request.user
-    # Prefer logged-in user's email
-    email = user.email if user.is_authenticated else request.POST.get('email')
+    if (user.is_staff or user.is_superuser) and request.POST.get('email_from_support_tools'):
+        email = request.POST.get('email_from_support_tools')
+    else:
+        # Prefer logged-in user's email
+        email = user.email if user.is_authenticated else request.POST.get('email')
     AUDIT_LOG.info("Password reset initiated for email %s.", email)
 
     if getattr(request, 'limited', False):
@@ -638,7 +644,8 @@ def password_change_request_handler(request):
     if email:
         try:
             request_password_change(email, request.is_secure())
-            user = user if user.is_authenticated else _get_user_from_email(email=email)
+            user = user if not request.POST.get('email_from_support_tools') and user.is_authenticated \
+                else _get_user_from_email(email=email)
             destroy_oauth_tokens(user)
         except errors.UserNotFound:
             AUDIT_LOG.info("Invalid password reset attempt")
@@ -662,9 +669,9 @@ def password_change_request_handler(request):
                 )
                 ace.send(msg)
         except errors.UserAPIInternalError as err:
-            log.exception('Error occured during password change for user {email}: {error}'
+            log.exception('Error occurred during password change for user {email}: {error}'
                           .format(email=email, error=err))
-            return HttpResponse(_("Some error occured during password change. Please try again"), status=500)
+            return HttpResponse(_("Some error occurred during password change. Please try again"), status=500)
 
         return HttpResponse(status=200)
     else:
@@ -789,6 +796,11 @@ class LogistrationPasswordResetView(APIView):  # lint-amnesty, pylint: disable=m
                     except ObjectDoesNotExist:
                         err = 'Account recovery process initiated without AccountRecovery instance for user {username}'
                         log.error(err.format(username=user.username))
+
+                # Handles clearing the failed login counter upon password reset.
+                if LoginFailures.is_feature_enabled():
+                    LoginFailures.clear_lockout_counter(user)
+
                 send_password_reset_success_email(user, request)
         except ValidationError as err:
             AUDIT_LOG.exception("Password validation failed")

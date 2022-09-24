@@ -35,14 +35,20 @@ from common.djangoapps.student.models import (
     username_exists_or_retired
 )
 from common.djangoapps.util.password_policy_validators import normalize_password
-from lms.djangoapps.certificates.api import get_certificate_url, has_html_certificates_enabled
-from lms.djangoapps.certificates.models import CertificateStatuses, certificate_status_for_student
+from lms.djangoapps.certificates.api import (
+    certificates_viewable_for_course,
+    cert_generation_enabled,
+    get_certificate_url,
+    has_html_certificates_enabled
+)
+from lms.djangoapps.certificates.api import certificates_viewable_for_course
+from lms.djangoapps.certificates.data import CertificateStatuses
+from lms.djangoapps.certificates.models import certificate_status_for_student
 from lms.djangoapps.grades.api import CourseGradeFactory
 from lms.djangoapps.verify_student.models import VerificationDeadline
 from lms.djangoapps.verify_student.services import IDVerificationService
 from lms.djangoapps.verify_student.utils import is_verification_expiring_soon, verification_for_datetime
-from openedx.core.djangoapps.ace_common.template_context import get_base_template_context
-from openedx.core.djangoapps.certificates.api import certificates_viewable_for_course
+from openedx.core.djangoapps.certificates.api import auto_certificate_generation_enabled
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.theming.helpers import get_themes
 from openedx.core.djangoapps.user_authn.utils import is_safe_login_or_logout_redirect
@@ -367,7 +373,7 @@ def _get_redirect_to(request_host, request_headers, request_params, request_is_h
             redirect_to = None
         elif mime_type:
             log.warning(
-                "Redirect to url path with specified filed type '%(mime_type)s' not allowed: '%(redirect_to)s'",
+                "Redirect to url path with specified file type '%(mime_type)s' not allowed: '%(redirect_to)s'",
                 {"redirect_to": redirect_to, "mime_type": mime_type}
             )
             redirect_to = None
@@ -397,7 +403,7 @@ def create_or_set_user_attribute_created_on_site(user, site):
     Create or Set UserAttribute indicating the site the user account was created on.
     User maybe created on 'courses.edx.org', or a white-label site. Due to the very high
     traffic on this table we now ignore the default site (eg. 'courses.edx.org') and
-    code which comsumes this attribute should assume a 'created_on_site' which doesn't exist
+    code which consumes this attribute should assume a 'created_on_site' which doesn't exist
     belongs to the default site.
     """
     if site and site.id != settings.SITE_ID:
@@ -511,7 +517,7 @@ def _cert_info(user, course_overview, cert_status):
 
     if (
         not certificates_viewable_for_course(course_overview) and
-        (status in CertificateStatuses.PASSED_STATUSES) and
+        CertificateStatuses.is_passing_status(status) and
         course_overview.certificate_available_date
     ):
         status = certificate_earned_but_not_available_status
@@ -590,6 +596,15 @@ def _cert_info(user, course_overview, cert_status):
             else max(filter(lambda x: x is not None, grades_input))
         )
         status_dict['grade'] = str(max_grade)
+
+        # If the grade is passing, the status is one of these statuses, and request certificate
+        # is enabled for a course then we need to provide the option to the learner
+        if (
+            status_dict['status'] != CertificateStatuses.downloadable and
+            (cert_generation_enabled(course_overview.id) or auto_certificate_generation_enabled()) and
+            persisted_grade.passed
+        ):
+            status_dict['status'] = CertificateStatuses.requesting
 
     return status_dict
 
@@ -699,7 +714,7 @@ def get_resume_urls_for_enrollments(user, enrollments):
         enrollments (list): a list of user enrollments
 
     Returns:
-        resume_course_urls (OrderedDict): an OrderdDict of urls
+        resume_course_urls (OrderedDict): an OrderedDict of urls
             key: CourseKey
             value: url to the last completed block
                 if the value is '', then the user has not completed any blocks in the course run

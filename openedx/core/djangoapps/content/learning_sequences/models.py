@@ -148,12 +148,49 @@ class CourseContentVisibilityMixin(models.Model):
         abstract = True
 
 
+class UserPartitionGroup(models.Model):
+    """
+    Each row represents a Group in a UserPartition.
+
+    UserPartitions is a pluggable interface. Some IDs are static (with values
+    less than 100). Others are dynamic, picking a range between 100 and 2^31-1.
+    That means that technically, we could use IntegerField instead of
+    BigIntegerField, but a) that limit isn't actually enforced as far as I can
+    tell; and b) it's not _that_ much extra storage, so I'm using BigInteger
+    instead (2^63-1).
+
+    It's a pluggable interface (entry points: openedx.user_partition_scheme,
+    openedx.dynamic_partition_generator), so there's no "UserPartition" model.
+    We need to actually link this against the values passed back from the
+    partitions service in order to map them to names and descriptions.
+
+    Any CourseSection or CourseSectionSequence may be associated with any number
+    of UserPartitionGroups. An individual _user_ may only be in one Group for
+    any given User Partition, but a piece of _content_ can be associated with
+    multiple groups. So for instance, for the Enrollment Track user partition,
+    a piece of content may be associated with both "Verified" and "Masters"
+    tracks, while a user may only be in one or the other.
+
+    UserPartitionGroups are not associated with LearningSequence directly
+    because User Partitions often carry course-level assumptions (e.g.
+    Enrollment Track) that don't make sense outside of a Course.
+    """
+    id = models.BigAutoField(primary_key=True)
+    partition_id = models.BigIntegerField(null=False)
+    group_id = models.BigIntegerField(null=False)
+
+    class Meta:
+        unique_together = [
+            ['partition_id', 'group_id'],
+        ]
+        indexes = [
+            models.Index(fields=['partition_id', 'group_id']),
+        ]
+
+
 class CourseSection(CourseContentVisibilityMixin, TimeStampedModel):
     """
     Course Section data, mapping to the 'chapter' block type.
-
-    Do NOT make a foreign key against this table, as the values are deleted and
-    re-created on course publish.
     """
     id = models.BigAutoField(primary_key=True)
     course_context = models.ForeignKey(
@@ -165,6 +202,14 @@ class CourseSection(CourseContentVisibilityMixin, TimeStampedModel):
     # What is our position within the Course? (starts with 0)
     ordering = models.PositiveIntegerField(null=False)
 
+    new_user_partition_groups = models.ManyToManyField(
+        UserPartitionGroup,
+        db_index=True,
+        related_name='sec_user_partition_groups',
+        related_query_name='sec_user_partition_group',
+        through='SectionPartitionGroup'
+    )
+
     class Meta:
         unique_together = [
             ['course_context', 'usage_key'],
@@ -172,6 +217,22 @@ class CourseSection(CourseContentVisibilityMixin, TimeStampedModel):
         index_together = [
             ['course_context', 'ordering'],
         ]
+
+
+class SectionPartitionGroup(models.Model):
+    """
+    Model which maps user partition groups to course sections.
+    Used for the user_partition_groups ManyToManyField field in the CourseSection model above.
+    Adds a cascading delete which will delete these many-to-many relations
+    whenever a UserPartitionGroup or CourseSection object is deleted.
+    """
+    class Meta:
+        unique_together = [
+            ['user_partition_group', 'course_section'],
+        ]
+
+    user_partition_group = models.ForeignKey(UserPartitionGroup, on_delete=models.CASCADE)
+    course_section = models.ForeignKey(CourseSection, on_delete=models.CASCADE)
 
 
 class CourseSectionSequence(CourseContentVisibilityMixin, TimeStampedModel):
@@ -203,6 +264,14 @@ class CourseSectionSequence(CourseContentVisibilityMixin, TimeStampedModel):
     # sequences across 20 sections, the numbering here would be 0-199.
     ordering = models.PositiveIntegerField(null=False)
 
+    new_user_partition_groups = models.ManyToManyField(
+        UserPartitionGroup,
+        db_index=True,
+        related_name='secseq_user_partition_groups',
+        related_query_name='secseq_user_partition_group',
+        through='SectionSequencePartitionGroup'
+    )
+
     class Meta:
         unique_together = [
             ['course_context', 'ordering'],
@@ -212,6 +281,22 @@ class CourseSectionSequence(CourseContentVisibilityMixin, TimeStampedModel):
 
     def __str__(self):
         return f"{self.section.title} > {self.sequence.title}"
+
+
+class SectionSequencePartitionGroup(models.Model):
+    """
+    Model which maps user partition groups to course section sequences.
+    Used for the user_partition_groups ManyToManyField field in the CourseSectionSequence model above.
+    Adds a cascading delete which will delete these many-to-many relations
+    whenever a UserPartitionGroup or CourseSectionSequence object is deleted.
+    """
+    class Meta:
+        unique_together = [
+            ['user_partition_group', 'course_section_sequence'],
+        ]
+
+    user_partition_group = models.ForeignKey(UserPartitionGroup, on_delete=models.CASCADE)
+    course_section_sequence = models.ForeignKey(CourseSectionSequence, on_delete=models.CASCADE)
 
 
 class CourseSequenceExam(TimeStampedModel):

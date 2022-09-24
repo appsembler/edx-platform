@@ -22,7 +22,7 @@ from openedx.core.djangoapps.appsembler.api.helpers import as_course_key
 COURSE_ID_STR_TEMPLATE = 'course-v1:StarFleetAcademy+SFA{}+2161'
 
 
-class CourseOverviewFactory(factory.DjangoModelFactory):
+class CourseOverviewFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = CourseOverview
 
@@ -34,19 +34,19 @@ class CourseOverviewFactory(factory.DjangoModelFactory):
     version = CourseOverview.VERSION
     display_org_with_default = factory.LazyAttribute(lambda o: o.org)
     created = factory.fuzzy.FuzzyDateTime(datetime.datetime(
-        2018, 2, 1, tzinfo=factory.compat.UTC))
+        2018, 2, 1, tzinfo=datetime.timezone.utc))
     enrollment_start = factory.fuzzy.FuzzyDateTime(datetime.datetime(
-        2018, 3, 1, tzinfo=factory.compat.UTC))
+        2018, 3, 1, tzinfo=datetime.timezone.utc))
     enrollment_end = factory.fuzzy.FuzzyDateTime(datetime.datetime(
-        2018, 3, 15, tzinfo=factory.compat.UTC))
+        2018, 3, 15, tzinfo=datetime.timezone.utc))
     start = factory.fuzzy.FuzzyDateTime(datetime.datetime(
-        2018, 4, 1, tzinfo=factory.compat.UTC))
+        2018, 4, 1, tzinfo=datetime.timezone.utc))
     end = factory.fuzzy.FuzzyDateTime(datetime.datetime(
-        2018, 6, 1, tzinfo=factory.compat.UTC))
+        2018, 6, 1, tzinfo=datetime.timezone.utc))
     self_paced = False
 
 
-class SiteConfigurationFactory(factory.DjangoModelFactory):
+class SiteConfigurationFactory(factory.django.DjangoModelFactory):
     class Meta(object):
         model = SiteConfiguration
 
@@ -60,7 +60,7 @@ class SiteConfigurationFactory(factory.DjangoModelFactory):
     page_elements = {}
 
 
-class OrganizationFactory(factory.DjangoModelFactory):
+class OrganizationFactory(factory.django.DjangoModelFactory):
     """
     We define the OrganizationFactory here instead of using the one in
     edx-organizations because that one is missing the `sites` relationship and
@@ -84,7 +84,7 @@ class OrganizationFactory(factory.DjangoModelFactory):
             create_tahoe_site_by_link(organization=self, site=extracted)
 
 
-class OrganizationCourseFactory(factory.DjangoModelFactory):
+class OrganizationCourseFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = organizations.models.OrganizationCourse
 

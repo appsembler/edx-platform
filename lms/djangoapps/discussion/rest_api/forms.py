@@ -1,7 +1,7 @@
 """
 Discussion API forms
 """
-import six.moves.urllib.parse
+import urllib.parse
 from django.core.exceptions import ValidationError
 from django.forms import BooleanField, CharField, ChoiceField, Form, IntegerField
 from opaque_keys import InvalidKeyError
@@ -42,6 +42,13 @@ class ThreadListGetForm(_PaginationForm):
     topic_id = MultiValueField(required=False)
     text_search = CharField(required=False)
     following = ExtendedNullBooleanField(required=False)
+    author = CharField(required=False)
+    thread_type = ChoiceField(
+        choices=[(choice, choice) for choice in ["discussion", "question"]],
+        required=False,
+    )
+    count_flagged = ExtendedNullBooleanField(required=False)
+    flagged = ExtendedNullBooleanField(required=False)
     view = ChoiceField(
         choices=[(choice, choice) for choice in ["unread", "unanswered"]],
         required=False,
@@ -149,7 +156,7 @@ class CourseDiscussionSettingsForm(Form):
             self.cleaned_data['course_key'] = course_key
             return course_id
         except InvalidKeyError:
-            raise ValidationError("'{}' is not a valid course key".format(str(course_id)))  # lint-amnesty, pylint: disable=raise-missing-from
+            raise ValidationError(f"'{str(course_id)}' is not a valid course key")  # lint-amnesty, pylint: disable=raise-missing-from
 
 
 class CourseDiscussionRolesForm(CourseDiscussionSettingsForm):
@@ -168,7 +175,7 @@ class CourseDiscussionRolesForm(CourseDiscussionSettingsForm):
 
     def clean_rolename(self):
         """Validate the 'rolename' value."""
-        rolename = six.moves.urllib.parse.unquote(self.cleaned_data.get('rolename'))
+        rolename = urllib.parse.unquote(self.cleaned_data.get('rolename'))
         course_id = self.cleaned_data.get('course_key')
         if course_id and rolename:
             try:

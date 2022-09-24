@@ -358,9 +358,9 @@ def _upload_ora2_data_common(
     )
     task_progress.update_task_state(extra_meta=curr_step)
 
-    upload_csv_to_report_store(rows, 'ORA_{}'.format(report_name), course_id, start_date)
+    upload_csv_to_report_store(rows, f'ORA_{report_name}', course_id, start_date)
 
-    curr_step = {'step': 'Finalizing ORA {} report'.format(report_name)}
+    curr_step = {'step': f'Finalizing ORA {report_name} report'}
     task_progress.update_task_state(extra_meta=curr_step)
     TASK_LOG.info('%s, Task type: %s, Upload complete.', task_info_string, action_name)
 
@@ -439,7 +439,10 @@ def upload_ora2_submission_files(
         submission_files_data = OraDownloadData.collect_ora2_submission_files(course_id)
 
     if submission_files_data is None:
+        TASK_LOG.info('%s, submission files data is None, aborting.', task_info_string)
         return UPDATE_STATUS_FAILED
+    else:
+        TASK_LOG.info('%s, submission files data generator initialized.', task_info_string)
 
     with TemporaryFile('rb+') as zip_file:
         compressed = None
@@ -448,10 +451,13 @@ def upload_ora2_submission_files(
             'Failed to download and compress submissions attachments.',
             'Error while downloading and compressing submissions attachments',
         ):
-            compressed = OraDownloadData.create_zip_with_attachments(zip_file, course_id, submission_files_data)
+            compressed = OraDownloadData.create_zip_with_attachments(zip_file, submission_files_data)
 
         if compressed is None:
+            TASK_LOG.info('%s, created empty zip file, aborting.', task_info_string)
             return UPDATE_STATUS_FAILED
+        else:
+            TASK_LOG.info('%s, Completed construction of zip file.', task_info_string)
 
         zip_filename = None
         with step_manager(
@@ -462,7 +468,10 @@ def upload_ora2_submission_files(
             zip_filename = upload_zip_to_report_store(zip_file, 'submission_files', course_id, start_date),  # lint-amnesty, pylint: disable=trailing-comma-tuple
 
         if not zip_filename:
+            TASK_LOG.info('%s, zip_filename is None, aborting.', task_info_string)
             return UPDATE_STATUS_FAILED
+        else:
+            TASK_LOG.info('%s, zip file uploaded to report store.', task_info_string)
 
     task_progress.succeeded = 1
     curr_step = {'step': 'Finalizing attachments extracting'}

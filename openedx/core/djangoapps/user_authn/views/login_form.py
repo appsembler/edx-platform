@@ -19,7 +19,6 @@ from common.djangoapps.edxmako.shortcuts import render_to_response
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.user_api import accounts
 from openedx.core.djangoapps.user_api.accounts.utils import (
-    is_multiple_user_enterprises_feature_enabled,
     is_secondary_email_feature_enabled
 )
 from openedx.core.djangoapps.user_api.helpers import FormDescription
@@ -29,7 +28,7 @@ from openedx.core.djangoapps.user_authn.views.password_reset import get_password
 from openedx.core.djangoapps.user_authn.views.registration_form import RegistrationFormFactory
 from openedx.core.djangoapps.user_authn.views.utils import third_party_auth_context
 from openedx.core.djangoapps.user_authn.toggles import is_require_third_party_auth_enabled
-from openedx.features.enterprise_support.api import enterprise_customer_for_request
+from openedx.features.enterprise_support.api import enterprise_customer_for_request, enterprise_enabled
 from openedx.features.enterprise_support.utils import (
     get_enterprise_slug_login_url,
     handle_enterprise_cookies_for_logistration,
@@ -92,7 +91,7 @@ def get_login_session_form(request):
         HttpResponse
 
     """
-    form_desc = FormDescription("post", reverse("user_api_login_session"))
+    form_desc = FormDescription("post", reverse("user_api_login_session", kwargs={'api_version': 'v1'}))
     _apply_third_party_auth_overrides(request, form_desc)
 
     # Translators: This label appears above a field on the login form
@@ -133,7 +132,7 @@ def get_login_session_form(request):
 @require_http_methods(['GET'])
 @ratelimit(
     key='openedx.core.djangoapps.util.ratelimit.real_ip',
-    rate=settings.LOGISTRATION_RATELIMIT_RATE,
+    rate=settings.LOGIN_AND_REGISTER_FORM_RATELIMIT,
     method='GET',
     block=True
 )
@@ -172,6 +171,7 @@ def login_and_registration_form(request, initial_mode="login"):
     # Our ?next= URL may itself contain a parameter 'tpa_hint=x' that we need to check.
     # If present, we display a login page focused on third-party auth with that provider.
     third_party_auth_hint = None
+    tpa_hint_provider = None
     if '?' in redirect_to:  # lint-amnesty, pylint: disable=too-many-nested-blocks
         try:
             next_args = urllib.parse.parse_qs(urllib.parse.urlparse(redirect_to).query)
@@ -194,16 +194,26 @@ def login_and_registration_form(request, initial_mode="login"):
         except (KeyError, ValueError, IndexError) as ex:
             log.exception("Unknown tpa_hint provider: %s", ex)
 
-    # Redirect to authn MFE if it is enabled or user is not an enterprise user or not coming from a SAML IDP.
+    # Redirect to authn MFE if it is enabled
+    # AND
+    #   user is not an enterprise user
+    # AND
+    #   tpa_hint_provider is not available
+    # AND
+    #   user is not coming from a SAML IDP.
     saml_provider = False
     running_pipeline = pipeline.get(request)
-    enterprise_customer = enterprise_customer_for_request(request)
     if running_pipeline:
         saml_provider, __ = third_party_auth.utils.is_saml_provider(
             running_pipeline.get('backend'), running_pipeline.get('kwargs')
         )
 
-    if should_redirect_to_authn_microfrontend() and not enterprise_customer and not saml_provider:
+    enterprise_customer = enterprise_customer_for_request(request)
+
+    if should_redirect_to_authn_microfrontend() and \
+            not enterprise_customer and \
+            not tpa_hint_provider and \
+            not saml_provider:
 
         # This is to handle a case where a logged-in cookie is not present but the user is authenticated.
         # Note: If we don't handle this learner is redirected to authn MFE and then back to dashboard
@@ -257,8 +267,8 @@ def login_and_registration_form(request, initial_mode="login"):
             'account_creation_allowed': configuration_helpers.get_value(
                 'ALLOW_PUBLIC_ACCOUNT_CREATION', settings.FEATURES.get('ALLOW_PUBLIC_ACCOUNT_CREATION', True)),
             'is_account_recovery_feature_enabled': is_secondary_email_feature_enabled(),
-            'is_multiple_user_enterprises_feature_enabled': is_multiple_user_enterprises_feature_enabled(),
             'enterprise_slug_login_url': get_enterprise_slug_login_url(),
+            'is_enterprise_enable': enterprise_enabled(),
             'is_require_third_party_auth_enabled': is_require_third_party_auth_enabled(),
         },
         'login_redirect_url': redirect_to,  # This gets added to the query string of the "Sign In" button in header

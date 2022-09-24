@@ -6,7 +6,7 @@ from openedx.core.djangoapps.site_configuration.tests.factories import (
 from openedx.core.djangoapps.appsembler.sites.models import AlternativeDomain
 
 
-class AlternativeDomainFactory(factory.DjangoModelFactory):
+class AlternativeDomainFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = AlternativeDomain
     site = factory.SubFactory(SiteFactory)

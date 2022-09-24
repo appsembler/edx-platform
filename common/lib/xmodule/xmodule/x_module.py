@@ -9,7 +9,6 @@ from collections import namedtuple
 from functools import partial
 
 import yaml
-from contracts import contract, new_contract
 from django.utils.encoding import python_2_unicode_compatible
 from lazy import lazy
 from lxml import etree
@@ -1622,9 +1621,6 @@ class DescriptorSystem(MetricsMixin, ConfigurableFragmentWrapper, Runtime):
         return service
 
 
-new_contract('DescriptorSystem', DescriptorSystem)
-
-
 class XMLParsingSystem(DescriptorSystem):  # lint-amnesty, pylint: disable=abstract-method, missing-class-docstring
     def __init__(self, process_xml, **kwargs):
         """
@@ -1754,7 +1750,6 @@ class ModuleSystem(MetricsMixin, ConfigurableFragmentWrapper, Runtime):
     and user, or other environment-specific info.
     """
 
-    @contract(descriptor_runtime='DescriptorSystem')
     def __init__(
             self, static_url, track_function, get_module, render_template,
             replace_urls, descriptor_runtime, user=None, filestore=None,
