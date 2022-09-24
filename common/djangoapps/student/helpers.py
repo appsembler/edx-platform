@@ -506,6 +506,8 @@ def _cert_info(user, enrollment, cert_status):
 
     certificate_earned_but_not_available_status = 'certificate_earned_but_not_available'
 
+    course_overview = enrollment.course_overview if enrollment else None
+
     # open-ended courses should not display the 'processing' message
     default_status = 'unavailable' if not course_overview.end else 'processing'
 
@@ -518,7 +520,6 @@ def _cert_info(user, enrollment, cert_status):
     if cert_status is None or enrollment is None:
         return default_info
 
-    course_overview = enrollment.course_overview if enrollment else None
     status = template_state.get(cert_status['status'], default_status)
     is_hidden_status = status in ('processing', 'generating', 'notpassing', 'auditing')
 
