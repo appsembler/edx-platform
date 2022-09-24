@@ -3,7 +3,9 @@
 name: Lint Commit Messages
 
 on:
-  - pull_request
+  pull_request:
+    branches:
+      - master  # Tahoe: this line effectively disables it on Tahoe
 
 jobs:
   commitlint:
