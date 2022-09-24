@@ -39,7 +39,7 @@ from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory, check_mongo_calls_range
 
-from ..models import CourseOverview, CourseOverviewImageConfig, CourseOverviewImageSet
+from ..models import CourseOverview, CourseOverviewImageConfig, CourseOverviewImageSet, CourseOverviewTab
 from .factories import CourseOverviewFactory
 
 
@@ -141,7 +141,6 @@ class CourseOverviewTestCase(CatalogIntegrationMixin, ModuleStoreTestCase, Cache
             ('clean_id', ('#',)),
             ('has_ended', ()),
             ('has_started', ()),
-            ('may_certify', ()),
         ]
         for method_name, method_args in methods_to_test:
             course_value = getattr(course, method_name)(*method_args)
@@ -397,7 +396,23 @@ class CourseOverviewTestCase(CatalogIntegrationMixin, ModuleStoreTestCase, Cache
             with check_mongo_calls_range(max_finds=max_mongo_calls, min_finds=min_mongo_calls):
                 _course_overview_2 = CourseOverview.get_from_id(course.id)
 
-    def test_course_overview_saving_race_condition(self):
+    # The CourseOverviewTab and CourseOverviewImageSet objects can't be filtered with course overview object as it is
+    # created with `None` as 'id' - We are going to mock this to as this isn't being tested in this test case, instead
+    # we are testing that on the first request course overview is created and stored and for the second request
+    # it gives IntegrityError - It is just to mimic race condition.
+    # Also we are mocking the RequestCache to disable caching as we want to mimic race condition and we want both
+    # requests to be served without involving cache
+    @mock.patch(
+        'openedx.core.djangoapps.content.course_overviews.models.CourseOverviewTab.objects.filter',
+        mock.Mock(return_value=CourseOverviewTab.objects.none())
+    )
+    @mock.patch(
+        'openedx.core.djangoapps.content.course_overviews.models.CourseOverviewImageSet.objects.filter',
+        mock.Mock(return_value=CourseOverviewImageSet.objects.none())
+    )
+    @mock.patch('openedx.core.lib.cache_utils.RequestCache', mock.Mock(return_value=None))
+    @mock.patch('openedx.core.djangoapps.content.course_overviews.models.log')
+    def test_course_overview_saving_race_condition(self, mock_log):
         """
         Tests that the following scenario will not cause an unhandled exception:
         - Multiple concurrent requests are made for the same non-existent CourseOverview.
@@ -445,6 +460,13 @@ class CourseOverviewTestCase(CatalogIntegrationMixin, ModuleStoreTestCase, Cache
                         # including after an IntegrityError exception the 2nd time.
                         for _ in range(2):
                             assert isinstance(CourseOverview.get_from_id(course.id), CourseOverview)
+
+                        # Make sure that tbe second call skips the cache and
+                        # IntegrityError is triggered and handled gracefully
+                        mock_log.info.assert_called_with(
+                            "Multiple CourseOverviews for course %s requested simultaneously; will only save one.",
+                            course.id
+                        )
 
     def test_course_overview_version_update(self):
         """
@@ -602,6 +624,11 @@ class CourseOverviewImageSetTestCase(ModuleStoreTestCase):
         course_image_content = StaticContent(course_image_asset_key, image_name, 'image/png', image_buff)
         contentstore().save(course_image_content)
 
+    def get_from_id(self, course_id):
+        """Get course overview, but makes sure that we are actually calling the method by wiping cache"""
+        self.clear_caches()  # wipe out the request cache so that get_from_id is actually run each time
+        return CourseOverview.get_from_id(course_id)
+
     def set_config(self, enabled):
         """
         Enable or disable thumbnail generation config.
@@ -683,7 +710,7 @@ class CourseOverviewImageSetTestCase(ModuleStoreTestCase):
             course = CourseFactory.create(
                 default_store=modulestore_type, course_image=course_image
             )
-            course_overview_before = CourseOverview.get_from_id(course.id)
+            course_overview_before = self.get_from_id(course.id)
 
         # This initial seeding should create an entry for the image_set.
         assert hasattr(course_overview_before, 'image_set')
@@ -698,7 +725,7 @@ class CourseOverviewImageSetTestCase(ModuleStoreTestCase):
         self.set_config(False)
 
         # Fetch a new CourseOverview
-        course_overview_after = CourseOverview.get_from_id(course.id)
+        course_overview_after = self.get_from_id(course.id)
 
         # Assert that the data still exists for debugging purposes
         assert hasattr(course_overview_after, 'image_set')
@@ -718,7 +745,7 @@ class CourseOverviewImageSetTestCase(ModuleStoreTestCase):
         """
         with self.store.default_store(modulestore_type):
             course = CourseFactory.create(default_store=modulestore_type)
-            overview = CourseOverview.get_from_id(course.id)
+            overview = self.get_from_id(course.id)
 
             # First the behavior when there's no CDN enabled...
             AssetBaseUrlConfig.objects.all().delete()
@@ -744,7 +771,7 @@ class CourseOverviewImageSetTestCase(ModuleStoreTestCase):
         """
         with self.store.default_store(modulestore_type):
             course = CourseFactory.create(default_store=modulestore_type)
-            overview = CourseOverview.get_from_id(course.id)
+            overview = self.get_from_id(course.id)
 
             # Now enable the CDN...
             AssetBaseUrlConfig.objects.create(enabled=True, base_url='fakecdn.edx.org')
@@ -772,7 +799,7 @@ class CourseOverviewImageSetTestCase(ModuleStoreTestCase):
         """
         with self.store.default_store(modulestore_type):
             course = CourseFactory.create(default_store=modulestore_type)
-            overview = CourseOverview.get_from_id(course.id)
+            overview = self.get_from_id(course.id)
 
             # Now enable the CDN...
             AssetBaseUrlConfig.objects.create(enabled=True, base_url='fakecdn.edx.org')
@@ -819,7 +846,7 @@ class CourseOverviewImageSetTestCase(ModuleStoreTestCase):
         # The next time we create a CourseOverview, the images are explicitly
         # *not* regenerated.
         with mock.patch('openedx.core.lib.courses.create_course_image_thumbnail') as patched_create_thumbnail:
-            course_overview = CourseOverview.get_from_id(course_overview.id)
+            self.get_from_id(course_overview.id)
             patched_create_thumbnail.assert_not_called()
 
     @ddt.data(
@@ -863,7 +890,7 @@ class CourseOverviewImageSetTestCase(ModuleStoreTestCase):
                 self.set_config(enabled=False)
 
             # Now generate the CourseOverview...
-            course_overview = CourseOverview.get_from_id(course.id)
+            course_overview = self.get_from_id(course.id)
 
             # If create_after_overview is True, no image_set exists yet. Verify
             # that, then switch config back over to True and it should lazily
@@ -871,7 +898,7 @@ class CourseOverviewImageSetTestCase(ModuleStoreTestCase):
             if create_after_overview:
                 assert not hasattr(course_overview, 'image_set')
                 self.set_config(enabled=True)
-                course_overview = CourseOverview.get_from_id(course.id)
+                course_overview = self.get_from_id(course.id)
 
             assert hasattr(course_overview, 'image_set')
             image_urls = course_overview.image_urls
@@ -932,7 +959,7 @@ class CourseOverviewImageSetTestCase(ModuleStoreTestCase):
 
         # Now generate the CourseOverview...
         config = CourseOverviewImageConfig.current()
-        course_overview = CourseOverview.get_from_id(course.id)
+        course_overview = self.get_from_id(course.id)
         image_urls = course_overview.image_urls
 
         for image_url, target in [(image_urls['small'], config.small), (image_urls['large'], config.large)]:
@@ -973,7 +1000,7 @@ class CourseOverviewImageSetTestCase(ModuleStoreTestCase):
         course = CourseFactory.create()
 
         # First create our CourseOverview
-        overview = CourseOverview.get_from_id(course.id)
+        overview = self.get_from_id(course.id)
         assert not hasattr(overview, 'image_set')
 
         # Now create an ImageSet by hand...
@@ -1013,7 +1040,7 @@ class CourseOverviewImageSetTestCase(ModuleStoreTestCase):
         self._create_course_image(course, course_image)
 
         # Create course overview with image set.
-        overview = CourseOverview.get_from_id(course.id)
+        overview = self.get_from_id(course.id)
         assert hasattr(overview, 'image_set')
 
         # Make sure the thumbnail names come out as expected...
@@ -1054,7 +1081,7 @@ class CourseOverviewImageSetTestCase(ModuleStoreTestCase):
             if expected_url is None:
                 expected_url = course_image_url(course)
 
-            course_overview = CourseOverview.get_from_id(course.id)
+            course_overview = self.get_from_id(course.id)
 
             # All the URLs that come back should be for the expected_url
             assert course_overview.image_urls == {'raw': expected_url, 'small': expected_url, 'large': expected_url}

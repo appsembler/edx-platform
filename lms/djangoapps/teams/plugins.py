@@ -9,6 +9,7 @@ from django.utils.translation import ugettext_noop as _
 from opaque_keys.edx.keys import CourseKey
 
 from lms.djangoapps.courseware.tabs import EnrolledTab
+from lms.djangoapps.teams.waffle import ENABLE_TEAMS_APP
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.course_apps.plugins import CourseApp
 from . import is_feature_enabled
@@ -48,12 +49,17 @@ class TeamsCourseApp(CourseApp):
     app_id = "teams"
     name = _("Teams")
     description = _("Leverage teams to allow learners to connect by topic of interest.")
+    documentation_links = {
+        "learn_more_configuration": settings.TEAMS_HELP_URL,
+    }
 
     @classmethod
     def is_available(cls, course_key: CourseKey) -> bool:
         """
         The teams app is currently available globally based on a feature setting.
         """
+        if not ENABLE_TEAMS_APP.is_enabled():
+            return False
         return settings.FEATURES.get("ENABLE_TEAMS", False)
 
     @classmethod

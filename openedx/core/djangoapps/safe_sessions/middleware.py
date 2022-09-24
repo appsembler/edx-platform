@@ -3,22 +3,40 @@ This module defines SafeSessionMiddleware that makes use of a
 SafeCookieData that cryptographically binds the user to the session id
 in the cookie.
 
-The implementation is inspired by the proposal in the following paper:
-http://www.cse.msu.edu/~alexliu/publications/Cookie/cookie.pdf
+The primary goal is to avoid and detect situations where a session is
+corrupted and the client becomes logged in as the wrong user. This
+could happen via cache corruption (which we've seen before) or a
+request handling bug. It's unlikely to happen again, but would be a
+critical issue, so we've built in some checks to make sure the user on
+the session doesn't change over the course of the session or between
+the request and response phases.
+
+The secondary goal is to improve upon Django's session handling by
+including cryptographically enforced expiration.
+
+The implementation is inspired in part by the proposal in the paper
+<http://www.cse.msu.edu/~alexliu/publications/Cookie/cookie.pdf>
+but deviates in a number of ways; mostly it just uses the technique
+of an intermediate key for HMAC.
 
 Note: The proposed protocol protects against replay attacks by
+use of channel binding—specifically, by
 incorporating the session key used in the SSL connection.  However,
 this does not suit our needs since we want the ability to reuse the
-same cookie over multiple SSL connections.  So instead, we mitigate
+same cookie over multiple browser sessions, and in any case the server
+will be behind a load balancer and won't have access to the correct
+SSL session information.  So instead, we mitigate
 replay attacks by enforcing session cookie expiration
 (via TimestampSigner) and assuming SESSION_COOKIE_SECURE (see below).
 
 We use django's built-in Signer class, which makes use of a built-in
-salted_hmac function that derives a usage-specific key from the
+salted_hmac function that derives an intermediate key from the
 server's SECRET_KEY, as proposed in the paper.
 
-Note: The paper proposes deriving a usage-specific key from the
+Note: The paper proposes deriving an intermediate key from the
 session's expiration time in order to protect against volume attacks.
+(Note that these hypothetical attacks would only succeed if HMAC-SHA1
+were found to be weak, and there is presently no indication of this.)
 However, since django does not always use an expiration time, we
 instead use a random key salt to prevent volume attacks.
 
@@ -30,28 +48,25 @@ of the session cookies.  Django instead relies on the browser to honor
 session cookie expiration.
 
 The resulting safe cookie data that gets stored as the value in the
-session cookie is a tuple of:
-    (
-        version,
-        session_id,
-        key_salt,
-        signature
-    )
+session cookie is:
 
-    where signature is:
-        signed_data : base64(HMAC_SHA1(signed_data, usage_key))
+    version '|' session_id '|' key_salt '|' signed_hash
 
-    where signed_data is:
-        H(version | session_id | user_id) : timestamp
+where signed_hash is a structure incorporating the following value and
+a MAC (via TimestampSigner):
 
-    where usage_key is:
-        SHA1(key_salt + 'signer' + settings.SECRET_KEY)
+    SHA256(version '|' session_id '|' user_id '|')
+
+TimestampSigner uses HMAC-SHA1 to derive a key from key_salt and the
+server's SECRET_KEY; see django.core.signing for more details on the
+structure of the output (which takes the form of colon-delimited
+Base64.)
 
 Note: We assume that the SESSION_COOKIE_SECURE setting is set to
 TRUE to prevent inadvertent leakage of the session cookie to a
 person-in-the-middle.  The SESSION_COOKIE_SECURE flag indicates
 to the browser that the cookie should be sent only over an
-SSL-protected channel.  Otherwise, a session hijacker could copy
+SSL-protected channel.  Otherwise, a connection eavesdropper could copy
 the entire cookie and use it to impersonate the victim.
 
 Custom Attributes:
@@ -62,9 +77,8 @@ Custom Attributes:
 
 import inspect
 from base64 import b64encode
-from contextlib import contextmanager
 from hashlib import sha256
-from logging import ERROR, getLogger
+from logging import getLogger
 
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY
@@ -74,7 +88,7 @@ from django.core import signing
 from django.http import HttpResponse
 from django.utils.crypto import get_random_string
 from django.utils.deprecation import MiddlewareMixin
-from django.utils.encoding import python_2_unicode_compatible
+
 from edx_django_utils.monitoring import set_custom_attribute
 
 from openedx.core.lib.mobile_utils import is_request_from_mobile_app
@@ -102,7 +116,6 @@ class SafeCookieError(Exception):
         log.error(error_message)
 
 
-@python_2_unicode_compatible
 class SafeCookieData:
     """
     Cookie data that cryptographically binds and timestamps the user
@@ -121,7 +134,7 @@ class SafeCookieData:
             session_id (string): Unique and unguessable session
                 identifier to which this safe cookie data is bound.
             key_salt (string): A securely generated random string that
-                is used to derive a usage-specific secret key for
+                is used to derive an intermediate secret key for
                 signing the safe cookie data to protect against volume
                 attacks.
             signature (string): Cryptographically created signature
@@ -185,9 +198,10 @@ class SafeCookieData:
 
     def sign(self, user_id):
         """
-        Computes the signature of this safe cookie data.
-        A signed value of hash(version | session_id | user_id):timestamp
-        with a usage-specific key derived from key_salt.
+        Signs the safe cookie data for this user using a timestamped signature
+        and an intermediate key derived from key_salt and server's SECRET_KEY.
+        Value under signature is the hexadecimal string from
+        SHA256(version '|' session_id '|' user_id '|').
         """
         data_to_sign = self._compute_digest(user_id)
         self.signature = signing.dumps(data_to_sign, salt=self.key_salt)
@@ -214,7 +228,7 @@ class SafeCookieData:
 
     def _compute_digest(self, user_id):
         """
-        Returns hash(version | session_id | user_id |)
+        Returns SHA256(version '|' session_id '|' user_id '|') hex string.
         """
         hash_func = sha256()
         for data_item in [self.version, self.session_id, user_id]:
@@ -274,7 +288,8 @@ class SafeSessionMiddleware(SessionMiddleware, MiddlewareMixin):
 
         Step 4. Once the session is retrieved, verify that the user
         bound in the safe_cookie_data matches the user attached to the
-        server's session information.
+        server's session information. Otherwise, reject the request
+        (bypass the view and return an error or redirect).
 
         Step 5. If all is successful, the now verified user_id is stored
         separately in the request object so it is available for another
@@ -309,6 +324,8 @@ class SafeSessionMiddleware(SessionMiddleware, MiddlewareMixin):
                 if LOG_REQUEST_USER_CHANGES:
                     log_request_user_changes(request)
             else:
+                # Return an error or redirect, and don't continue to
+                # the underlying view.
                 return self._on_user_authentication_failed(request)
 
     def process_response(self, request, response):
@@ -341,13 +358,12 @@ class SafeSessionMiddleware(SessionMiddleware, MiddlewareMixin):
         if not _is_cookie_marked_for_deletion(request) and _is_cookie_present(response):
             try:
                 user_id_in_session = self.get_user_id_from_session(request)
-                with controlled_logging(request, log):
-                    self._verify_user(request, user_id_in_session)  # Step 2
+                self._verify_user(request, response, user_id_in_session)  # Step 2
 
-                    # Use the user_id marked in the session instead of the
-                    # one in the request in case the user is not set in the
-                    # request, for example during Anonymous API access.
-                    self.update_with_safe_session_cookie(response.cookies, user_id_in_session)  # Step 3
+                # Use the user_id marked in the session instead of the
+                # one in the request in case the user is not set in the
+                # request, for example during Anonymous API access.
+                self.update_with_safe_session_cookie(response.cookies, user_id_in_session)  # Step 3
 
             except SafeCookieError:
                 _mark_cookie_for_deletion(request)
@@ -374,12 +390,23 @@ class SafeSessionMiddleware(SessionMiddleware, MiddlewareMixin):
         return redirect_to_login(request.path)
 
     @staticmethod
-    def _verify_user(request, userid_in_session):
+    def _verify_user(request, response, userid_in_session):
         """
         Logs an error if the user marked at the time of process_request
         does not match either the current user in the request or the
         given userid_in_session.
         """
+        # It's expected that a small number of views may change the
+        # user over the course of the request. We have exemptions for
+        # the user changing to/from None, but the login view can
+        # sometimes change the user from one value to another between
+        # the request and response phases, specifically when the login
+        # page is used during an active session.
+        #
+        # The relevant views set a flag to indicate the exemption.
+        if getattr(response, 'safe_sessions_expected_user_change', None):
+            return
+
         if hasattr(request, 'safe_cookie_verified_user_id'):
             if hasattr(request.user, 'real_user'):
                 # If a view overrode the request.user with a masqueraded user, this will
@@ -427,6 +454,7 @@ class SafeSessionMiddleware(SessionMiddleware, MiddlewareMixin):
         except KeyError:
             return None
 
+    # TODO move to test code, maybe rename, get rid of old Django compat stuff
     @staticmethod
     def set_user_id_in_session(request, user):
         """
@@ -569,28 +597,13 @@ def log_request_user_changes(request):
     request.__class__ = SafeSessionRequestWrapper
 
 
-def _is_from_logout(request):
+def mark_user_change_as_expected(response, new_user_id):
     """
-    Returns whether the request has come from logout action to see if
-    'is_from_logout' attribute is present.
-    """
-    return getattr(request, 'is_from_logout', False)
+    Indicate to the safe-sessions middleware that it is expected that
+    the user is changing between the request and response phase of
+    the current request.
 
-
-@contextmanager
-def controlled_logging(request, logger):
+    The new_user_id may be None or an LMS user ID, and may be the same
+    as the previous user ID.
     """
-    Control the logging by changing logger's level if
-    the request is from logout.
-    """
-    default_level = None
-    from_logout = _is_from_logout(request)
-    if from_logout:
-        default_level = logger.getEffectiveLevel()
-        logger.setLevel(ERROR)
-
-    try:
-        yield
-    finally:
-        if from_logout:
-            logger.setLevel(default_level)
+    response.safe_sessions_expected_user_change = {'new_user_id': new_user_id}

@@ -14,7 +14,7 @@ from django.core.files.storage import get_storage_class
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.utils.encoding import python_2_unicode_compatible
+
 from jsonfield.fields import JSONField
 from model_utils.models import TimeStampedModel
 
@@ -52,7 +52,6 @@ THEME_AMC_V1 = 'amc-v1'
 THEME_TAHOE_V2 = 'tahoe-v2'
 
 
-@python_2_unicode_compatible
 class SiteConfiguration(models.Model):
     """
     Model for storing site configuration. These configuration override OpenEdx configurations and settings.
@@ -487,7 +486,6 @@ def save_siteconfig_without_historical_record(siteconfig, *args, **kwargs):
     return ret
 
 
-@python_2_unicode_compatible
 class SiteConfigurationHistory(TimeStampedModel):
     """
     This is an archive table for SiteConfiguration, so that we can maintain a history of

@@ -22,8 +22,8 @@ from lms.djangoapps.certificates.models import (
     CertificateStatuses,
     GeneratedCertificate
 )
+from lms.djangoapps.certificates.api import auto_certificate_generation_enabled
 from lms.djangoapps.verify_student.services import IDVerificationService
-from openedx.core.djangoapps.certificates.api import auto_certificate_generation_enabled
 from openedx.core.djangoapps.content.course_overviews.signals import COURSE_PACING_CHANGED
 from openedx.core.djangoapps.signals.signals import (
     COURSE_GRADE_NOW_FAILED,
@@ -101,12 +101,9 @@ def _listen_for_failing_grade(sender, user, course_id, grade, **kwargs):  # pyli
     whitelist_cert = CertificateAllowlist.get_certificate_allowlist(course_id, user)
     if cert is not None:
         if CertificateStatuses.is_passing_status(cert.status) and len(whitelist_cert) == 0:
-            cert.mark_notpassing(grade.percent, source='notpassing_signal')
-            log.info('Certificate marked not passing for {user} : {course} via failing grade: {grade}'.format(
-                user=user.id,
-                course=course_id,
-                grade=grade
-            ))
+            enrollment_mode, __ = CourseEnrollment.enrollment_mode_for_user(user, course_id)
+            cert.mark_notpassing(mode=enrollment_mode, grade=grade.percent, source='notpassing_signal')
+            log.info(f'Certificate marked not passing for {user.id} : {course_id} via failing grade')
 
 
 @receiver(LEARNER_NOW_VERIFIED, dispatch_uid="learner_track_changed")

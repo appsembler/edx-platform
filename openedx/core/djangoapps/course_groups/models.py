@@ -11,15 +11,17 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
-from django.utils.encoding import python_2_unicode_compatible
+
 from opaque_keys.edx.django.models import CourseKeyField
 
 from openedx.core.djangolib.model_mixins import DeletableByUserValue
 
+from openedx_events.learning.data import CohortData, CourseData, UserData, UserPersonalData
+from openedx_events.learning.signals import COHORT_MEMBERSHIP_CHANGED
+
 log = logging.getLogger(__name__)
 
 
-@python_2_unicode_compatible
 class CourseUserGroup(models.Model):
     """
     This model represents groups of users in a course.  Groups may have different types,
@@ -129,6 +131,25 @@ class CohortMembership(models.Model):
 
     def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
         self.full_clean(validate_unique=False)
+
+        # .. event_implemented_name: COHORT_MEMBERSHIP_CHANGED
+        COHORT_MEMBERSHIP_CHANGED.send_event(
+            cohort=CohortData(
+                user=UserData(
+                    pii=UserPersonalData(
+                        username=self.user.username,
+                        email=self.user.email,
+                        name=self.user.profile.name,
+                    ),
+                    id=self.user.id,
+                    is_active=self.user.is_active,
+                ),
+                course=CourseData(
+                    course_key=self.course_id,
+                ),
+                name=self.course_user_group.name,
+            )
+        )
 
         log.info("Saving CohortMembership for user '%s' in '%s'", self.user.id, self.course_id)
         return super().save(

@@ -50,7 +50,6 @@ from lms.djangoapps.certificates.models import (
 from lms.djangoapps.courseware.access import has_access
 from lms.djangoapps.courseware.courses import get_studio_url
 from lms.djangoapps.courseware.module_render import get_module_by_usage_id
-from lms.djangoapps.courseware.toggles import BULK_ALLOWANCE_MODAL
 from lms.djangoapps.discussion.django_comment_client.utils import available_division_schemes, has_forum_access
 from lms.djangoapps.grades.api import is_writable_gradebook_enabled
 from openedx.core.djangoapps.course_groups.cohorts import DEFAULT_COHORT_NAME, get_course_cohorts, is_course_cohorted
@@ -287,7 +286,6 @@ def _section_special_exams(course, access):
         'escalation_email': escalation_email,
         'show_dashboard': is_backend_dashboard_available(course_key),
         'show_onboarding': does_backend_support_onboarding(course.proctoring_provider),
-        'enable_bulk_allowance': BULK_ALLOWANCE_MODAL.is_enabled(course.id),
     }
     return section_data
 
@@ -337,7 +335,7 @@ def _section_certificates(course):
         'section_display_name': _('Certificates'),
         'example_certificate_status': example_cert_status,
         'can_enable_for_course': can_enable_for_course,
-        'enabled_for_course': certs_api.cert_generation_enabled(course.id),
+        'enabled_for_course': certs_api.has_self_generated_certificates_enabled(course.id),
         'is_self_paced': course.self_paced,
         'instructor_generation_enabled': instructor_generation_enabled,
         'html_cert_enabled': html_cert_enabled,
@@ -347,10 +345,6 @@ def _section_certificates(course):
         'certificate_generation_history':
             CertificateGenerationHistory.objects.filter(course_id=course.id).order_by("-created"),
         'urls': {
-            'generate_example_certificates': reverse(
-                'generate_example_certificates',
-                kwargs={'course_id': course.id}
-            ),
             'enable_certificate_generation': reverse(
                 'enable_certificate_generation',
                 kwargs={'course_id': course.id}

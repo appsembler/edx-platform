@@ -1,4 +1,4 @@
-<%page expression_filter="h" args="cert_status, course_overview, enrollment, reverify_link" />
+<%page expression_filter="h" args="cert_status, course_ended_not_passing, course_overview, enrollment, reverify_link" />
 
 <%!
 from django.urls import reverse
@@ -7,6 +7,8 @@ from django.utils.translation import ugettext as _
 from openedx.core.djangolib.markup import HTML, Text
 from common.djangoapps.course_modes.models import CourseMode
 from lms.djangoapps.certificates.data import CertificateStatuses
+from xmodule.data import CertificatesDisplayBehaviors
+from common.djangoapps.student.helpers import user_has_passing_grade_in_course
 %>
 <%namespace name='static' file='../static_content.html'/>
 
@@ -32,14 +34,24 @@ elif cert_status['status'] == CertificateStatuses.notpassing:
 else:
     status_css_class = 'course-status-processing'
 %>
-<% requesting_post_url = reverse('generate_user_cert', args=[str(course_overview.id)]) %>
+<% 
+  requesting_post_url = reverse('generate_user_cert', args=[str(course_overview.id)])
+  progress_page_url = reverse('progress', args=[str(course_overview.id)])
+%>
 
 % if cert_status['status'] != 'processing':
   % if cert_status['status'] == 'certificate_earned_but_not_available':
     <div class="message message-status ${status_css_class} is-shown">
       <p class="message-copy">
         <%
-          certificate_available_date_string = course_overview.certificate_available_date.strftime('%Y-%m-%dT%H:%M:%S%z')
+          if settings.FEATURES.get("ENABLE_V2_CERT_DISPLAY_SETTINGS", False):
+            certificate_available_date_string = ""
+            if course_overview.certificates_display_behavior == CertificatesDisplayBehaviors.END_WITH_DATE and course_overview.certificate_available_date:
+              certificate_available_date_string = course_overview.certificate_available_date.strftime('%Y-%m-%dT%H:%M:%S%z')
+            elif course_overview.certificates_display_behavior == CertificatesDisplayBehaviors.END and course_overview.end:
+              certificate_available_date_string = course_overview.end.strftime('%Y-%m-%dT%H:%M:%S%z')
+          else:
+            certificate_available_date_string = course_overview.certificate_available_date.strftime('%Y-%m-%dT%H:%M:%S%z')
           container_string = _("Your grade and certificate will be ready after {date}.")
           format = 'shortDate'
         %>
@@ -153,5 +165,21 @@ else:
 
     </div>
   % endif
+% elif course_ended_not_passing:
+  <div class="message message-status ${status_css_class} d-flex justify-content-between align-items-center">
+    <div class="message-copy">
+      <%
+        container_string = _("You are not eligible for a certificate.")
+      %>
+      <span class="info-date-block localized-datetime" data-language="${user_language}" data-timezone="${user_timezone}" data-string="${container_string}"></span>
+    </div>
+    <ul class="actions actions-primary">
+      <li class="action">
+        <a class="btn btn-primary" rel="noopener" href="${progress_page_url}" target="_blank" title="${_('This link will open the course progress page' )}">
+          ${_("View grades")}
+        </a>
+      </li>
+    </ul>
+  </div>
 % endif
 

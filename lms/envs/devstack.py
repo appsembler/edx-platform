@@ -30,6 +30,8 @@ LMS_BASE = 'localhost:18000'
 CMS_BASE = 'localhost:18010'
 SITE_NAME = LMS_BASE
 
+SESSION_COOKIE_NAME = 'lms_sessionid'
+
 # By default don't use a worker, execute tasks as if they were local functions
 CELERY_ALWAYS_EAGER = True
 HTTPS = 'off'
@@ -41,6 +43,7 @@ IDA_LOGOUT_URI_LIST = [
     'http://localhost:18130/logout/',  # ecommerce
     'http://localhost:18150/logout/',  # credentials
     'http://localhost:18381/logout/',  # discovery
+    'http://localhost:18010/logout/',  # studio
 ]
 
 ################################ LOGGERS ######################################
@@ -256,7 +259,7 @@ CORS_ALLOW_HEADERS = corsheaders_default_headers + (
     'use-jwt-cookie',
 )
 
-LOGIN_REDIRECT_WHITELIST = [
+LOGIN_REDIRECT_WHITELIST.extend([
     CMS_BASE,
     # Allow redirection to all micro-frontends.
     # Please add your MFE if is not already listed here.
@@ -264,6 +267,7 @@ LOGIN_REDIRECT_WHITELIST = [
     #   BASE_URL=http://localhost:$PORT
     # as opposed to:
     #   BASE_URL=localhost:$PORT
+    'localhost:1997',  # frontend-app-account
     'localhost:1976',  # frontend-app-program-console
     'localhost:1994',  # frontend-app-gradebook
     'localhost:2000',  # frontend-app-learning
@@ -272,7 +276,7 @@ LOGIN_REDIRECT_WHITELIST = [
     'localhost:18400',  # frontend-app-publisher
     ENTERPRISE_LEARNER_PORTAL_NETLOC,  # frontend-app-learner-portal-enterprise
     ENTERPRISE_ADMIN_PORTAL_NETLOC,  # frontend-app-admin-portal
-]
+])
 
 ###################### JWTs ######################
 JWT_AUTH.update({

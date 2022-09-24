@@ -2,7 +2,9 @@
 
 
 import logging
+from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
+from urllib.parse import urljoin
 
 from requests.exceptions import ConnectionError, Timeout  # pylint: disable=redefined-builtin
 from slumber.exceptions import SlumberBaseException
@@ -123,3 +125,53 @@ def get_course_final_price(user, sku, course_price):
         result = int(result)
 
     return result
+
+
+def get_verified_track_links(language):
+    """
+    Format the URL's for Value Prop's Track Selection verified option, for the specified language.
+
+    Arguments:
+        language (str): The language from the user's account settings.
+
+    Returns: dict
+        Dictionary with URL's with verified certificate informational links.
+        If not edx.org, returns a dictionary with default URL's.
+    """
+    support_root_url = settings.SUPPORT_SITE_LINK
+    marketing_root_url = settings.MKTG_URLS.get('ROOT')
+
+    enabled_languages = {
+        'en': 'hc/en-us',
+        'es-419': 'hc/es-419',
+    }
+
+    # Add edX specific links only to edx.org
+    if marketing_root_url and 'edx.org' in marketing_root_url:
+        track_verified_url = urljoin(marketing_root_url, 'verified-certificate')
+        if support_root_url and 'support.edx.org' in support_root_url:
+            support_article_params = '/articles/360013426573-'
+            # Must specify the language in the URL since
+            # support links do not auto detect the language settings
+            language_specific_params = {
+                'en': 'What-are-the-differences-between-audit-free-and-verified-paid-courses-',
+                'es-419': ('-Cu%C3%A1les-son-las-diferencias'
+                           '-entre-los-cursos-de-auditor%C3%ADa-gratuitos-y-verificados-pagos-')
+            }
+            if language in ('es-419', 'es'):
+                full_params = enabled_languages['es-419'] + support_article_params + language_specific_params['es-419']
+            else:
+                full_params = enabled_languages['en'] + support_article_params + language_specific_params['en']
+            track_comparison_url = urljoin(
+                support_root_url,
+                full_params
+            )
+            return {
+                'verified_certificate': track_verified_url,
+                'learn_more': track_comparison_url,
+            }
+    # Default URL's are used if not edx.org
+    return {
+        'verified_certificate': marketing_root_url,
+        'learn_more': support_root_url,
+    }
