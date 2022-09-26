@@ -7,8 +7,11 @@ cannot be generated, a message is logged and no further action is taken.
 """
 
 import logging
+from django.conf import settings
+from openedx_filters.learning.filters import CertificateCreationRequested
 
 from common.djangoapps.course_modes import api as modes_api
+from common.djangoapps.course_modes.models import CourseMode
 from common.djangoapps.student.models import CourseEnrollment
 from lms.djangoapps.certificates.data import CertificateStatuses
 from lms.djangoapps.certificates.models import (
@@ -26,7 +29,15 @@ from openedx.core.djangoapps.content.course_overviews.api import get_course_over
 log = logging.getLogger(__name__)
 
 
-def generate_certificate_task(user, course_key, generation_mode=None):
+class GeneratedCertificateException(Exception):
+    pass
+
+
+class CertificateGenerationNotAllowed(GeneratedCertificateException):
+    pass
+
+
+def generate_certificate_task(user, course_key, generation_mode=None, delay_seconds=CERTIFICATE_DELAY_SECONDS):
     """
     Create a task to generate a certificate for this user in this course run, if the user is eligible and a certificate
     can be generated.
@@ -37,21 +48,35 @@ def generate_certificate_task(user, course_key, generation_mode=None):
     if is_on_certificate_allowlist(user, course_key):
         log.info(f'User {user.id} is on the allowlist for {course_key}. Attempt will be made to generate an allowlist '
                  f'certificate.')
-        return generate_allowlist_certificate_task(user, course_key, generation_mode)
+        return generate_allowlist_certificate_task(user, course_key, generation_mode=generation_mode,
+                                                   delay_seconds=delay_seconds)
 
     log.info(f'Attempt will be made to generate course certificate for user {user.id} : {course_key}')
-    return _generate_regular_certificate_task(user, course_key, generation_mode)
+    return _generate_regular_certificate_task(user, course_key, generation_mode=generation_mode,
+                                              delay_seconds=delay_seconds)
 
 
-def generate_allowlist_certificate_task(user, course_key, generation_mode=None):
+def generate_allowlist_certificate_task(user, course_key, generation_mode=None,
+                                        delay_seconds=CERTIFICATE_DELAY_SECONDS):
     """
     Create a task to generate an allowlist certificate for this user in this course run.
     """
     enrollment_mode = _get_enrollment_mode(user, course_key)
-    course_grade = _get_course_grade(user, course_key)
+    course_grade = _get_course_grade(user, course_key, send_course_grade_signals=False)
     if _can_generate_allowlist_certificate(user, course_key, enrollment_mode):
-        return _generate_certificate_task(user=user, course_key=course_key, enrollment_mode=enrollment_mode,
-                                          course_grade=course_grade, generation_mode=generation_mode)
+        try:
+            return _generate_certificate_task(
+                user=user, course_key=course_key, enrollment_mode=enrollment_mode, course_grade=course_grade,
+                generation_mode=generation_mode, delay_seconds=delay_seconds,
+            )
+        except CertificateGenerationNotAllowed:
+            # Catch exception to contain error message in console.
+            log.error(
+                "Certificate generation not allowed for user %s in course %s",
+                user.id,
+                course_key,
+            )
+            return False
 
     status = _set_allowlist_cert_status(user, course_key, enrollment_mode, course_grade)
     if status is not None:
@@ -60,16 +85,17 @@ def generate_allowlist_certificate_task(user, course_key, generation_mode=None):
     return False
 
 
-def _generate_regular_certificate_task(user, course_key, generation_mode=None):
+def _generate_regular_certificate_task(user, course_key, generation_mode=None, delay_seconds=CERTIFICATE_DELAY_SECONDS):
     """
     Create a task to generate a regular (non-allowlist) certificate for this user in this course run, if the user is
     eligible and a certificate can be generated.
     """
     enrollment_mode = _get_enrollment_mode(user, course_key)
-    course_grade = _get_course_grade(user, course_key)
+    course_grade = _get_course_grade(user, course_key, send_course_grade_signals=False)
     if _can_generate_regular_certificate(user, course_key, enrollment_mode, course_grade):
         return _generate_certificate_task(user=user, course_key=course_key, enrollment_mode=enrollment_mode,
-                                          course_grade=course_grade, generation_mode=generation_mode)
+                                          course_grade=course_grade, generation_mode=generation_mode,
+                                          delay_seconds=delay_seconds)
 
     status = _set_regular_cert_status(user, course_key, enrollment_mode, course_grade)
     if status is not None:
@@ -78,13 +104,28 @@ def _generate_regular_certificate_task(user, course_key, generation_mode=None):
     return False
 
 
-def _generate_certificate_task(user, course_key, enrollment_mode, course_grade, status=None, generation_mode=None):
+def _generate_certificate_task(user, course_key, enrollment_mode, course_grade, status=None, generation_mode=None,
+                               delay_seconds=CERTIFICATE_DELAY_SECONDS):
     """
     Create a task to generate a certificate
     """
     log.info(f'About to create a regular certificate task for {user.id} : {course_key}')
 
     course_grade_val = _get_grade_value(course_grade)
+
+    try:
+        # .. filter_implemented_name: CertificateCreationRequested
+        # .. filter_type: org.openedx.learning.certificate.creation.requested.v1
+        user, course_key, enrollment_mode, status, course_grade, generation_mode = CertificateCreationRequested.run_filter(  # pylint: disable=line-too-long
+            user=user,
+            course_key=course_key,
+            mode=enrollment_mode,
+            status=status,
+            grade=course_grade,
+            generation_mode=generation_mode,
+        )
+    except CertificateCreationRequested.PreventCertificateCreation as exc:
+        raise CertificateGenerationNotAllowed(str(exc)) from exc
 
     kwargs = {
         'student': str(user.id),
@@ -97,7 +138,7 @@ def _generate_certificate_task(user, course_key, enrollment_mode, course_grade, 
     if generation_mode is not None:
         kwargs['generation_mode'] = generation_mode
 
-    generate_certificate.apply_async(countdown=CERTIFICATE_DELAY_SECONDS, kwargs=kwargs)
+    generate_certificate.apply_async(countdown=delay_seconds, kwargs=kwargs)
     return True
 
 
@@ -163,14 +204,21 @@ def _can_generate_certificate_common(user, course_key, enrollment_mode):
         log.info(f'{user.id} : {course_key} does not have an enrollment. Certificate cannot be generated.')
         return False
 
-    if not modes_api.is_eligible_for_certificate(enrollment_mode):
+    is_eligible_for_cert = modes_api.is_eligible_for_certificate(enrollment_mode)
+    if not is_eligible_for_cert:
         log.info(f'{user.id} : {course_key} has an enrollment mode of {enrollment_mode}, which is not eligible for a '
                  f'certificate. Certificate cannot be generated.')
         return False
 
-    if not IDVerificationService.user_is_verified(user):
-        log.info(f'{user.id} does not have a verified id. Certificate cannot be generated for {course_key}.')
-        return False
+    # If the IDV check fails we then check if the course-run requires ID verification. Honor and Professional-No-ID
+    # modes do not require IDV for certificate generation.
+    if _required_verification_missing(user):
+        if enrollment_mode not in CourseMode.NON_VERIFIED_MODES:
+            log.info(f'{user.id} does not have a verified id. Certificate cannot be generated for {course_key}.')
+            return False
+
+        log.info(f'{user.id} : {course_key} is eligible for a certificate without requiring a verified ID. '
+                 'Skipping results of the ID verification check.')
 
     if not _can_generate_certificate_for_status(user, course_key, enrollment_mode):
         return False
@@ -217,7 +265,9 @@ def _set_regular_cert_status(user, course_key, enrollment_mode, course_grade):
     if status is not None:
         return status
 
-    if IDVerificationService.user_is_verified(user) and not _is_passing_grade(course_grade) and cert is not None:
+    if not _required_verification_missing(user) \
+            and not _is_passing_grade(course_grade) \
+            and cert is not None:
         if cert.status != CertificateStatuses.notpassing:
             course_grade_val = _get_grade_value(course_grade)
             cert.mark_notpassing(mode=enrollment_mode, grade=course_grade_val, source='certificate_generation')
@@ -238,8 +288,8 @@ def _get_cert_status_common(user, course_key, enrollment_mode, course_grade, cer
             cert.invalidate(mode=enrollment_mode, source='certificate_generation')
         return CertificateStatuses.unavailable
 
-    if not IDVerificationService.user_is_verified(user) and _has_passing_grade_or_is_allowlisted(user, course_key,
-                                                                                                 course_grade):
+    if _required_verification_missing(user) and _has_passing_grade_or_is_allowlisted(user, course_key,
+                                                                                     course_grade):
         if cert is None:
             _generate_certificate_task(user=user, course_key=course_key, enrollment_mode=enrollment_mode,
                                        course_grade=course_grade, status=CertificateStatuses.unverified,
@@ -360,11 +410,14 @@ def _get_grade_value(course_grade):
     return ''
 
 
-def _get_course_grade(user, course_key):
+def _get_course_grade(user, course_key, send_course_grade_signals=True):
     """
     Get the user's course grade in this course run. Note that this may be None.
+
+    Use send_course_grade_signals=False to avoid firing the course grade signals recursively.
+    See details in lms/djangoapps/grades/course_grade_factory.py _update method.
     """
-    return CourseGradeFactory().read(user, course_key=course_key)
+    return CourseGradeFactory().read(user, course_key=course_key, send_course_grade_signals=send_course_grade_signals)
 
 
 def _get_enrollment_mode(user, course_key):
@@ -397,3 +450,10 @@ def _is_mode_now_eligible(enrollment_mode, cert):
     if modes_api.is_eligible_for_certificate(enrollment_mode) and not modes_api.is_eligible_for_certificate(cert.mode):
         return True
     return False
+
+
+def _required_verification_missing(user):
+    """
+    Return true if IDV is required for this course and the user does not have it
+    """
+    return not settings.FEATURES.get('ENABLE_INTEGRITY_SIGNATURE') and not IDVerificationService.user_is_verified(user)

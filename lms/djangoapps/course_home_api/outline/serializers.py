@@ -16,7 +16,7 @@ class CourseBlockSerializer(serializers.Serializer):
     """
     blocks = serializers.SerializerMethodField()
 
-    def get_blocks(self, block):
+    def get_blocks(self, block):  # pylint: disable=missing-function-docstring
         block_key = block['id']
         block_type = block['type']
         children = block.get('children', []) if block_type != 'sequential' else []  # Don't descend past sequential
@@ -66,8 +66,8 @@ class CourseGoalsSerializer(serializers.Serializer):
     """
     Serializer for Course Goal data
     """
-    goal_options = serializers.ListField(default=[])
     selected_goal = serializers.DictField()
+    weekly_learning_goal_enabled = serializers.BooleanField(default=False)
 
 
 class CourseToolSerializer(serializers.Serializer):
@@ -122,6 +122,7 @@ class OutlineTabSerializer(DatesBannerSerializer, VerifiedModeSerializer):
     dates_widget = DatesWidgetSerializer()
     enroll_alert = EnrollAlertSerializer()
     enrollment_mode = serializers.CharField()
+    enable_proctored_exams = serializers.BooleanField()
     handouts_html = serializers.CharField()
     has_ended = serializers.BooleanField()
     offer = serializers.DictField()

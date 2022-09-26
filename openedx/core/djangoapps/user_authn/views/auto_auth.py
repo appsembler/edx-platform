@@ -13,7 +13,7 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
 from django.template.context_processors import csrf
 from django.urls import NoReverseMatch, reverse
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from opaque_keys.edx.locator import CourseLocator
 
 from lms.djangoapps.verify_student.models import ManualVerification
@@ -36,7 +36,7 @@ from common.djangoapps.student.models import (
 )
 from common.djangoapps.util.json_request import JsonResponse
 
-from edx_django_utils.user import generate_password
+from edx_django_utils.user import generate_password  # lint-amnesty, pylint: disable=wrong-import-order
 
 
 def auto_auth(request):  # pylint: disable=too-many-statements

@@ -113,6 +113,10 @@ from lms.envs.common import (
     # Enterprise service settings
     ENTERPRISE_CATALOG_INTERNAL_ROOT_URL,
 
+    # Blockstore
+    BLOCKSTORE_USE_BLOCKSTORE_APP_API,
+    BUNDLE_ASSET_STORAGE_SETTINGS,
+
     # Methods to derive settings
     _make_mako_template_dirs,
     _make_locale_paths,
@@ -475,11 +479,48 @@ FEATURES = {
     # .. toggle_tickets: 'https://openedx.atlassian.net/browse/MICROBA-1405'
     'ENABLE_V2_CERT_DISPLAY_SETTINGS': False,
 
+    # .. toggle_name: FEATURES['ENABLE_INTEGRITY_SIGNATURE']
+    # .. toggle_implementation: DjangoSetting
+    # .. toggle_default: False
+    # .. toggle_description: Whether to replace ID verification course/certificate requirement
+    # with an in-course Honor Code agreement
+    # (https://github.com/edx/edx-name-affirmation)
+    # .. toggle_use_cases: open_edx
+    # .. toggle_creation_date: 2022-02-15
+    # .. toggle_target_removal_date: None
+    # .. toggle_tickets: 'https://openedx.atlassian.net/browse/MST-1348'
+    'ENABLE_INTEGRITY_SIGNATURE': False,
+
+    # .. toggle_name: MARK_LIBRARY_CONTENT_BLOCK_COMPLETE_ON_VIEW
+    # .. toggle_implementation: DjangoSetting
+    # .. toggle_default: False
+    # .. toggle_description: If enabled, the Library Content Block is marked as complete when users view it.
+    #   Otherwise (by default), all children of this block must be completed.
+    # .. toggle_use_cases: open_edx
+    # .. toggle_creation_date: 2022-03-22
+    # .. toggle_target_removal_date: None
+    # .. toggle_tickets: https://github.com/edx/edx-platform/pull/28268
+    # .. toggle_warnings: For consistency in user-experience, keep the value in sync with the setting of the same name
+    #   in the LMS and CMS.
+    'MARK_LIBRARY_CONTENT_BLOCK_COMPLETE_ON_VIEW': False,
+
     'TAHOE_STUDIO_LOCAL_LOGIN': False,
     'TAHOE_ENABLE_API_DOCS_URLS': False,  # RED-2861
 }
 
+# .. toggle_name: ENABLE_COPPA_COMPLIANCE
+# .. toggle_implementation: DjangoSetting
+# .. toggle_default: False
+# .. toggle_description: When True, inforces COPPA compliance and removes YOB field from registration form and accounnt
+# .. settings page. Also hide YOB banner from profile page.
+# .. toggle_use_cases: open_edx
+# .. toggle_creation_date: 2021-10-27
+# .. toggle_tickets: 'https://openedx.atlassian.net/browse/VAN-622'
+ENABLE_COPPA_COMPLIANCE = False
+
 ENABLE_JASMINE = False
+
+MARKETING_EMAILS_OPT_IN = False
 
 # List of logout URIs for each IDA that the learner should be logged out of when they logout of the LMS. Only applies to
 # IDA for which the social auth flow uses DOT (Django OAuth Toolkit).
@@ -487,7 +528,52 @@ IDA_LOGOUT_URI_LIST = []
 
 ############################# MICROFRONTENDS ###################################
 COURSE_AUTHORING_MICROFRONTEND_URL = None
+DISCUSSIONS_MICROFRONTEND_URL = None
+DISCUSSIONS_MFE_FEEDBACK_URL = None
 LIBRARY_AUTHORING_MICROFRONTEND_URL = None
+# .. toggle_name: ENABLE_AUTHN_RESET_PASSWORD_HIBP_POLICY
+# .. toggle_implementation: DjangoSetting
+# .. toggle_default: False
+# .. toggle_description: When enabled, this toggle activates the use of the password validation
+#   HIBP Policy.
+# .. toggle_use_cases: open_edx
+# .. toggle_creation_date: 2021-12-03
+# .. toggle_tickets: https://openedx.atlassian.net/browse/VAN-666
+ENABLE_AUTHN_RESET_PASSWORD_HIBP_POLICY = False
+# .. toggle_name: ENABLE_AUTHN_REGISTER_HIBP_POLICY
+# .. toggle_implementation: DjangoSetting
+# .. toggle_default: False
+# .. toggle_description: When enabled, this toggle activates the use of the password validation
+#   HIBP Policy on Authn MFE's registration.
+# .. toggle_use_cases: open_edx
+# .. toggle_creation_date: 2022-03-25
+# .. toggle_tickets: https://openedx.atlassian.net/browse/VAN-669
+ENABLE_AUTHN_REGISTER_HIBP_POLICY = False
+HIBP_REGISTRATION_PASSWORD_FREQUENCY_THRESHOLD = 3
+
+# .. toggle_name: ENABLE_AUTHN_LOGIN_NUDGE_HIBP_POLICY
+# .. toggle_implementation: DjangoSetting
+# .. toggle_default: False
+# .. toggle_description: When enabled, this toggle activates the use of the password validation
+#   on Authn MFE's login.
+# .. toggle_use_cases: temporary
+# .. toggle_creation_date: 2022-03-29
+# .. toggle_target_removal_date: None
+# .. toggle_tickets: https://openedx.atlassian.net/browse/VAN-668
+ENABLE_AUTHN_LOGIN_NUDGE_HIBP_POLICY = False
+HIBP_LOGIN_NUDGE_PASSWORD_FREQUENCY_THRESHOLD = 3
+
+# .. toggle_name: ENABLE_AUTHN_LOGIN_BLOCK_HIBP_POLICY
+# .. toggle_implementation: DjangoSetting
+# .. toggle_default: False
+# .. toggle_description: When enabled, this toggle activates the use of the password validation
+#   on Authn MFE's login.
+# .. toggle_use_cases: temporary
+# .. toggle_creation_date: 2022-03-29
+# .. toggle_target_removal_date: None
+# .. toggle_tickets: https://openedx.atlassian.net/browse/VAN-667
+ENABLE_AUTHN_LOGIN_BLOCK_HIBP_POLICY = False
+HIBP_LOGIN_BLOCK_PASSWORD_FREQUENCY_THRESHOLD = 5
 
 ############################# SOCIAL MEDIA SHARING #############################
 SOCIAL_SHARING_SETTINGS = {
@@ -633,7 +719,7 @@ AUTHENTICATION_BACKENDS = [
     'auth_backends.backends.EdXOAuth2',
     'rules.permissions.ObjectPermissionBackend',
     'openedx.core.djangoapps.content_libraries.auth.LtiAuthenticationBackend',
-    'openedx.core.djangoapps.oauth_dispatch.dot_overrides.backends.EdxRateLimitedAllowAllUsersModelBackend',
+    'django.contrib.auth.backends.AllowAllUsersModelBackend',
     'bridgekeeper.backends.RulePermissionBackend',
 ]
 
@@ -708,6 +794,7 @@ CROSS_DOMAIN_CSRF_COOKIE_NAME = ''
 CSRF_TRUSTED_ORIGINS = []
 
 #################### CAPA External Code Evaluation #############################
+XQUEUE_WAITTIME_BETWEEN_REQUESTS = 5  # seconds
 XQUEUE_INTERFACE = {
     'url': 'http://localhost:18040',
     'basic_auth': ['edx', 'edx'],
@@ -721,19 +808,17 @@ XQUEUE_INTERFACE = {
 
 MIDDLEWARE = [
     'openedx.core.lib.x_forwarded_for.middleware.XForwardedForMiddleware',
-
     'crum.CurrentRequestUserMiddleware',
 
-    'edx_django_utils.monitoring.DeploymentMonitoringMiddleware',
-    # A newer and safer request cache.
+    # Resets the request cache.
     'edx_django_utils.cache.middleware.RequestCacheMiddleware',
+
+    # Various monitoring middleware
+    'edx_django_utils.monitoring.CookieMonitoringMiddleware',
+    'edx_django_utils.monitoring.DeploymentMonitoringMiddleware',
     'edx_django_utils.monitoring.MonitoringMemoryMiddleware',
 
-    # Cookie monitoring
-    'openedx.core.lib.request_utils.CookieMonitoringMiddleware',
-
-    # After cookie monitoring, but before anything else that looks at
-    # cookies, especially the session middleware
+    # Before anything that looks at cookies, especially the session middleware
     'openedx.core.djangoapps.cookie_metadata.middleware.CookieNameChange',
 
     'openedx.core.djangoapps.header_control.middleware.HeaderControlMiddleware',
@@ -780,9 +865,6 @@ MIDDLEWARE = [
     'django.middleware.locale.LocaleMiddleware',
 
     'codejail.django_integration.ConfigureCodeJailMiddleware',
-
-    # catches any uncaught RateLimitExceptions and returns a 403 instead of a 500
-    'ratelimitbackend.middleware.RateLimitMiddleware',
 
     # for expiring inactive sessions
     'openedx.core.djangoapps.session_inactivity_timeout.middleware.SessionInactivityTimeout',
@@ -834,6 +916,7 @@ XBLOCK_MIXINS = (
     EditInfoMixin,
     AuthoringMixin,
 )
+XBLOCK_EXTRA_MIXINS = ()
 
 XBLOCK_SELECT_FUNCTION = prefer_xmodules
 
@@ -1004,6 +1087,28 @@ CODE_JAIL = {
 #   ]
 
 COURSES_WITH_UNSAFE_CODE = []
+
+# Cojail REST service
+ENABLE_CODEJAIL_REST_SERVICE = False
+# .. setting_name: CODE_JAIL_REST_SERVICE_REMOTE_EXEC
+# .. setting_default: 'common.lib.capa.capa.safe_exec.remote_exec.send_safe_exec_request_v0'
+# .. setting_description: Set the python package.module.function that is reponsible of
+#   calling the remote service in charge of jailed code execution
+CODE_JAIL_REST_SERVICE_REMOTE_EXEC = 'common.lib.capa.capa.safe_exec.remote_exec.send_safe_exec_request_v0'
+# .. setting_name: CODE_JAIL_REST_SERVICE_HOST
+# .. setting_default: 'http://127.0.0.1:8550'
+# .. setting_description: Set the codejail remote service host
+CODE_JAIL_REST_SERVICE_HOST = 'http://127.0.0.1:8550'
+# .. setting_name: CODE_JAIL_REST_SERVICE_CONNECT_TIMEOUT
+# .. setting_default: 0.5
+# .. setting_description: Set the number of seconds CMS will wait to establish an internal
+#   connection to the codejail remote service.
+CODE_JAIL_REST_SERVICE_CONNECT_TIMEOUT = 0.5  # time in seconds
+# .. setting_name: CODE_JAIL_REST_SERVICE_READ_TIMEOUT
+# .. setting_default: 3.5
+# .. setting_description: Set the number of seconds CMS will wait for a response from the
+#   codejail remote service endpoint.
+CODE_JAIL_REST_SERVICE_READ_TIMEOUT = 3.5  # time in seconds
 
 ############################ DJANGO_BUILTINS ################################
 # Change DEBUG in your environment settings files, not here
@@ -1353,13 +1458,15 @@ CELERY_DEFAULT_EXCHANGE = f'edx.{QUEUE_VARIANT}core'
 
 HIGH_PRIORITY_QUEUE = f'edx.{QUEUE_VARIANT}core.high'
 DEFAULT_PRIORITY_QUEUE = f'edx.{QUEUE_VARIANT}core.default'
+LOW_PRIORITY_QUEUE = f'edx.{QUEUE_VARIANT}core.low'
 
 CELERY_DEFAULT_QUEUE = DEFAULT_PRIORITY_QUEUE
 CELERY_DEFAULT_ROUTING_KEY = DEFAULT_PRIORITY_QUEUE
 
 CELERY_QUEUES = {
     HIGH_PRIORITY_QUEUE: {},
-    DEFAULT_PRIORITY_QUEUE: {}
+    DEFAULT_PRIORITY_QUEUE: {},
+    LOW_PRIORITY_QUEUE: {},
 }
 
 # Queues configuration
@@ -1461,6 +1568,7 @@ INSTALLED_APPS = [
 
     # For CMS
     'cms.djangoapps.contentstore.apps.ContentstoreConfig',
+    'common.djangoapps.split_modulestore_django.apps.SplitModulestoreDjangoBackendAppConfig',
 
     'openedx.core.djangoapps.contentserver',
     'cms.djangoapps.course_creators',
@@ -1495,7 +1603,6 @@ INSTALLED_APPS = [
 
     # Discussion
     'openedx.core.djangoapps.django_comment_common',
-    'openedx.core.djangoapps.discussions',
 
     # for course creator table
     'django.contrib.admin',
@@ -1537,7 +1644,7 @@ INSTALLED_APPS = [
     'openedx.core.djangoapps.self_paced',
 
     # Coursegraph
-    'openedx.core.djangoapps.coursegraph.apps.CoursegraphConfig',
+    'cms.djangoapps.coursegraph.apps.CoursegraphConfig',
 
     # Credit courses
     'openedx.core.djangoapps.credit.apps.CreditConfig',
@@ -1634,8 +1741,6 @@ INSTALLED_APPS = [
     # Learning Sequence Navigation
     'openedx.core.djangoapps.content.learning_sequences.apps.LearningSequencesConfig',
 
-    'ratelimitbackend',
-
     # Database-backed Organizations App (http://github.com/edx/edx-organizations)
     'organizations',
 
@@ -1647,6 +1752,12 @@ INSTALLED_APPS = [
 
     # Content Library LTI 1.3 Support.
     'pylti1p3.contrib.django.lti1p3_tool_config',
+
+    # For edx ace template tags
+    'edx_ace',
+
+    # Blockstore
+    'blockstore.apps.bundles',
 ]
 
 
@@ -1773,6 +1884,7 @@ OPTIONAL_APPS = (
     ('openassessment', 'openedx.core.djangoapps.content.course_overviews.apps.CourseOverviewsConfig'),
     ('openassessment.assessment', 'openedx.core.djangoapps.content.course_overviews.apps.CourseOverviewsConfig'),
     ('openassessment.fileupload', 'openedx.core.djangoapps.content.course_overviews.apps.CourseOverviewsConfig'),
+    ('openassessment.staffgrader', 'openedx.core.djangoapps.content.course_overviews.apps.CourseOverviewsConfig'),
     ('openassessment.workflow', 'openedx.core.djangoapps.content.course_overviews.apps.CourseOverviewsConfig'),
     ('openassessment.xblock', 'openedx.core.djangoapps.content.course_overviews.apps.CourseOverviewsConfig'),
 
@@ -1784,6 +1896,7 @@ OPTIONAL_APPS = (
     ('consent', None),
     ('integrated_channels.integrated_channel', None),
     ('integrated_channels.degreed', None),
+    ('integrated_channels.degreed2', None),
     ('integrated_channels.sap_success_factors', None),
     ('integrated_channels.xapi', None),
     ('integrated_channels.cornerstone', None),
@@ -1981,6 +2094,12 @@ COMPREHENSIVE_THEME_DIRS = []
 #   "COMPREHENSIVE_THEME_LOCALE_PATHS" : ["/edx/src/edx-themes/conf/locale"].
 COMPREHENSIVE_THEME_LOCALE_PATHS = []
 
+# .. setting_name: PREPEND_LOCALE_PATHS
+# .. setting_default: []
+# .. setting_description: A list of the paths to locale directories to load first e.g.
+#   "PREPEND_LOCALE_PATHS" : ["/edx/my-locales/"].
+PREPEND_LOCALE_PATHS = []
+
 # .. setting_name: DEFAULT_SITE_THEME
 # .. setting_default: None
 # .. setting_description: See LMS annotation.
@@ -1998,6 +2117,7 @@ ENABLE_COMPREHENSIVE_THEMING = False
 
 DATABASE_ROUTERS = [
     'openedx.core.lib.django_courseware_routers.StudentModuleHistoryExtendedRouter',
+    'openedx.core.lib.blockstore_api.db_routers.BlockstoreRouter',
 ]
 
 ############################ Cache Configuration ###############################
@@ -2150,7 +2270,38 @@ SOFTWARE_SECURE_VERIFICATION_ROUTING_KEY = 'edx.lms.core.default'
 POLICY_CHANGE_TASK_RATE_LIMIT = '300/h'
 
 ############## Settings for CourseGraph ############################
-COURSEGRAPH_JOB_QUEUE = DEFAULT_PRIORITY_QUEUE
+
+# .. setting_name: COURSEGRAPH_JOB_QUEUE
+# .. setting_default: value of LOW_PRIORITY_QUEUE
+# .. setting_description: The name of the Celery queue to which CourseGraph refresh
+#      tasks will be sent
+COURSEGRAPH_JOB_QUEUE: str = LOW_PRIORITY_QUEUE
+
+# .. setting_name: COURSEGRAPH_CONNECTION
+# .. setting_default: 'bolt+s://localhost:7687', in dictionary form.
+# .. setting_description: Dictionary specifying Neo4j connection parameters for
+#      CourseGraph refresh. Accepted keys are protocol ('bolt' or 'http'),
+#      secure (bool), host (str), port (int), user (str), and password (str).
+#      See https://py2neo.org/2021.1/profiles.html#individual-settings for a
+#      a description of each of those keys.
+COURSEGRAPH_CONNECTION: dict = {
+    "protocol": "bolt",
+    "secure": True,
+    "host": "localhost",
+    "port": 7687,
+    "user": "neo4j",
+    "password": None,
+}
+
+# .. toggle_name: COURSEGRAPH_DUMP_COURSE_ON_PUBLISH
+# .. toggle_implementation: DjangoSetting
+# .. toggle_creation_date: 2022-01-27
+# .. toggle_use_cases: open_edx
+# .. toggle_default: False
+# .. toggle_description: Whether, upon publish, a course should automatically
+#      be exported to Neo4j via the connection parameters specified in
+#      `COURSEGRAPH_CONNECTION`.
+COURSEGRAPH_DUMP_COURSE_ON_PUBLISH: bool = False
 
 ########## Settings for video transcript migration tasks ############
 VIDEO_TRANSCRIPT_MIGRATIONS_JOB_QUEUE = DEFAULT_PRIORITY_QUEUE
@@ -2400,6 +2551,7 @@ REGISTRATION_EXTRA_FIELDS = {
     'terms_of_service': 'hidden',
     'city': 'hidden',
     'country': 'hidden',
+    'marketing_emails_opt_in': 'hidden',
 }
 EDXAPP_PARSE_KEYS = {}
 
@@ -2435,10 +2587,10 @@ LOGIN_AND_REGISTER_FORM_RATELIMIT = '100/5m'
 RESET_PASSWORD_TOKEN_VALIDATE_API_RATELIMIT = '30/7d'
 RESET_PASSWORD_API_RATELIMIT = '30/7d'
 
-
 ##### REGISTRATION RATE LIMIT SETTINGS #####
 REGISTRATION_VALIDATION_RATELIMIT = '30/7d'
 REGISTRATION_RATELIMIT = '60/7d'
+OPTIONAL_FIELD_API_RATELIMIT = '10/h'
 
 ##### PASSWORD RESET RATE LIMIT SETTINGS #####
 PASSWORD_RESET_IP_RATE = '1/m'

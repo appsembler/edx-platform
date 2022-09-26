@@ -5,14 +5,17 @@ Public views
 
 from django.conf import settings
 from django.shortcuts import redirect
-from django.utils.http import urlquote_plus
+from urllib.parse import quote_plus  # lint-amnesty, pylint: disable=wrong-import-order
 from waffle.decorators import waffle_switch
 
 from common.djangoapps.edxmako.shortcuts import render_to_response
 
 from ..config import waffle
 
-__all__ = ['register_redirect_to_lms', 'login_redirect_to_lms', 'howitworks', 'accessibility']
+__all__ = [
+    'register_redirect_to_lms', 'login_redirect_to_lms', 'howitworks', 'accessibility',
+    'redirect_to_lms_login_for_admin',
+]
 
 
 def register_redirect_to_lms(request):
@@ -39,6 +42,13 @@ def login_redirect_to_lms(request):
     return redirect(login_url)
 
 
+def redirect_to_lms_login_for_admin(request):
+    """
+    This view redirect the admin/login url to the site's login page.
+    """
+    return redirect('/login?next=/admin')
+
+
 def _build_next_param(request):
     """ Returns the next param to be used with login or register. """
     next_url = request.GET.get('next')
@@ -47,7 +57,7 @@ def _build_next_param(request):
         # Warning: do not use `build_absolute_uri` when `next_url` is empty because `build_absolute_uri` would
         # build use the login url for the next url, which would cause a login redirect loop.
         absolute_next_url = request.build_absolute_uri(next_url)
-        return '?next=' + urlquote_plus(absolute_next_url)
+        return '?next=' + quote_plus(absolute_next_url)
     return ''
 
 

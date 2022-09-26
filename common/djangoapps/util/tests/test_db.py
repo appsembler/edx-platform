@@ -1,6 +1,5 @@
 """Tests for util.db module."""
 
-
 from io import StringIO
 from unittest import skipIf
 

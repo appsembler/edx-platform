@@ -11,16 +11,14 @@ import re
 import urllib
 
 from django.conf import settings
-from django.contrib import admin
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth import login as django_login
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.decorators import method_decorator
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from django.views.decorators.csrf import csrf_exempt, csrf_protect, ensure_csrf_cookie
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
@@ -32,6 +30,7 @@ from tahoe_sites.api import get_organization_user_by_email
 
 from openedx_events.learning.data import UserData, UserPersonalData
 from openedx_events.learning.signals import SESSION_LOGIN_COMPLETED
+from openedx_filters.learning.filters import StudentLoginRequested
 
 from common.djangoapps import third_party_auth
 from common.djangoapps.edxmako.shortcuts import render_to_response
@@ -45,9 +44,10 @@ from common.djangoapps.util.password_policy_validators import normalize_password
 from openedx.core.djangoapps.password_policy import compliance as password_policy_compliance
 from openedx.core.djangoapps.safe_sessions.middleware import mark_user_change_as_expected
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
+from openedx.core.djangoapps.user_api import accounts
 from openedx.core.djangoapps.user_authn.config.waffle import ENABLE_LOGIN_USING_THIRDPARTY_AUTH_ONLY
 from openedx.core.djangoapps.user_authn.cookies import get_response_with_refreshed_jwt_cookies, set_logged_in_cookies
-from openedx.core.djangoapps.user_authn.exceptions import AuthFailedError
+from openedx.core.djangoapps.user_authn.exceptions import AuthFailedError, VulnerablePasswordError
 from openedx.core.djangoapps.user_authn.toggles import (
     is_require_third_party_auth_enabled,
     should_redirect_to_authn_microfrontend
@@ -116,15 +116,10 @@ def _log_failed_get_user_by_email(email):
     AUDIT_LOG.warning(f"Login failed - Unknown user email {digest}")
 
 
-def _get_user_by_email(request):
+def _get_user_by_email(email):
     """
-    Finds a user object in the database based on the given request, ignores all fields except for email.
+    Finds a user object in the database based on the given email, ignores all fields except for email.
     """
-    if 'email' not in request.POST or 'password' not in request.POST:
-        raise AuthFailedError(_('There was an error receiving your login information. Please email us.'))
-
-    email = request.POST['email']
-
     if settings.FEATURES.get('APPSEMBLER_MULTI_TENANT_EMAILS', False):
         # In this case database-level email constraint is removed, so the search is done at the organization
         # level.
@@ -151,21 +146,40 @@ def _get_user_by_email(request):
             _log_failed_get_user_by_email(email)
 
 
-def _get_user_by_email_or_username(request):
+def _get_user_by_username(username):
+    """
+    Finds a user object in the database based on the given username.
+    """
+    try:
+        return USER_MODEL.objects.get(username=username)
+    except USER_MODEL.DoesNotExist:
+        return None
+
+
+def _get_user_by_email_or_username(request, api_version):
     """
     Finds a user object in the database based on the given request, ignores all fields except for email and username.
     """
-    if 'email_or_username' not in request.POST or 'password' not in request.POST:
+    is_api_v2 = api_version != API_V1
+    login_fields = ['email', 'password']
+    if is_api_v2:
+        login_fields = ['email_or_username', 'password']
+
+    if any(f not in request.POST.keys() for f in login_fields):
         raise AuthFailedError(_('There was an error receiving your login information. Please email us.'))
 
-    email_or_username = request.POST.get('email_or_username', None)
-    try:
-        return USER_MODEL.objects.get(
-            Q(username=email_or_username) | Q(email=email_or_username)
-        )
-    except USER_MODEL.DoesNotExist:
+    email_or_username = request.POST.get('email', None) or request.POST.get('email_or_username', None)
+    user = _get_user_by_email(email_or_username)
+
+    if not user and is_api_v2:
+        # If user not found with email and API_V2, try username lookup
+        user = _get_user_by_username(email_or_username)
+
+    if not user:
         digest = hashlib.shake_128(email_or_username.encode('utf-8')).hexdigest(16)  # pylint: disable=too-many-function-args
-        AUDIT_LOG.warning(f"Login failed - Unknown user username/email {digest}")
+        AUDIT_LOG.warning(f"Login failed - Unknown user email or username {digest}")
+
+    return user
 
 
 def _check_excessive_login_attempts(user):
@@ -519,7 +533,7 @@ def enterprise_selection_page(request, user, next_url):
 @ensure_csrf_cookie
 @require_http_methods(['POST'])
 @ratelimit(
-    key='openedx.core.djangoapps.util.ratelimit.request_post_email',
+    key='openedx.core.djangoapps.util.ratelimit.request_post_email_or_username',
     rate=settings.LOGISTRATION_PER_EMAIL_RATELIMIT_RATE,
     method='POST',
 )  # lint-amnesty, pylint: disable=too-many-statements
@@ -528,7 +542,7 @@ def enterprise_selection_page(request, user, next_url):
     rate=settings.LOGISTRATION_RATELIMIT_RATE,
     method='POST',
 )  # lint-amnesty, pylint: disable=too-many-statements
-def login_user(request, api_version='v1'):
+def login_user(request, api_version='v1'):  # pylint: disable=too-many-statements
     """
     AJAX request to log in the user.
 
@@ -562,7 +576,7 @@ def login_user(request, api_version='v1'):
     _parse_analytics_param_for_course_id(request)
 
     third_party_auth_requested = third_party_auth.is_enabled() and pipeline.running(request)
-    first_party_auth_requested = bool(request.POST.get('email')) or bool(request.POST.get('password'))
+    first_party_auth_requested = any(bool(request.POST.get(p)) for p in ['email', 'email_or_username', 'password'])
     is_user_third_party_authenticated = False
 
     set_custom_attribute('login_user_course_id', request.POST.get('course_id'))
@@ -594,26 +608,44 @@ def login_user(request, api_version='v1'):
                 # user successfully authenticated with a third party provider, but has no linked Open edX account
                 response_content = e.get_response()
                 return JsonResponse(response_content, status=403)
-        elif api_version == API_V1:
-            # Appsembler: _get_user_by_email makes sure to return the correct user object, from the right organization.
-            user = _get_user_by_email(request)
         else:
-            user = _get_user_by_email_or_username(request)
+            user = _get_user_by_email_or_username(request, api_version)
 
         _check_excessive_login_attempts(user)
 
         possibly_authenticated_user = user
+
+        try:
+            possibly_authenticated_user = StudentLoginRequested.run_filter(user=possibly_authenticated_user)
+        except StudentLoginRequested.PreventLogin as exc:
+            raise AuthFailedError(
+                str(exc), redirect_url=exc.redirect_to, error_code=exc.error_code, context=exc.context,
+            ) from exc
 
         if not is_user_third_party_authenticated:
             possibly_authenticated_user = _authenticate_first_party(request, user, third_party_auth_requested)
             if possibly_authenticated_user and password_policy_compliance.should_enforce_compliance_on_login():
                 # Important: This call must be made AFTER the user was successfully authenticated.
                 _enforce_password_policy_compliance(request, possibly_authenticated_user)
-                is_internal_user = user.email.split('@')[1] == 'edx.org'
-                check_pwned_password_and_send_track_event.delay(user.id, request.POST.get('password'), is_internal_user)
 
-        if possibly_authenticated_user is None or not possibly_authenticated_user.is_active:
+        if possibly_authenticated_user is None or not (
+            possibly_authenticated_user.is_active or settings.MARKETING_EMAILS_OPT_IN
+        ):
             _handle_failed_authentication(user, possibly_authenticated_user)
+
+        pwned_properties = check_pwned_password_and_send_track_event(
+            user.id, request.POST.get('password'), user.is_staff
+        ) if not is_user_third_party_authenticated else {}
+        # Set default for third party login
+        password_frequency = pwned_properties.get('frequency', -1)
+        if (
+            settings.ENABLE_AUTHN_LOGIN_BLOCK_HIBP_POLICY and
+            password_frequency >= settings.HIBP_LOGIN_BLOCK_PASSWORD_FREQUENCY_THRESHOLD
+        ):
+            raise VulnerablePasswordError(
+                accounts.AUTHN_LOGIN_BLOCK_HIBP_POLICY_MSG,
+                'require-password-change'
+            )
 
         _handle_successful_authentication_and_login(possibly_authenticated_user, request)
 
@@ -633,6 +665,16 @@ def login_user(request, api_version='v1'):
                 enterprise_selection_page(request, possibly_authenticated_user, finish_auth_url or next_url)
             )
 
+        if (
+            settings.ENABLE_AUTHN_LOGIN_NUDGE_HIBP_POLICY and
+            0 <= password_frequency <= settings.HIBP_LOGIN_NUDGE_PASSWORD_FREQUENCY_THRESHOLD
+        ):
+            raise VulnerablePasswordError(
+                accounts.AUTHN_LOGIN_NUDGE_HIBP_POLICY_MSG,
+                'nudge-password-change',
+                redirect_url
+            )
+
         response = JsonResponse({
             'success': True,
             'redirect_url': redirect_url,
@@ -644,7 +686,7 @@ def login_user(request, api_version='v1'):
         set_custom_attribute('login_user_auth_failed_error', False)
         set_custom_attribute('login_user_response_status', response.status_code)
         set_custom_attribute('login_user_redirect_url', redirect_url)
-        mark_user_change_as_expected(response, user.id)
+        mark_user_change_as_expected(user.id)
         return response
     except AuthFailedError as error:
         response_content = error.get_response()
@@ -655,13 +697,16 @@ def login_user(request, api_version='v1'):
             set_custom_attribute('login_error_code', error_code)
         email_or_username_key = 'email' if api_version == API_V1 else 'email_or_username'
         email_or_username = request.POST.get(email_or_username_key, None)
-        email_or_username = possibly_authenticated_user.email \
-            if possibly_authenticated_user else email_or_username
+        email_or_username = possibly_authenticated_user.email if possibly_authenticated_user else email_or_username
         response_content['email'] = email_or_username
-        response = JsonResponse(response_content, status=400)
-        set_custom_attribute('login_user_auth_failed_error', True)
-        set_custom_attribute('login_user_response_status', response.status_code)
-        return response
+    except VulnerablePasswordError as error:
+        response_content = error.get_response()
+        log.exception(response_content)
+
+    response = JsonResponse(response_content, status=400)
+    set_custom_attribute('login_user_auth_failed_error', True)
+    set_custom_attribute('login_user_response_status', response.status_code)
+    return response
 
 
 # CSRF protection is not needed here because the only side effect
@@ -686,10 +731,7 @@ def redirect_to_lms_login(request):
     This view redirect the admin/login url to the site's login page if
     waffle switch is on otherwise returns the admin site's login view.
     """
-    if ENABLE_LOGIN_USING_THIRDPARTY_AUTH_ONLY.is_enabled():
-        return redirect('/login?next=/admin')
-    else:
-        return admin.site.login(request)
+    return redirect('/login?next=/admin')
 
 
 class LoginSessionView(APIView):

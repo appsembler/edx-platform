@@ -29,6 +29,7 @@ setup(
             "html_textbooks = lms.djangoapps.courseware.tabs:HtmlTextbookTabs",
             "instructor = lms.djangoapps.instructor.views.instructor_dashboard:InstructorDashboardTab",
             "lti_discussion = openedx.features.lti_course_tab.tab:DiscussionLtiCourseTab",
+            "lti_live = openedx.core.djangoapps.course_live.tab:CourseLiveTab",
             "lti_tab = openedx.features.lti_course_tab.tab:LtiCourseTab",
             "pdf_textbooks = lms.djangoapps.courseware.tabs:PDFTextbookTabs",
             "progress = lms.djangoapps.courseware.tabs:ProgressTab",
@@ -48,6 +49,7 @@ setup(
             "textbooks = lms.djangoapps.courseware.plugins:TextbooksCourseApp",
             "wiki = lms.djangoapps.course_wiki.plugins.course_app:WikiCourseApp",
             "custom_pages = lms.djangoapps.courseware.plugins:CustomPagesCourseApp",
+            "live = openedx.core.djangoapps.course_live.plugins:LiveCourseApp",
         ],
         "openedx.course_tool": [
             "calendar_sync_toggle = openedx.features.calendar_sync.plugins:CalendarSyncToggleTool",
@@ -79,6 +81,7 @@ setup(
             "access_denied_message_filter = lms.djangoapps.course_blocks.transformers.access_denied_filter:AccessDeniedMessageFilterTransformer",  # lint-amnesty, pylint: disable=line-too-long
             "open_assessment_transformer = lms.djangoapps.courseware.transformers:OpenAssessmentDateTransformer",
             'effort_estimation = openedx.features.effort_estimation.api:EffortEstimationTransformer',
+            'discussions_link = openedx.core.djangoapps.discussions.transformers:DiscussionsTopicLinkTransformer',
         ],
         "openedx.ace.policy": [
             "bulk_email_optout = lms.djangoapps.bulk_email.policies:CourseEmailOptout"
@@ -92,6 +95,7 @@ setup(
             "appsembler_settings = openedx.core.djangoapps.appsembler.settings.apps:SettingsConfig",
             "appsembler_eventtracking = openedx.core.djangoapps.appsembler.eventtracking.apps:EventTrackingConfig",
             "credentials = openedx.core.djangoapps.credentials.apps:CredentialsConfig",
+            "course_live = openedx.core.djangoapps.course_live.apps:CourseLiveConfig",
             "content_libraries = openedx.core.djangoapps.content_libraries.apps:ContentLibrariesConfig",
             "discussion = lms.djangoapps.discussion.apps:DiscussionConfig",
             "discussions = openedx.core.djangoapps.discussions.apps:DiscussionsConfig",
@@ -110,6 +114,7 @@ setup(
         "cms.djangoapp": [
             "announcements = openedx.features.announcements.apps:AnnouncementsConfig",
             "ace_common = openedx.core.djangoapps.ace_common.apps:AceCommonConfig",
+            "course_live = openedx.core.djangoapps.course_live.apps:CourseLiveConfig",
             "content_libraries = openedx.core.djangoapps.content_libraries.apps:ContentLibrariesConfig",
             "appsembler_settings = openedx.core.djangoapps.appsembler.settings.apps:SettingsConfig",
             "appsembler_eventtracking = openedx.core.djangoapps.appsembler.eventtracking.apps:EventTrackingConfig",
@@ -119,6 +124,7 @@ setup(
             # consolidate the multiple discussions-related Django apps and
             # either put them in the openedx/ dir, or in another repo entirely.
             "discussion = lms.djangoapps.discussion.apps:DiscussionConfig",
+            "discussions = openedx.core.djangoapps.discussions.apps:DiscussionsConfig",
             "olx_rest_api = openedx.core.djangoapps.olx_rest_api.apps:OlxRestApiAppConfig",
             "plugins = openedx.core.djangoapps.plugins.apps:PluginsConfig",
             "theming = openedx.core.djangoapps.theming.apps:ThemingConfig",

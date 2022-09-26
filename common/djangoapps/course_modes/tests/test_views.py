@@ -23,16 +23,16 @@ from common.djangoapps.student.models import CourseEnrollment
 from common.djangoapps.student.tests.factories import CourseEnrollmentFactory, UserFactory
 from common.djangoapps.util.testing import UrlResetMixin
 from common.djangoapps.util.tests.mixins.discovery import CourseCatalogServiceMockMixin
-from edx_toggles.toggles.testutils import override_waffle_flag
+from edx_toggles.toggles.testutils import override_waffle_flag  # lint-amnesty, pylint: disable=wrong-import-order
 from lms.djangoapps.commerce.tests import test_utils as ecomm_test_utils
 from lms.djangoapps.commerce.tests.mocks import mock_payment_processors
 from lms.djangoapps.verify_student.services import IDVerificationService
 from openedx.core.djangoapps.catalog.tests.mixins import CatalogIntegrationMixin
 from openedx.core.djangoapps.embargo.test_utils import restrict_course
 from openedx.core.djangoapps.theming.tests.test_util import with_comprehensive_theme
-from xmodule.modulestore.django import modulestore
-from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
-from xmodule.modulestore.tests.factories import CourseFactory
+from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.tests.factories import CourseFactory  # lint-amnesty, pylint: disable=wrong-import-order
 
 from ..views import VALUE_PROP_TRACK_SELECTION_FLAG
 
@@ -105,7 +105,8 @@ class CourseModeViewTest(CatalogIntegrationMixin, UrlResetMixin, ModuleStoreTest
         if redirect:
             if has_started:
                 self.assertRedirects(
-                    response, reverse('openedx.course_experience.course_home', kwargs={'course_id': course.id})
+                    response, reverse('openedx.course_experience.course_home', kwargs={'course_id': course.id}),
+                    target_status_code=302,  # for follow-on redirection to MFE (ideally we'd just be sent there first)
                 )
             else:
                 self.assertRedirects(response, reverse('dashboard'))
@@ -401,17 +402,6 @@ class CourseModeViewTest(CatalogIntegrationMixin, UrlResetMixin, ModuleStoreTest
         assert mode == CourseMode.DEFAULT_MODE_SLUG
         assert is_active is True
 
-    def test_unsupported_enrollment_mode_failure(self):
-        # Create the supported course modes
-        for mode in ('honor', 'verified'):
-            CourseModeFactory.create(mode_slug=mode, course_id=self.course.id)
-
-        # Choose an unsupported mode (POST request)
-        choose_track_url = reverse('course_modes_choose', args=[str(self.course.id)])
-        response = self.client.post(choose_track_url, self.POST_PARAMS_FOR_COURSE_MODE['unsupported'])
-
-        assert 400 == response.status_code
-
     @unittest.skipUnless(settings.ROOT_URLCONF == 'lms.urls', 'Test only valid in lms')
     def test_default_mode_creation(self):
         # Hit the mode creation endpoint with no querystring params, to create an honor mode
@@ -518,6 +508,49 @@ class CourseModeViewTest(CatalogIntegrationMixin, UrlResetMixin, ModuleStoreTest
             redirect_url = reverse('dashboard') + '?course_closed=1%2F1%2F15%2C+12%3A00+AM'
             self.assertRedirects(response, redirect_url)
 
+    @ddt.data(
+        (False, {'audit_mode': True}, 'Enrollment is closed', 302),
+        (False, {'verified_mode': True, 'contribution': '1.23'}, 'Enrollment is closed', 302),
+        (True, {'verified_mode': True, 'contribution': 'abc'}, 'Invalid amount selected', 200),
+        (True, {'verified_mode': True, 'contribution': '0.1'}, 'No selected price or selected price is too low.', 200),
+        (True, {'unsupported_mode': True}, 'Enrollment mode not supported', 200),
+    )
+    @ddt.unpack
+    @patch('django.contrib.auth.models.PermissionsMixin.has_perm')
+    def test_errors(self, has_perm, post_params, error_msg, status_code, mock_has_perm):
+        """
+        Test the error template is rendered on different types of errors.
+        When the chosen CourseMode is 'honor' or 'audit' via POST,
+        it redirects to dashboard, but if there's an error in the process,
+        it shows the error template.
+        If the user does not have permission to enroll, GET is called with error message,
+        but it also redirects to dashboard.
+        """
+        # Create course modes
+        for mode in ('audit', 'honor', 'verified'):
+            CourseModeFactory.create(mode_slug=mode, course_id=self.course.id)
+
+        # Value Prop TODO (REV-2378): remove waffle flag from tests once flag is removed.
+        with override_waffle_flag(VALUE_PROP_TRACK_SELECTION_FLAG, active=True):
+            mock_has_perm.return_value = has_perm
+            url = reverse('course_modes_choose', args=[str(self.course.id)])
+
+            # Choose mode (POST request)
+            response = self.client.post(url, post_params)
+            self.assertEqual(response.status_code, status_code)
+
+            if has_perm:
+                self.assertContains(response, error_msg)
+                self.assertContains(response, 'Sorry, we were unable to enroll you')
+
+                # Check for CTA button on error page
+                marketing_root = settings.MKTG_URLS.get('ROOT')
+                search_courses_url = urljoin(marketing_root, '/search?tab=course')
+                self.assertContains(response, search_courses_url)
+                self.assertContains(response, '<span>Explore all courses</span>')
+            else:
+                self.assertTrue(CourseEnrollment.is_enrollment_closed(self.user, self.course))
+
     def _assert_fbe_page(self, response, min_price=None, **_):
         """
         Assert fbe.html was rendered.
@@ -532,6 +565,7 @@ class CourseModeViewTest(CatalogIntegrationMixin, UrlResetMixin, ModuleStoreTest
         self.assertContains(response, '<span class="award-icon">')
         self.assertContains(response, '<span class="popover-icon">')
         self.assertContains(response, '<span class="note-icon">')
+        self.assertContains(response, '<div class="grid-options">')
 
         # Check for upgrade button ID
         self.assertContains(response, 'track_selection_upgrade')
@@ -568,13 +602,11 @@ class CourseModeViewTest(CatalogIntegrationMixin, UrlResetMixin, ModuleStoreTest
         # This string only occurs in lms/templates/course_modes/track_selection.html
         # and related theme and translation files.
 
-        # Check for string unique to unfbe.html.
-        self.assertContains(response, "Some graded content may be locked")
-        # This string only occurs in lms/templates/course_modes/unfbe.html
-        # and related theme and translation files.
-
         # Check min_price was correctly passed in.
         self.assertContains(response, min_price)
+
+        # Check for the HTML element for courses with more than one mode
+        self.assertContains(response, '<div class="grid-options">')
 
     def _assert_legacy_page(self, response, **_):
         """
@@ -618,7 +650,11 @@ class CourseModeViewTest(CatalogIntegrationMixin, UrlResetMixin, ModuleStoreTest
         This test checks that the right template is rendered.
 
         """
-        # The active course mode already exists. Create verified course mode:
+        # Create audit/honor course modes
+        for mode in ('audit', 'honor'):
+            CourseModeFactory.create(mode_slug=mode, course_id=self.course_that_started.id)
+
+        # Create verified course mode:
         verified_mode = CourseModeFactory.create(
             mode_slug='verified',
             course_id=self.course_that_started.id,
@@ -641,6 +677,32 @@ class CourseModeViewTest(CatalogIntegrationMixin, UrlResetMixin, ModuleStoreTest
                     url = reverse('course_modes_choose', args=[str(self.course_that_started.id)])
                     response = self.client.get(url)
                     expected_page_assertion_function(self, response, min_price=verified_mode.min_price)
+
+    def test_verified_mode_only(self):
+        # Create only the verified mode and enroll the user
+        CourseModeFactory.create(
+            mode_slug='verified',
+            course_id=self.course_that_started.id,
+            min_price=149,
+        )
+        CourseEnrollmentFactory(
+            is_active=True,
+            course_id=self.course_that_started.id,
+            user=self.user
+        )
+
+        # Value Prop TODO (REV-2378): remove waffle flag from tests once the new Track Selection template is rolled out.
+        with override_waffle_flag(VALUE_PROP_TRACK_SELECTION_FLAG, active=True):
+            with patch(GATING_METHOD_NAME, return_value=True):
+                with patch(CDL_METHOD_NAME, return_value=True):
+                    url = reverse('course_modes_choose', args=[str(self.course_that_started.id)])
+                    response = self.client.get(url)
+                    # Check that only the verified option is rendered
+                    self.assertNotContains(response, "Choose a path for your course in")
+                    self.assertContains(response, "Earn a certificate")
+                    self.assertNotContains(response, "Access this course")
+                    self.assertContains(response, '<div class="grid-single">')
+                    self.assertNotContains(response, '<div class="grid-options">')
 
 
 @unittest.skipUnless(settings.ROOT_URLCONF == 'lms.urls', 'Test only valid in lms')

@@ -10,7 +10,10 @@ from django.conf import settings
 from django.test.utils import override_settings
 from django.urls import reverse
 from pytz import UTC
-from unittest import skipIf
+from xmodule.modulestore import ModuleStoreEnum
+from xmodule.modulestore.tests.django_utils import TEST_DATA_MONGO_AMNESTY_MODULESTORE, SharedModuleStoreTestCase
+from xmodule.modulestore.tests.factories import CourseFactory
+from xmodule.data import CertificatesDisplayBehaviors
 
 from common.djangoapps.course_modes.models import CourseMode
 from common.djangoapps.student.tests.factories import CourseEnrollmentFactory, UserFactory
@@ -20,10 +23,6 @@ from lms.djangoapps.certificates.tests.factories import (
     GeneratedCertificateFactory,
     LinkedInAddToProfileConfigurationFactory
 )
-from xmodule.modulestore import ModuleStoreEnum
-from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
-from xmodule.modulestore.tests.factories import CourseFactory
-from xmodule.data import CertificatesDisplayBehaviors
 
 # pylint: disable=no-member
 
@@ -34,6 +33,7 @@ FUTURE_DATE = datetime.datetime.now(UTC) + datetime.timedelta(days=2)
 class CertificateDisplayTestBase(SharedModuleStoreTestCase):
     """Tests display of certificates on the student dashboard. """
 
+    MODULESTORE = TEST_DATA_MONGO_AMNESTY_MODULESTORE
     USERNAME = "test_user"
     PASSWORD = "password"
     DOWNLOAD_URL = "http://www.example.com/certificate.pdf"
@@ -242,7 +242,7 @@ class CertificateDisplayTestHtmlView(CertificateDisplayTestBase):
     @ddt.data('verified', 'honor')
     @override_settings(CERT_NAME_SHORT='Test_Certificate')
     @patch.dict('django.conf.settings.FEATURES', {'CERTIFICATES_HTML_VIEW': True})
-    @skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, ' Broken because of our certificate customizations. Could not fix it')
+    @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, ' Broken because of our certificate customizations. Could not fix it')
     def test_display_download_certificate_button(self, enrollment_mode):
         """
         Tests if CERTIFICATES_HTML_VIEW is True
@@ -284,7 +284,7 @@ class CertificateDisplayTestLinkedHtmlView(CertificateDisplayTestBase):
     @ddt.data('verified')
     @override_settings(CERT_NAME_SHORT='Test_Certificate')
     @patch.dict('django.conf.settings.FEATURES', {'CERTIFICATES_HTML_VIEW': True})
-    @skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, ' Broken because of our certificate customizations. Could not fix it')
+    @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, ' Broken because of our certificate customizations. Could not fix it')
     def test_linked_student_to_web_view_credential(self, enrollment_mode):
 
         cert = self._create_certificate(enrollment_mode)

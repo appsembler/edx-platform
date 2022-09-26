@@ -9,18 +9,20 @@ from unittest.mock import patch
 from django.conf import settings
 from django.test.utils import override_settings
 from django.urls import reverse
-
 from edx_toggles.toggles.testutils import override_waffle_flag
-from common.djangoapps.student.tests.factories import GlobalStaffFactory
-from lms.djangoapps.courseware.tests.helpers import LoginEnrollmentTestCase
-from openedx.core.djangoapps.site_configuration.tests.test_util import with_site_configuration
-from openedx.features.course_experience import DISABLE_COURSE_OUTLINE_PAGE_FLAG
-from common.djangoapps.student.tests.factories import UserFactory
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
 
+from common.djangoapps.student.tests.factories import GlobalStaffFactory
+from lms.djangoapps.courseware.tests.helpers import LoginEnrollmentTestCase
+from openedx.core.djangoapps.site_configuration.tests.test_util import with_site_configuration
+from lms.djangoapps.courseware.toggles import COURSEWARE_USE_LEGACY_FRONTEND
+from openedx.features.course_experience import DISABLE_COURSE_OUTLINE_PAGE_FLAG
+from common.djangoapps.student.tests.factories import UserFactory
 
+
+@override_waffle_flag(COURSEWARE_USE_LEGACY_FRONTEND, active=True)
 class TestNavigation(SharedModuleStoreTestCase, LoginEnrollmentTestCase):
     """
     Check that navigation state is saved properly.
@@ -136,7 +138,7 @@ class TestNavigation(SharedModuleStoreTestCase, LoginEnrollmentTestCase):
             assert ('course-navigation' in response.content.decode('utf-8')) == accordion
 
         self.assertTabInactive('progress', response)
-        self.assertTabActive('courseware', response)
+        self.assertTabActive('home', response)
 
         response = self.client.get(reverse('courseware_section', kwargs={
             'course_id': str(self.course.id),
@@ -145,7 +147,7 @@ class TestNavigation(SharedModuleStoreTestCase, LoginEnrollmentTestCase):
         }))
 
         self.assertTabActive('progress', response)
-        self.assertTabInactive('courseware', response)
+        self.assertTabInactive('home', response)
 
     @override_settings(SESSION_INACTIVITY_TIMEOUT_IN_SECONDS=1)
     def test_inactive_session_timeout(self):

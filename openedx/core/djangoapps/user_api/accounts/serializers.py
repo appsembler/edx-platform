@@ -13,7 +13,6 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.urls import reverse
 from rest_framework import serializers
 
-from edx_name_affirmation.toggles import is_verified_name_enabled
 
 from common.djangoapps.student.models import (
     LanguageProficiency,
@@ -29,6 +28,7 @@ from openedx.core.djangoapps.user_api.accounts.utils import is_secondary_email_f
 from openedx.core.djangoapps.user_api.models import RetirementState, UserPreference, UserRetirementStatus
 from openedx.core.djangoapps.user_api.serializers import ReadOnlyFieldsSerializerMixin
 from openedx.core.djangoapps.user_authn.views.registration_form import contains_html, contains_url
+from openedx.features.name_affirmation_api.utils import get_name_affirmation_service
 
 from . import (
     ACCOUNT_VISIBILITY_PREF_KEY,
@@ -170,7 +170,7 @@ class UserReadOnlySerializer(serializers.Serializer):  # lint-amnesty, pylint: d
             "extended_profile_fields": None,
             "phone_number": None,
             "pending_name_change": None,
-            "is_verified_name_enabled": is_verified_name_enabled(),
+            "verified_name": None,
         }
 
         if user_profile:
@@ -208,6 +208,12 @@ class UserReadOnlySerializer(serializers.Serializer):  # lint-amnesty, pylint: d
             data.update({"pending_name_change": pending_name_change.new_name})
         except PendingNameChange.DoesNotExist:
             pass
+
+        name_affirmation_service = get_name_affirmation_service()
+        if name_affirmation_service:
+            verified_name_obj = name_affirmation_service.get_verified_name(user, is_verified=True)
+            if verified_name_obj:
+                data.update({"verified_name": verified_name_obj.verified_name})
 
         if is_secondary_email_feature_enabled():
             data.update(
@@ -309,7 +315,7 @@ class AccountLegacyProfileSerializer(serializers.HyperlinkedModelSerializer, Rea
         """
         Enforce all languages are unique.
         """
-        language_proficiencies = [language for language in value]  # lint-amnesty, pylint: disable=unnecessary-comprehension
+        language_proficiencies = list(value)
         unique_language_proficiencies = {language["code"] for language in language_proficiencies}
         if len(language_proficiencies) != len(unique_language_proficiencies):
             raise serializers.ValidationError("The language_proficiencies field must consist of unique languages.")
@@ -319,7 +325,7 @@ class AccountLegacyProfileSerializer(serializers.HyperlinkedModelSerializer, Rea
         """
         Enforce only one entry for a particular social platform.
         """
-        social_links = [social_link for social_link in value]  # lint-amnesty, pylint: disable=unnecessary-comprehension
+        social_links = list(value)
         unique_social_links = {social_link["platform"] for social_link in social_links}
         if len(social_links) != len(unique_social_links):
             raise serializers.ValidationError("The social_links field must consist of unique social platforms.")

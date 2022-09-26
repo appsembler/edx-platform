@@ -16,7 +16,7 @@ sessions. Assumes structure:
 import os
 from uuid import uuid4
 
-from django.utils.translation import ugettext_lazy
+from django.utils.translation import gettext_lazy
 from path import Path as path
 
 from openedx.core.lib.derived import derive_settings
@@ -27,6 +27,8 @@ from .common import *
 
 # import settings from LMS for consistent behavior with CMS
 from lms.envs.test import (  # pylint: disable=wrong-import-order
+    BLOCKSTORE_USE_BLOCKSTORE_APP_API,
+    BLOCKSTORE_API_URL,
     COMPREHENSIVE_THEME_DIRS,  # unimport:skip
     DEFAULT_FILE_STORAGE,
     ECOMMERCE_API_URL,
@@ -40,14 +42,15 @@ from lms.envs.test import (  # pylint: disable=wrong-import-order
     REGISTRATION_EXTRA_FIELDS,
     GRADES_DOWNLOAD,
     SITE_NAME,
-    WIKI_ENABLED
+    WIKI_ENABLED,
+    XBLOCK_RUNTIME_V2_EPHEMERAL_DATA_CACHE,
 )
 
 
 # Include a non-ascii character in STUDIO_NAME and STUDIO_SHORT_NAME to uncover possible
 # UnicodeEncodeErrors in tests. Also use lazy text to reveal possible json dumps errors
-STUDIO_NAME = ugettext_lazy("Your Platform 𝓢𝓽𝓾𝓭𝓲𝓸")
-STUDIO_SHORT_NAME = ugettext_lazy("𝓢𝓽𝓾𝓭𝓲𝓸")
+STUDIO_NAME = gettext_lazy("Your Platform 𝓢𝓽𝓾𝓭𝓲𝓸")
+STUDIO_SHORT_NAME = gettext_lazy("𝓢𝓽𝓾𝓭𝓲𝓸")
 
 # Allow all hosts during tests, we use a lot of different ones all over the codebase.
 ALLOWED_HOSTS = [
@@ -138,6 +141,7 @@ LMS_ROOT_URL = f"http://{LMS_BASE}"
 FEATURES['PREVIEW_LMS_BASE'] = "preview.localhost"
 
 COURSE_AUTHORING_MICROFRONTEND_URL = "http://course-authoring-mfe"
+DISCUSSIONS_MICROFRONTEND_URL = "http://discussions-mfe"
 
 CACHES = {
     # This is the cache used for most things. Askbot will not work without a
@@ -174,6 +178,12 @@ CACHES = {
     'course_structure_cache': {
         'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
     },
+    'blockstore': {
+        'KEY_PREFIX': 'blockstore',
+        'KEY_FUNCTION': 'common.djangoapps.util.memcache.safe_key',
+        'LOCATION': 'edx_loc_mem_cache',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    },
 }
 
 ############################### BLOCKSTORE #####################################
@@ -181,6 +191,13 @@ CACHES = {
 RUN_BLOCKSTORE_TESTS = os.environ.get('EDXAPP_RUN_BLOCKSTORE_TESTS', 'no').lower() in ('true', 'yes', '1')
 BLOCKSTORE_API_URL = os.environ.get('EDXAPP_BLOCKSTORE_API_URL', "http://edx.devstack.blockstore-test:18251/api/v1/")
 BLOCKSTORE_API_AUTH_TOKEN = os.environ.get('EDXAPP_BLOCKSTORE_API_AUTH_TOKEN', 'edxapp-test-key')
+BUNDLE_ASSET_STORAGE_SETTINGS = dict(
+    STORAGE_CLASS='django.core.files.storage.FileSystemStorage',
+    STORAGE_KWARGS=dict(
+        location=MEDIA_ROOT,
+        base_url=MEDIA_URL,
+    ),
+)
 
 ################################# CELERY ######################################
 
@@ -276,7 +293,10 @@ FEATURES['ENABLE_TEAMS'] = True
 SECRET_KEY = '85920908f28904ed733fe576320db18cabd7b6cd'
 
 ######### custom courses #########
-INSTALLED_APPS.append('openedx.core.djangoapps.ccxcon.apps.CCXConnectorConfig')
+INSTALLED_APPS += [
+    'openedx.core.djangoapps.ccxcon.apps.CCXConnectorConfig',
+    'common.djangoapps.third_party_auth.apps.ThirdPartyAuthConfig',
+]
 FEATURES['CUSTOM_COURSES_EDX'] = True
 
 ########################## VIDEO IMAGE STORAGE ############################
@@ -331,9 +351,14 @@ LOGISTRATION_API_RATELIMIT = '5/m'
 
 REGISTRATION_VALIDATION_RATELIMIT = '5/minute'
 REGISTRATION_RATELIMIT = '5/minute'
+OPTIONAL_FIELD_API_RATELIMIT = '5/m'
 
 RESET_PASSWORD_TOKEN_VALIDATE_API_RATELIMIT = '2/m'
 RESET_PASSWORD_API_RATELIMIT = '2/m'
 
 ############### Settings for proctoring  ###############
 PROCTORING_USER_OBFUSCATION_KEY = 'test_key'
+
+#################### Network configuration ####################
+# Tests are not behind any proxies
+CLOSEST_CLIENT_IP_FROM_HEADERS = []

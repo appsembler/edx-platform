@@ -20,7 +20,7 @@ from openedx.core.djangoapps.django_comment_common.models import (
     Role
 )
 from openedx.core.djangoapps.django_comment_common.utils import seed_permissions_roles
-from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
+from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase  # lint-amnesty, pylint: disable=wrong-import-order
 
 
 @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'Broken upstream test, fixed in d7dc8de0537 commit of Lilac')

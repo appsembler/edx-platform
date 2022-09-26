@@ -2,10 +2,10 @@
 Tests for SAMLProviderConfig endpoints
 """
 import copy
+import re
 from uuid import uuid4
 from django.urls import reverse
 from django.contrib.sites.models import Site
-from django.contrib.auth.models import User
 from django.utils.http import urlencode
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -26,11 +26,14 @@ SINGLE_PROVIDER_CONFIG = {
     'enabled': 'true',
     'slug': 'test-slug',
     'country': 'https://example.customer.com/countrycode',
+    'attr_first_name': 'jon',
+    'attr_last_name': 'snow',
 }
 
 SINGLE_PROVIDER_CONFIG_2 = copy.copy(SINGLE_PROVIDER_CONFIG)
 SINGLE_PROVIDER_CONFIG_2['name'] = 'name-of-config-2'
 SINGLE_PROVIDER_CONFIG_2['slug'] = 'test-slug-2'
+SINGLE_PROVIDER_CONFIG_2['display_name'] = 'display-name'
 
 SINGLE_PROVIDER_CONFIG_3 = copy.copy(SINGLE_PROVIDER_CONFIG)
 SINGLE_PROVIDER_CONFIG_3['name'] = 'name-of-config-3'
@@ -69,7 +72,7 @@ class SAMLProviderConfigTests(APITestCase):
             slug='edxSideTest',
         )
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=super-method-not-called
         set_jwt_cookie(self.client, self.user, [(ENTERPRISE_ADMIN_ROLE, ENTERPRISE_ID)])
         self.client.force_authenticate(user=self.user)
 
@@ -95,6 +98,7 @@ class SAMLProviderConfigTests(APITestCase):
         assert results[0]['entity_id'] == SINGLE_PROVIDER_CONFIG['entity_id']
         assert results[0]['metadata_source'] == SINGLE_PROVIDER_CONFIG['metadata_source']
         assert response.data['results'][0]['country'] == SINGLE_PROVIDER_CONFIG['country']
+        assert re.match(r"test-slug-\d{4}", results[0]['display_name'])
         assert SAMLProviderConfig.objects.count() == 1
 
     def test_get_one_config_by_enterprise_uuid_invalid_uuid(self):
@@ -145,9 +149,13 @@ class SAMLProviderConfigTests(APITestCase):
         provider_config = SAMLProviderConfig.objects.get(slug=SINGLE_PROVIDER_CONFIG_2['slug'])
         assert provider_config.name == 'name-of-config-2'
         assert provider_config.country == SINGLE_PROVIDER_CONFIG_2['country']
+        assert provider_config.attr_username == SINGLE_PROVIDER_CONFIG['attr_first_name']
+        assert provider_config.display_name == SINGLE_PROVIDER_CONFIG_2['display_name']
 
         # check association has also been created
-        assert EnterpriseCustomerIdentityProvider.objects.filter(provider_id=convert_saml_slug_provider_id(provider_config.slug)).exists(), 'Cannot find EnterpriseCustomer-->SAMLProviderConfig association'
+        assert EnterpriseCustomerIdentityProvider.objects.filter(
+            provider_id=convert_saml_slug_provider_id(provider_config.slug)
+        ).exists(), 'Cannot find EnterpriseCustomer-->SAMLProviderConfig association'
 
     def test_create_one_config_fail_non_existent_enterprise_uuid(self):
         """
@@ -164,7 +172,9 @@ class SAMLProviderConfigTests(APITestCase):
         assert SAMLProviderConfig.objects.count() == orig_count
 
         # check association has NOT been created
-        assert not EnterpriseCustomerIdentityProvider.objects.filter(provider_id=convert_saml_slug_provider_id(SINGLE_PROVIDER_CONFIG_2['slug'])).exists(), 'Did not expect to find EnterpriseCustomer-->SAMLProviderConfig association'
+        assert not EnterpriseCustomerIdentityProvider.objects.filter(
+            provider_id=convert_saml_slug_provider_id(SINGLE_PROVIDER_CONFIG_2['slug'])
+        ).exists(), 'Did not expect to find EnterpriseCustomer-->SAMLProviderConfig association'
 
     def test_create_one_config_with_absent_enterprise_uuid(self):
         """

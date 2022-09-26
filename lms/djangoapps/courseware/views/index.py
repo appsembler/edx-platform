@@ -17,7 +17,7 @@ from django.template.context_processors import csrf
 from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.functional import cached_property
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.generic import View
@@ -30,7 +30,7 @@ from web_fragments.fragment import Fragment
 from common.djangoapps.edxmako.shortcuts import render_to_response, render_to_string
 from lms.djangoapps.courseware.exceptions import CourseAccessRedirect, Redirect
 from lms.djangoapps.experiments.utils import get_experiment_user_metadata_context
-from lms.djangoapps.gating.api import get_entrance_exam_score_ratio, get_entrance_exam_usage_key
+from lms.djangoapps.gating.api import get_entrance_exam_score, get_entrance_exam_usage_key
 from lms.djangoapps.grades.api import CourseGradeFactory
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.crawlers.models import CrawlersConfig
@@ -48,9 +48,9 @@ from openedx.features.course_experience.url_helpers import make_learning_mfe_cou
 from openedx.features.enterprise_support.api import data_sharing_consent_required
 from common.djangoapps.student.models import CourseEnrollment
 from common.djangoapps.util.views import ensure_valid_course_key
-from xmodule.course_module import COURSE_VISIBILITY_PUBLIC
-from xmodule.modulestore.django import modulestore
-from xmodule.x_module import PUBLIC_VIEW, STUDENT_VIEW
+from xmodule.course_module import COURSE_VISIBILITY_PUBLIC  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.x_module import PUBLIC_VIEW, STUDENT_VIEW  # lint-amnesty, pylint: disable=wrong-import-order
 
 from ..access import has_access
 from ..access_utils import check_public_access
@@ -214,7 +214,8 @@ class CoursewareIndex(View):
         url = make_learning_mfe_courseware_url(
             self.course_key,
             self.section.location if self.section else None,
-            unit_key
+            unit_key,
+            params=self.request.GET,
         )
         return url
 
@@ -553,7 +554,7 @@ class CoursewareIndex(View):
         """
         if course_has_entrance_exam(self.course) and getattr(self.chapter, 'is_entrance_exam', False):
             courseware_context['entrance_exam_passed'] = user_has_passed_entrance_exam(self.effective_user, self.course)
-            courseware_context['entrance_exam_current_score'] = get_entrance_exam_score_ratio(
+            courseware_context['entrance_exam_current_score'] = get_entrance_exam_score(
                 CourseGradeFactory().read(self.effective_user, self.course),
                 get_entrance_exam_usage_key(self.course),
             )

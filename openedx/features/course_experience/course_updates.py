@@ -70,7 +70,7 @@ def get_ordered_updates(request, course):
         reverse=True
     )
     for update in ordered_updates:
-        update['content'] = info_block.system.replace_urls(update['content'])
+        update['content'] = info_block.system.service(info_block, "replace_urls").replace_urls(update['content'])
     return ordered_updates
 
 
@@ -93,7 +93,7 @@ def get_current_update_for_user(request, course):
         return None
 
     update_hash = _calculate_update_hash(updates[0])
-    if update_hash in dismissed_hashes:
+    if update_hash in dismissed_hashes:  # pylint: disable=unsupported-membership-test
         return None
 
     return updates[0]['content']

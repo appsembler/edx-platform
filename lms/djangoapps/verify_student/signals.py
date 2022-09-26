@@ -1,22 +1,25 @@
 """
 Signal handler for setting default course verification dates
 """
+import logging
 
-
-from django.db.models.signals import post_save
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models.signals import post_save
 from django.dispatch import Signal
 from django.dispatch.dispatcher import receiver
+from xmodule.modulestore.django import SignalHandler, modulestore
 
 from common.djangoapps.student.models_api import get_name, get_pending_name_change
 from openedx.core.djangoapps.user_api.accounts.signals import USER_RETIRE_LMS_CRITICAL
-from xmodule.modulestore.django import SignalHandler, modulestore
 
 from .models import SoftwareSecurePhotoVerification, VerificationDeadline
 
+log = logging.getLogger(__name__)
+
 
 # Signal for emitting IDV submission and review updates
-idv_update_signal = Signal(providing_args=["attempt_id", "user_id", "status", "full_name", "profile_name"])
+# providing_args = ["attempt_id", "user_id", "status", "full_name", "profile_name"]
+idv_update_signal = Signal()
 
 
 @receiver(SignalHandler.course_published)
@@ -50,7 +53,19 @@ def send_idv_update(sender, instance, **kwargs):  # pylint: disable=unused-argum
     import the SoftwareSecurePhotoVerification model.
     """
     # Prioritize pending name change over current profile name, if the user has one
-    full_name = get_pending_name_change(instance.user) or get_name(instance.user.id)
+    pending_name_change = get_pending_name_change(instance.user)
+    if pending_name_change:
+        full_name = pending_name_change.new_name
+    else:
+        full_name = get_name(instance.user.id)
+
+    log.info(
+        'IDV sending name_affirmation task (idv_id={idv_id}, user_id={user_id}) to update status={status}'.format(
+            user_id=instance.user.id,
+            status=instance.status,
+            idv_id=instance.id
+        )
+    )
 
     idv_update_signal.send(
         sender='idv_update',

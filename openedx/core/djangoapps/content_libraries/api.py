@@ -65,8 +65,8 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser, Group
 from django.core.exceptions import PermissionDenied
 from django.core.validators import validate_unicode_slug
-from django.db import IntegrityError
-from django.utils.translation import ugettext as _
+from django.db import IntegrityError, transaction
+from django.utils.translation import gettext as _
 from elasticsearch.exceptions import ConnectionError as ElasticConnectionError
 from lxml import etree
 from opaque_keys.edx.keys import LearningContextKey, UsageKey
@@ -113,7 +113,7 @@ from openedx.core.lib.blockstore_api import (
 )
 from openedx.core.djangolib import blockstore_cache
 from openedx.core.djangolib.blockstore_cache import BundleCache
-from xmodule.modulestore.django import modulestore
+from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
 
 from . import tasks
 
@@ -436,15 +436,18 @@ def create_library(
     )
     # Now create the library reference in our database:
     try:
-        ref = ContentLibrary.objects.create(
-            org=org,
-            slug=slug,
-            type=library_type,
-            bundle_uuid=bundle.uuid,
-            allow_public_learning=allow_public_learning,
-            allow_public_read=allow_public_read,
-            license=library_license,
-        )
+        # Atomic transaction required because if this fails,
+        # we need to delete the bundle in the exception handler.
+        with transaction.atomic():
+            ref = ContentLibrary.objects.create(
+                org=org,
+                slug=slug,
+                type=library_type,
+                bundle_uuid=bundle.uuid,
+                allow_public_learning=allow_public_learning,
+                allow_public_read=allow_public_read,
+                license=library_license,
+            )
     except IntegrityError:
         delete_bundle(bundle.uuid)
         raise LibraryAlreadyExists(slug)  # lint-amnesty, pylint: disable=raise-missing-from

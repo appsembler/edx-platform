@@ -11,7 +11,7 @@ from opaque_keys.edx.keys import UsageKey
 
 from openedx.core.djangoapps.bookmarks.api import BookmarksLimitReachedError
 from openedx.core.djangolib.testing.utils import skip_unless_lms
-from xmodule.modulestore.exceptions import ItemNotFoundError
+from xmodule.modulestore.exceptions import ItemNotFoundError  # lint-amnesty, pylint: disable=wrong-import-order
 
 from .. import api
 from ..models import Bookmark
@@ -118,7 +118,7 @@ class BookmarksAPITests(BookmarkApiEventTestMixin, BookmarksTestsBase):
         """
         assert len(api.get_bookmarks(user=self.user, course_key=self.course.id)) == 4
 
-        with self.assertNumQueries(9):
+        with self.assertNumQueries(10):
             bookmark_data = api.create_bookmark(user=self.user, usage_key=self.vertical_2.location)
 
         self.assert_bookmark_event_emitted(
@@ -139,7 +139,7 @@ class BookmarksAPITests(BookmarkApiEventTestMixin, BookmarksTestsBase):
         """
         assert len(api.get_bookmarks(user=self.user, course_key=self.course.id)) == 4
 
-        with self.assertNumQueries(9):
+        with self.assertNumQueries(10):
             bookmark_data = api.create_bookmark(user=self.user, usage_key=self.vertical_2.location)
 
         self.assert_bookmark_event_emitted(

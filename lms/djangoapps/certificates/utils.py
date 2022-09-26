@@ -4,9 +4,6 @@ Certificates utilities
 from datetime import datetime
 import logging
 
-from edx_name_affirmation.api import get_verified_name, should_use_verified_name_for_certs
-from edx_name_affirmation.toggles import is_verified_name_enabled
-
 from django.conf import settings
 from django.urls import reverse
 from eventtracking import tracker
@@ -18,7 +15,8 @@ from lms.djangoapps.certificates.data import CertificateStatuses
 from lms.djangoapps.certificates.models import GeneratedCertificate
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.content.course_overviews.api import get_course_overview_or_none
-from xmodule.data import CertificatesDisplayBehaviors
+from openedx.features.name_affirmation_api.utils import get_name_affirmation_service
+from xmodule.data import CertificatesDisplayBehaviors  # lint-amnesty, pylint: disable=wrong-import-order
 
 log = logging.getLogger(__name__)
 
@@ -245,9 +243,10 @@ def get_preferred_certificate_name(user):
     name, or an empty string if it doesn't exist.
     """
     name_to_use = student_api.get_name(user.id)
+    name_affirmation_service = get_name_affirmation_service()
 
-    if is_verified_name_enabled() and should_use_verified_name_for_certs(user):
-        verified_name_obj = get_verified_name(user, is_verified=True)
+    if name_affirmation_service and name_affirmation_service.should_use_verified_name_for_certs(user):
+        verified_name_obj = name_affirmation_service.get_verified_name(user, is_verified=True)
         if verified_name_obj:
             name_to_use = verified_name_obj.verified_name
 

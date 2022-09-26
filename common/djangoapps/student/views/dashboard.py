@@ -10,14 +10,16 @@ from collections import defaultdict
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from django.views.decorators.csrf import ensure_csrf_cookie
 from edx_django_utils import monitoring as monitoring_utils
 from edx_django_utils.plugins import get_plugins_view_context
 from edx_toggles.toggles import LegacyWaffleFlag, LegacyWaffleFlagNamespace
 from opaque_keys.edx.keys import CourseKey
+from openedx_filters.learning.filters import DashboardRenderStarted
 from pytz import UTC
 
 from lms.djangoapps.bulk_email.api import is_bulk_email_feature_enabled
@@ -57,7 +59,7 @@ from common.djangoapps.student.models import (
     UserProfile
 )
 from common.djangoapps.util.milestones_helpers import get_pre_requisite_courses_not_completed
-from xmodule.modulestore.django import modulestore
+from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
 
 log = logging.getLogger("edx.student")
 
@@ -472,6 +474,22 @@ def get_dashboard_course_limit():
     return course_limit
 
 
+def check_for_unacknowledged_notices(context):
+    """
+    Checks the notices apps plugin context to see if there are any unacknowledged notices the user needs to take action
+    on. If so, build a redirect url to the first unack'd notice.
+    """
+    notice_url = None
+
+    notices = context.get("plugins", {}).get("notices", {}).get("unacknowledged_notices")
+    if notices:
+        # We will only show one notice to the user one at a time. Build a redirect URL to the first notice in the
+        # list of unacknowledged notices.
+        notice_url = f"{settings.LMS_ROOT_URL}{notices[0]}?next={settings.LMS_ROOT_URL}/dashboard/"
+
+    return notice_url
+
+
 @login_required
 @ensure_csrf_cookie
 @add_maintenance_banner
@@ -732,10 +750,6 @@ def student_dashboard(request):  # lint-amnesty, pylint: disable=too-many-statem
     else:
         redirect_message = ''
 
-    valid_verification_statuses = ['approved', 'must_reverify', 'pending', 'expired']
-    display_sidebar_on_dashboard = verification_status['status'] in valid_verification_statuses and \
-        verification_status['should_display']
-
     # Filter out any course enrollment course cards that are associated with fulfilled entitlements
     for entitlement in [e for e in course_entitlements if e.enrollment_course_run is not None]:
         course_enrollments = [
@@ -787,7 +801,6 @@ def student_dashboard(request):  # lint-amnesty, pylint: disable=too-many-statem
         'show_dashboard_tabs': True,
         'disable_courseware_js': True,
         'display_course_modes_on_dashboard': enable_verified_certificates and display_course_modes_on_dashboard,
-        'display_sidebar_on_dashboard': display_sidebar_on_dashboard,
         'display_sidebar_account_activation_message': not(user.is_active or hide_dashboard_courses_until_activated),
         'display_dashboard_courses': (user.is_active or not hide_dashboard_courses_until_activated),
         'empty_dashboard_message': empty_dashboard_message,
@@ -809,6 +822,10 @@ def student_dashboard(request):  # lint-amnesty, pylint: disable=too-many-statem
         context
     )
     context.update(context_from_plugins)
+
+    notice_url = check_for_unacknowledged_notices(context)
+    if notice_url:
+        return redirect(notice_url)
 
     course = None
     context.update(
@@ -833,7 +850,22 @@ def student_dashboard(request):  # lint-amnesty, pylint: disable=too-many-statem
         'resume_button_urls': resume_button_urls
     })
 
-    response = render_to_response('dashboard.html', context)
+    dashboard_template = 'dashboard.html'
+    try:
+        # .. filter_implemented_name: DashboardRenderStarted
+        # .. filter_type: org.openedx.learning.dashboard.render.started.v1
+        context, dashboard_template = DashboardRenderStarted.run_filter(
+            context=context, template_name=dashboard_template,
+        )
+    except DashboardRenderStarted.RenderInvalidDashboard as exc:
+        response = render_to_response(exc.dashboard_template, exc.template_context)
+    except DashboardRenderStarted.RedirectToPage as exc:
+        response = HttpResponseRedirect(exc.redirect_to or reverse('account_settings'))
+    except DashboardRenderStarted.RenderCustomResponse as exc:
+        response = exc.response
+    else:
+        response = render_to_response(dashboard_template, context)
+
     if show_account_activation_popup:
         response.delete_cookie(
             settings.SHOW_ACTIVATE_CTA_POPUP_COOKIE_NAME,

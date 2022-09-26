@@ -14,7 +14,7 @@ import pytz
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.test.utils import override_settings
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from opaque_keys.edx.locator import CourseLocator
 from search.api import perform_search
 
@@ -31,10 +31,11 @@ from common.djangoapps.course_action_state.models import CourseRerunState
 from common.djangoapps.student.auth import has_course_author_access
 from common.djangoapps.student.roles import CourseStaffRole, GlobalStaff, LibraryUserRole
 from common.djangoapps.student.tests.factories import UserFactory
+from openedx.core.djangoapps.content.course_overviews.tests.factories import CourseOverviewFactory
 from openedx.core.djangoapps.waffle_utils.testutils import WAFFLE_TABLES
-from xmodule.modulestore.django import modulestore
-from xmodule.modulestore.exceptions import ItemNotFoundError
-from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory, LibraryFactory, check_mongo_calls
+from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.exceptions import ItemNotFoundError  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory, LibraryFactory, check_mongo_calls  # lint-amnesty, pylint: disable=wrong-import-order
 
 from ..course import _deprecated_blocks_info, course_outline_initial_state, reindex_course_and_check_access
 from ..item import VisibilityState, create_xblock_info
@@ -341,6 +342,7 @@ class TestCourseIndexArchived(CourseTestCase):
         self.course.display_name = 'Active Course 1'
         self.ORG = self.course.location.org
         self.save_course()
+        CourseOverviewFactory.create(id=self.course.id, org=self.ORG)
 
         # Active course has end date set to tomorrow
         self.active_course = CourseFactory.create(
@@ -348,10 +350,20 @@ class TestCourseIndexArchived(CourseTestCase):
             org=self.ORG,
             end=self.TOMORROW,
         )
+        CourseOverviewFactory.create(
+            id=self.active_course.id,
+            org=self.ORG,
+            end=self.TOMORROW,
+        )
 
         # Archived course has end date set to yesterday
         self.archived_course = CourseFactory.create(
             display_name='Archived Course',
+            org=self.ORG,
+            end=self.YESTERDAY,
+        )
+        CourseOverviewFactory.create(
+            id=self.archived_course.id,
             org=self.ORG,
             end=self.YESTERDAY,
         )
@@ -368,7 +380,7 @@ class TestCourseIndexArchived(CourseTestCase):
         """
         Checks the index page, and ensures the number of database queries is as expected.
         """
-        with self.assertNumQueries(sql_queries, table_blacklist=WAFFLE_TABLES):
+        with self.assertNumQueries(sql_queries, table_ignorelist=WAFFLE_TABLES):
             with check_mongo_calls(mongo_queries):
                 self.check_index_page(separate_archived_courses=separate_archived_courses, org=org)
 
@@ -391,13 +403,13 @@ class TestCourseIndexArchived(CourseTestCase):
 
     @ddt.data(
         # Staff user has course staff access
-        (True, 'staff', None, 3, 18),
-        (False, 'staff', None, 3, 18),
+        (True, 'staff', None, 0, 20),
+        (False, 'staff', None, 0, 20),
         # Base user has global staff access
-        (True, 'user', ORG, 3, 18),
-        (False, 'user', ORG, 3, 18),
-        (True, 'user', None, 3, 18),
-        (False, 'user', None, 3, 18),
+        (True, 'user', ORG, 1, 20),
+        (False, 'user', ORG, 1, 20),
+        (True, 'user', None, 1, 20),
+        (False, 'user', None, 1, 20),
     )
     @ddt.unpack
     def test_separate_archived_courses(self, separate_archived_courses, username, org, mongo_queries, sql_queries):

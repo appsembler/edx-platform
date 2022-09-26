@@ -1,4 +1,4 @@
-name: CI
+name: Quality checks
 
 on:
   pull_request:
@@ -25,8 +25,8 @@ jobs:
       with:
         fetch-depth: 2
 
-    - name: Fetch master for comparison
-      run: git fetch --depth=1 origin master
+    - name: Fetch base branch for comparison
+      run: git fetch --depth=1 origin ${{ github.base_ref }}
 
     - name: Install Required System Packages
       run: sudo apt-get update && sudo apt-get install libxmlsec1-dev
@@ -67,10 +67,12 @@ jobs:
         SCRIPT_TO_RUN: ./scripts/generic-ci-tests.sh
         SHARD: 4
         PIP_SRC_DIR: ${{ runner.temp }}
+        TARGET_BRANCH: ${{ github.base_ref }}
       run: |
         ./scripts/all-tests.sh
 
     - name: Save Job Artifacts
+      if: always()
       uses: actions/upload-artifact@v2
       with:
         name: Build-Artifacts

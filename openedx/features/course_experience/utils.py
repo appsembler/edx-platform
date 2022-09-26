@@ -12,7 +12,7 @@ from openedx.core.djangoapps.content.course_overviews.models import CourseOvervi
 from openedx.core.lib.cache_utils import request_cached
 from openedx.features.course_experience import RELATIVE_DATES_FLAG
 from common.djangoapps.student.models import CourseEnrollment
-from xmodule.modulestore.django import modulestore
+from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
 
 
 @request_cached()
@@ -52,7 +52,7 @@ def get_course_outline_block_tree(request, course_id, user=None, allow_start_dat
         is_scored = block.get('has_score', False) and block.get('weight', 1) > 0
         # Use a list comprehension to force the recursion over all children, rather than just stopping
         # at the first child that is scored.
-        children_scored = any(recurse_mark_scored(child) for child in block.get('children', []))
+        children_scored = any(tuple(recurse_mark_scored(child) for child in block.get('children', [])))
         if is_scored or children_scored:
             block['scored'] = True
             return True
@@ -184,7 +184,7 @@ def dates_banner_should_display(course_key, user):
         return False, False
 
     # Don't display the banner if the course has ended
-    if course_overview.end and course_overview.end < timezone.now():
+    if course_overview.has_ended():
         return False, False
 
     store = modulestore()
