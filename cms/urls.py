@@ -263,7 +263,7 @@ if settings.FEATURES.get('CERTIFICATES_HTML_VIEW'):
                 certificates_list_handler, name='certificates_list_handler')
     ]
 
-urlpatterns.append(url(r'^', include('cms.djangoapps.appsembler_tiers.urls')))
+urlpatterns.append(path('', include('cms.djangoapps.appsembler_tiers.urls')))
 
 # Maintenance Dashboard
 urlpatterns.append(path('maintenance/', include('cms.djangoapps.maintenance.urls', namespace='maintenance')))
@@ -342,10 +342,10 @@ urlpatterns += [
 ]
 
 urlpatterns += (
-    url(r'^hijack/', include('hijack.urls')),
+    path('hijack/', include('hijack.urls')),
 )
 
 if settings.FEATURES.get('TAHOE_STUDIO_LOCAL_LOGIN'):
     urlpatterns += [
-        url(r'', include('cms.djangoapps.appsembler.urls'))
+        path(r'', include('cms.djangoapps.appsembler.urls'))
     ]

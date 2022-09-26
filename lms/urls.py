@@ -987,22 +987,22 @@ if 'openedx.testing.coverage_context_listener' in settings.INSTALLED_APPS:
     ]
 
 urlpatterns += (
-    url(r'^hijack/', include('hijack.urls')),
+    path('hijack/', include('hijack.urls')),
 )
 
 # Tahoe Tiers URLs
 urlpatterns += (
-    url(r'^', include('openedx.core.djangoapps.appsembler.tahoe_tiers.lms_urls')),
+    path('', include('openedx.core.djangoapps.appsembler.tahoe_tiers.lms_urls')),
 )
 
 # appsembler management console endpoint for student enrollment
 urlpatterns += (
-    url(r'^appsembler/api/', include('openedx.core.djangoapps.appsembler.sites.urls')),
+    path('appsembler/api/', include('openedx.core.djangoapps.appsembler.sites.urls')),
 )
 
 # Tahoe API for registrations, enrollments, and users
 urlpatterns += (
-    url(r'^tahoe/api/',
+    path('tahoe/api/',
         include(('openedx.core.djangoapps.appsembler.api.urls', 'tahoe-api'),
                 namespace='tahoe-api')),
 )

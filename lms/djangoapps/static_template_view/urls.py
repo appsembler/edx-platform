@@ -17,7 +17,7 @@ urlpatterns = [
     path('500', views.render_500, name='static_template_view.views.render_500'),
 
     path('blog', views.render, {'template': 'blog.html'}, name="blog"),
-    url(r'^tracks$', views.render, {'template': 'tracks.html'}, name="tracks"),
+    path('tracks', views.render, {'template': 'tracks.html'}, name="tracks"),
     path('contact', views.render, {'template': 'contact.html'}, name="contact"),
     path('donate', views.render, {'template': 'donate.html'}, name="donate"),
     path('faq', views.render, {'template': 'faq.html'}, name="faq"),
