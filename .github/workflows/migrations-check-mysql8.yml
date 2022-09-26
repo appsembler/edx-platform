@@ -3,6 +3,8 @@ name: Migrations check on MySql 8.0
 on:
   workflow_dispatch:
   pull_request:
+    branches:
+      - master  # Tahoe: this line effectively disables it on Tahoe
   push:
     branches:
       - master

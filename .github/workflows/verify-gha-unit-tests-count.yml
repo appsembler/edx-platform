@@ -2,6 +2,8 @@ name: verify unit tests count
 
 on:
   pull_request:
+    branches:
+      - master  # Tahoe: this line effectively disables it on Tahoe
   push:
     branches:
       - master
