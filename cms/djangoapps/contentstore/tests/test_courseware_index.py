@@ -883,7 +883,7 @@ class TestLibrarySearchIndexer(MixedWithOptionsTestCase):
 
 
 @skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'fails in open-release/juniper.master')
-class GroupConfigurationSearchMongo(CourseTestCase, MixedWithOptionsTestCase):
+class GroupConfigurationSearchSplit(CourseTestCase, MixedWithOptionsTestCase):
     """
     Tests indexing of content groups on course modules using split modulestore.
     """
