@@ -7,7 +7,7 @@ Custom event-tracking Processor to add properties to events.
 from json.decoder import JSONDecodeError
 import logging
 
-from celery import task
+from celery import shared_task
 from crum import get_current_user
 from django.core.cache import caches
 from django.core.cache.backends.base import InvalidCacheBackendError
@@ -95,7 +95,7 @@ class TahoeUserProfileMetadataCache(object):
 
 
 # import of settings is a problem when creating this via plugin architecture
-@task(routing_key=PREFETCH_TAHOE_USERMETADATA_CACHE_QUEUE)
+@shared_task(routing_key=PREFETCH_TAHOE_USERMETADATA_CACHE_QUEUE)
 def prefetch_tahoe_usermetadata_cache(cache_instance):
     """Celery task to prefill the TahoeUserProfileMetadataCache.
 
