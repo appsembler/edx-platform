@@ -7,12 +7,14 @@ import decimal
 import unittest
 from datetime import datetime, timedelta
 from unittest.mock import patch
+from urllib.parse import urljoin
 
 import ddt
 import freezegun
 import httpretty
 import pytz
 from django.conf import settings
+from django.test import override_settings
 from django.urls import reverse
 
 from common.djangoapps.course_modes.models import CourseMode, Mode
@@ -21,6 +23,7 @@ from common.djangoapps.student.models import CourseEnrollment
 from common.djangoapps.student.tests.factories import CourseEnrollmentFactory, UserFactory
 from common.djangoapps.util.testing import UrlResetMixin
 from common.djangoapps.util.tests.mixins.discovery import CourseCatalogServiceMockMixin
+from edx_toggles.toggles.testutils import override_waffle_flag
 from lms.djangoapps.commerce.tests import test_utils as ecomm_test_utils
 from lms.djangoapps.commerce.tests.mocks import mock_payment_processors
 from lms.djangoapps.verify_student.services import IDVerificationService
@@ -30,6 +33,14 @@ from openedx.core.djangoapps.theming.tests.test_util import with_comprehensive_t
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory
+
+from ..views import VALUE_PROP_TRACK_SELECTION_FLAG
+
+# Name of the method to mock for Content Type Gating.
+GATING_METHOD_NAME = 'openedx.features.content_type_gating.models.ContentTypeGatingConfig.enabled_for_enrollment'
+
+# Name of the method to mock for Course Duration Limits.
+CDL_METHOD_NAME = 'openedx.features.course_duration_limits.models.CourseDurationLimitConfig.enabled_for_enrollment'
 
 
 @ddt.ddt
@@ -506,6 +517,130 @@ class CourseModeViewTest(CatalogIntegrationMixin, UrlResetMixin, ModuleStoreTest
             # URL-encoded version of 1/1/15, 12:00 AM
             redirect_url = reverse('dashboard') + '?course_closed=1%2F1%2F15%2C+12%3A00+AM'
             self.assertRedirects(response, redirect_url)
+
+    def _assert_fbe_page(self, response, min_price=None, **_):
+        """
+        Assert fbe.html was rendered.
+        """
+        self.assertContains(response, "Choose a path for your course in")
+
+        # Check if it displays the upgrade price for verified track and "Free" for audit track
+        self.assertContains(response, min_price)
+        self.assertContains(response, "Free")
+
+        # Check for specific HTML elements
+        self.assertContains(response, '<span class="award-icon">')
+        self.assertContains(response, '<span class="popover-icon">')
+        self.assertContains(response, '<span class="note-icon">')
+
+        # Check for upgrade button ID
+        self.assertContains(response, 'track_selection_upgrade')
+
+        # Check for audit button ID
+        self.assertContains(response, 'track_selection_audit')
+
+        # Check for happy path messaging - verified
+        self.assertContains(response, '<li class="collapsible-item">')
+        self.assertContains(response, 'access to all course activities')
+        self.assertContains(response, 'Full access')
+
+        # Check for informational links - verified
+        marketing_root = settings.MKTG_URLS.get('ROOT')
+        marketing_url = urljoin(marketing_root, 'verified-certificate')
+        self.assertContains(response, marketing_url)
+        support_root = settings.SUPPORT_SITE_LINK
+        article_params = ('hc/en-us/articles/360013426573-'
+                          'What-are-the-differences-between-audit-free-and-verified-paid-courses-')
+        support_url = urljoin(support_root, article_params)
+        self.assertContains(response, support_url)
+
+        # Check for happy path messaging - audit
+        self.assertContains(response, "discussion forums and non-graded assignments")
+        self.assertContains(response, "Get temporary access")
+        self.assertContains(response, "Access expires and all progress will be lost")
+
+    def _assert_unfbe_page(self, response, min_price=None, **_):
+        """
+        Assert track_selection.html and unfbe.html were rendered.
+        """
+        # Check for string unique to track_selection.html.
+        self.assertContains(response, "| Upgrade Now")
+        # This string only occurs in lms/templates/course_modes/track_selection.html
+        # and related theme and translation files.
+
+        # Check for string unique to unfbe.html.
+        self.assertContains(response, "Some graded content may be locked")
+        # This string only occurs in lms/templates/course_modes/unfbe.html
+        # and related theme and translation files.
+
+        # Check min_price was correctly passed in.
+        self.assertContains(response, min_price)
+
+    def _assert_legacy_page(self, response, **_):
+        """
+        Assert choose.html was rendered.
+        """
+        # Check for string unique to the legacy choose.html.
+        self.assertContains(response, "Choose Your Track")
+        # This string only occurs in lms/templates/course_modes/choose.html
+        # and related theme and translation files.
+
+    @override_settings(MKTG_URLS={'ROOT': 'https://www.example.edx.org'})
+    @ddt.data(
+        # gated_content_on, course_duration_limits_on, waffle_flag_on, expected_page_assertion_function
+        (True, True, True, _assert_fbe_page),
+        (True, False, True, _assert_unfbe_page),
+        (False, True, True, _assert_unfbe_page),
+        (False, False, True, _assert_unfbe_page),
+        (True, True, False, _assert_legacy_page),
+        (True, False, False, _assert_legacy_page),
+        (False, True, False, _assert_legacy_page),
+        (False, False, False, _assert_legacy_page),
+    )
+    @ddt.unpack
+    def test_track_selection_types(
+            self,
+            gated_content_on,
+            course_duration_limits_on,
+            waffle_flag_on,
+            expected_page_assertion_function
+    ):
+        """
+        Feature-based enrollment (FBE) is when gated content and course duration
+        limits are enabled when a user is auditing a course.
+
+        When prompted to perform track selection (choosing between the audit and
+        verified course modes), the learner may view 3 different pages:
+            1. fbe.html - full FBE
+            2. unfbe.html - partial or no FBE
+            3. choose.html - legacy track selection page
+
+        This test checks that the right template is rendered.
+
+        """
+        # The active course mode already exists. Create verified course mode:
+        verified_mode = CourseModeFactory.create(
+            mode_slug='verified',
+            course_id=self.course_that_started.id,
+            min_price=149,
+        )
+
+        # Enroll the test user in the audit mode:
+        CourseEnrollmentFactory(
+            is_active=True,
+            course_id=self.course_that_started.id,
+            user=self.user
+        )
+
+        # Value Prop TODO (REV-2378): remove waffle flag from tests once the new Track Selection template is rolled out.
+        # Check whether new track selection template is rendered.
+        # This should *only* be shown when the waffle flag is on.
+        with override_waffle_flag(VALUE_PROP_TRACK_SELECTION_FLAG, active=waffle_flag_on):
+            with patch(GATING_METHOD_NAME, return_value=gated_content_on):
+                with patch(CDL_METHOD_NAME, return_value=course_duration_limits_on):
+                    url = reverse('course_modes_choose', args=[str(self.course_that_started.id)])
+                    response = self.client.get(url)
+                    expected_page_assertion_function(self, response, min_price=verified_mode.min_price)
 
 
 @unittest.skipUnless(settings.ROOT_URLCONF == 'lms.urls', 'Test only valid in lms')

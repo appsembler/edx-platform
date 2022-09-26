@@ -61,6 +61,16 @@ class UserAPITestCase(APITestCase):
         client.login(username=user.username, password=TEST_PASSWORD)
         return client
 
+    def send_post(self, client, json_data, content_type='application/json', expected_status=201):
+        """
+        Helper method for sending a post to the server, defaulting to application/json content_type.
+        Verifies the expected status and returns the response.
+        """
+        # pylint: disable=no-member
+        response = client.post(self.url, data=json.dumps(json_data), content_type=content_type)
+        assert expected_status == response.status_code
+        return response
+
     def send_patch(self, client, json_data, content_type="application/merge-patch+json", expected_status=200):
         """
         Helper method for sending a patch to the server, defaulting to application/merge-patch+json content_type.
@@ -281,7 +291,7 @@ class TestAccountsAPI(CacheIsolationTestCase, UserAPITestCase):
         Verify that all account fields are returned (even those that are not shareable).
         """
         data = response.data
-        assert 28 == len(data)
+        assert 30 == len(data)
 
         # public fields (3)
         expected_account_privacy = (
@@ -423,7 +433,7 @@ class TestAccountsAPI(CacheIsolationTestCase, UserAPITestCase):
         """
         self.different_client.login(username=self.different_user.username, password=TEST_PASSWORD)
         self.create_mock_profile(self.user)
-        with self.assertNumQueries(25):
+        with self.assertNumQueries(27):
             response = self.send_get(self.different_client)
         self._verify_full_shareable_account_response(response, account_privacy=ALL_USERS_VISIBILITY)
 
@@ -439,7 +449,7 @@ class TestAccountsAPI(CacheIsolationTestCase, UserAPITestCase):
         """
         self.different_client.login(username=self.different_user.username, password=TEST_PASSWORD)
         self.create_mock_profile(self.user)
-        with self.assertNumQueries(25):
+        with self.assertNumQueries(27):
             response = self.send_get(self.different_client)
         self._verify_private_account_response(response)
 
@@ -564,7 +574,7 @@ class TestAccountsAPI(CacheIsolationTestCase, UserAPITestCase):
             with self.assertNumQueries(queries):
                 response = self.send_get(self.client)
             data = response.data
-            assert 28 == len(data)
+            assert 30 == len(data)
             assert self.user.username == data['username']
             assert ((self.user.first_name + ' ') + self.user.last_name) == data['name']
             for empty_field in ("year_of_birth", "level_of_education", "mailing_address", "bio"):
@@ -587,12 +597,12 @@ class TestAccountsAPI(CacheIsolationTestCase, UserAPITestCase):
             assert data['accomplishments_shared'] is False
 
         self.client.login(username=self.user.username, password=TEST_PASSWORD)
-        verify_get_own_information(23)
+        verify_get_own_information(25)
 
         # Now make sure that the user can get the same information, even if not active
         self.user.is_active = False
         self.user.save()
-        verify_get_own_information(15)
+        verify_get_own_information(16)
 
     @unittest.skipIf(settings.TAHOE_ALWAYS_SKIP_TEST, 'skip query count test')
     def test_get_account_empty_string(self):
@@ -608,7 +618,7 @@ class TestAccountsAPI(CacheIsolationTestCase, UserAPITestCase):
         legacy_profile.save()
 
         self.client.login(username=self.user.username, password=TEST_PASSWORD)
-        with self.assertNumQueries(23):
+        with self.assertNumQueries(25):
             response = self.send_get(self.client)
         for empty_field in ("level_of_education", "gender", "country", "state", "bio",):
             assert response.data[empty_field] is None
@@ -964,7 +974,7 @@ class TestAccountsAPI(CacheIsolationTestCase, UserAPITestCase):
         response = self.send_get(client)
         if has_full_access:
             data = response.data
-            assert 28 == len(data)
+            assert 30 == len(data)
             assert self.user.username == data['username']
             assert ((self.user.first_name + ' ') + self.user.last_name) == data['name']
             assert self.user.email == data['email']
@@ -1021,6 +1031,54 @@ class TestAccountAPITransactions(TransactionTestCase):
         data = response.data
         assert old_email == data['email']
         assert 'm' == data['gender']
+
+
+@ddt.ddt
+class NameChangeViewTests(UserAPITestCase):
+    """ NameChangeView tests """
+
+    def setUp(self):
+        super().setUp()
+        self.url = reverse('name_change')
+
+    def test_request_succeeds(self):
+        """
+        Test that a valid name change request succeeds.
+        """
+        self.client.login(username=self.user.username, password=TEST_PASSWORD)
+        self.send_post(self.client, {'name': 'New Name'})
+
+    def test_unauthenticated(self):
+        """
+        Test that a name change request fails for an unauthenticated user.
+        """
+        self.send_post(self.client, {'name': 'New Name'}, expected_status=401)
+
+    def test_empty_request(self):
+        """
+        Test that an empty request fails.
+        """
+        self.client.login(username=self.user.username, password=TEST_PASSWORD)
+        self.send_post(self.client, {}, expected_status=400)
+
+    def test_blank_name(self):
+        """
+        Test that a blank name string fails.
+        """
+        self.client.login(username=self.user.username, password=TEST_PASSWORD)
+        self.send_post(self.client, {'name': ''}, expected_status=400)
+
+    @ddt.data('<html>invalid name</html>', 'https://invalid.com')
+    def test_fails_validation(self, invalid_name):
+        """
+        Test that an invalid name will return an error.
+        """
+        self.client.login(username=self.user.username, password=TEST_PASSWORD)
+        self.send_post(
+            self.client,
+            {'name': invalid_name},
+            expected_status=400
+        )
 
 
 @ddt.ddt

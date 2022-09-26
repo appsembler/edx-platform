@@ -21,7 +21,6 @@ from lms.djangoapps.program_enrollments.api import (
 )
 from lms.djangoapps.program_enrollments.exceptions import (
     BadOrganizationShortNameException,
-    ProviderConfigurationException,
     ProviderDoesNotExistException
 )
 from lms.djangoapps.support.decorators import require_support_permission
@@ -225,10 +224,11 @@ class ProgramEnrollmentsInspectorView(View):
                 [external_user_key],
                 org_key
             )
-            found_user = users_by_key.get(external_user_key)
+            # Remove entries with no corresponding user and convert keys to lowercase
+            users_by_key_lower = {key.lower(): value for key, value in users_by_key.items() if value}
+            found_user = users_by_key_lower.get(external_user_key.lower())
         except (
             BadOrganizationShortNameException,
-            ProviderConfigurationException,
             ProviderDoesNotExistException
         ):
             # We cannot identify edX user from external_user_key and org_key pair

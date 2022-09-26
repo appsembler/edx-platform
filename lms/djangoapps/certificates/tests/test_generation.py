@@ -1,10 +1,17 @@
 """
 Tests for certificate generation
 """
+import ddt
 import logging
 from unittest import mock
 
+from edx_name_affirmation.api import create_verified_name, create_verified_name_config
+from edx_name_affirmation.statuses import VerifiedNameStatus
+from edx_name_affirmation.toggles import VERIFIED_NAME_FLAG
+from edx_toggles.toggles.testutils import override_waffle_flag
+
 from common.djangoapps.course_modes.models import CourseMode
+from common.djangoapps.student.models import UserProfile
 from common.djangoapps.student.tests.factories import CourseEnrollmentFactory, UserFactory
 from common.djangoapps.util.testing import EventTestMixin
 from lms.djangoapps.certificates.data import CertificateStatuses
@@ -16,10 +23,10 @@ from xmodule.modulestore.tests.factories import CourseFactory
 
 log = logging.getLogger(__name__)
 
-ENROLLMENT_METHOD = 'lms.djangoapps.certificates.generation._get_enrollment_mode'
-GRADE_METHOD = 'lms.djangoapps.certificates.generation._get_course_grade'
+PROFILE_NAME_METHOD = 'common.djangoapps.student.models_api.get_name'
 
 
+@ddt.ddt
 class CertificateTests(EventTestMixin, ModuleStoreTestCase):
     """
     Tests for certificate generation
@@ -30,6 +37,8 @@ class CertificateTests(EventTestMixin, ModuleStoreTestCase):
 
         # Create user, a course run, and an enrollment
         self.u = UserFactory()
+        self.profile = UserProfile.objects.get(user_id=self.u.id)
+        self.name = self.profile.name
         self.cr = CourseFactory()
         self.key = self.cr.id  # pylint: disable=no-member
         CourseEnrollmentFactory(
@@ -69,6 +78,7 @@ class CertificateTests(EventTestMixin, ModuleStoreTestCase):
         assert cert.status == CertificateStatuses.downloadable
         assert cert.mode == self.enrollment_mode
         assert cert.grade == self.grade
+        assert cert.name == self.name
 
     def test_generation_existing_unverified(self):
         """
@@ -138,7 +148,7 @@ class CertificateTests(EventTestMixin, ModuleStoreTestCase):
         assert generated_cert.status, CertificateStatuses.downloadable
         assert generated_cert.verify_uuid, verify_uuid
 
-        generated_cert.mark_notpassing(50.00)
+        generated_cert.mark_notpassing(mode=generated_cert.mode, grade=50.00)
         assert generated_cert.status, CertificateStatuses.notpassing
         assert generated_cert.verify_uuid, verify_uuid
 
@@ -164,17 +174,56 @@ class CertificateTests(EventTestMixin, ModuleStoreTestCase):
         assert generated_cert.status, CertificateStatuses.downloadable
         assert generated_cert.verify_uuid != ''
 
-    def test_generation_few_params(self):
+    def test_generation_missing_profile(self):
         """
-        Test that ensures we retrieve values as needed
+        Test certificate generation when the user profile is missing
         """
-        grade = '.33'
-        enrollment_mode = CourseMode.AUDIT
+        GeneratedCertificateFactory(
+            user=self.u,
+            course_id=self.key,
+            mode=CourseMode.AUDIT,
+            status=CertificateStatuses.unverified
+        )
 
-        with mock.patch(ENROLLMENT_METHOD, return_value=enrollment_mode):
-            with mock.patch(GRADE_METHOD, return_value=grade):
-                generated_cert = generate_course_certificate(self.u, self.key, CertificateStatuses.downloadable)
+        with mock.patch(PROFILE_NAME_METHOD, return_value=None):
+            generate_course_certificate(self.u, self.key, CertificateStatuses.downloadable, self.enrollment_mode,
+                                        self.grade, self.gen_mode)
 
-                assert generated_cert.status, CertificateStatuses.downloadable
-                assert generated_cert.mode, enrollment_mode
-                assert generated_cert.grade, grade
+            cert = GeneratedCertificate.objects.get(user=self.u, course_id=self.key)
+            assert cert.status == CertificateStatuses.downloadable
+            assert cert.mode == self.enrollment_mode
+            assert cert.grade == self.grade
+            assert cert.name == ''
+
+    @override_waffle_flag(VERIFIED_NAME_FLAG, active=True)
+    @ddt.data((True, VerifiedNameStatus.APPROVED),
+              (True, VerifiedNameStatus.DENIED),
+              (False, VerifiedNameStatus.PENDING))
+    @ddt.unpack
+    def test_generation_verified_name(self, should_use_verified_name_for_certs, status):
+        """
+        Test that if verified name functionality is enabled and the user has their preference set to use
+        verified name for certificates, their verified name will appear on the certificate rather than
+        their profile name.
+        """
+        verified_name = 'Jonathan Doe'
+        create_verified_name(self.u, verified_name, self.name, status=status)
+        create_verified_name_config(self.u, use_verified_name_for_certs=should_use_verified_name_for_certs)
+
+        GeneratedCertificateFactory(
+            user=self.u,
+            course_id=self.key,
+            mode=CourseMode.AUDIT,
+            status=CertificateStatuses.unverified
+        )
+
+        generate_course_certificate(
+            self.u, self.key, CertificateStatuses.downloadable, self.enrollment_mode, self.grade, self.gen_mode,
+        )
+
+        cert = GeneratedCertificate.objects.get(user=self.u, course_id=self.key)
+
+        if should_use_verified_name_for_certs and status == VerifiedNameStatus.APPROVED:
+            assert cert.name == verified_name
+        else:
+            assert cert.name == self.name

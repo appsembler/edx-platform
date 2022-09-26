@@ -55,6 +55,7 @@ from lms.djangoapps.ccx.custom_exception import CCXLocatorValidationException
 from lms.djangoapps.certificates import api as certs_api
 from lms.djangoapps.certificates.data import CertificateStatuses
 from lms.djangoapps.commerce.utils import EcommerceService
+from lms.djangoapps.course_goals.models import UserActivity
 from lms.djangoapps.course_home_api.toggles import (
     course_home_legacy_is_active,
     course_home_mfe_progress_tab_is_active
@@ -78,7 +79,7 @@ from lms.djangoapps.courseware.courses import (
 )
 from lms.djangoapps.courseware.date_summary import verified_upgrade_deadline_link
 from lms.djangoapps.courseware.exceptions import CourseAccessRedirect, Redirect
-from lms.djangoapps.courseware.masquerade import setup_masquerade
+from lms.djangoapps.courseware.masquerade import setup_masquerade, is_masquerading_as_specific_student
 from lms.djangoapps.courseware.model_data import FieldDataCache
 from lms.djangoapps.courseware.models import BaseStudentModuleHistory, StudentModule
 from lms.djangoapps.courseware.permissions import (  # lint-amnesty, pylint: disable=unused-import
@@ -96,7 +97,6 @@ from lms.djangoapps.instructor.enrollment import uses_shib
 from lms.djangoapps.instructor.views.api import require_global_staff
 from lms.djangoapps.verify_student.services import IDVerificationService
 from openedx.core.djangoapps.catalog.utils import get_programs, get_programs_with_type
-from openedx.core.djangoapps.certificates import api as auto_certs_api
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.credit.api import (
     get_credit_requirement_status,
@@ -126,10 +126,10 @@ from openedx.features.course_experience.waffle import waffle as course_experienc
 from openedx.features.enterprise_support.api import data_sharing_consent_required
 from common.djangoapps.student.models import CourseEnrollment, UserTestGroup
 from common.djangoapps.util.cache import cache, cache_if_anonymous
+from common.djangoapps.util.course import course_location_from_key
 from common.djangoapps.util.db import outer_atomic
 from common.djangoapps.util.milestones_helpers import get_prerequisite_courses_display
 from common.djangoapps.util.views import ensure_valid_course_key, ensure_valid_usage_key
-from xmodule.contentstore.utils import course_location_from_key
 from xmodule.course_module import COURSE_VISIBILITY_PUBLIC, COURSE_VISIBILITY_PUBLIC_OUTLINE
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.exceptions import ItemNotFoundError, NoPathToItem
@@ -709,8 +709,10 @@ class CourseTabView(EdxFragmentView):
             if not CourseEnrollment.is_enrolled(request.user, course.id) and not allow_anonymous:
                 # Only show enroll button if course is open for enrollment.
                 if CourseTabView.course_open_for_learner_enrollment(course):
-                    enroll_message = _('You must be enrolled in the course to see course content. \
-                            {enroll_link_start}Enroll now{enroll_link_end}.')
+                    enroll_message = _(
+                        'You must be enrolled in the course to see course content. '
+                        '{enroll_link_start}Enroll now{enroll_link_end}.'
+                    )
                     PageLevelMessages.register_warning_message(
                         request,
                         Text(enroll_message).format(
@@ -937,7 +939,10 @@ def course_about(request, course_id):
         studio_url = get_studio_url(course, 'settings/details')
 
         if request.user.has_perm(VIEW_COURSE_HOME, course):
-            course_target = reverse(course_home_url_name(course.id), args=[str(course.id)])
+            if course_home_legacy_is_active(course.id):
+                course_target = reverse(course_home_url_name(course.id), args=[str(course.id)])
+            else:
+                course_target = get_learning_mfe_home_url(course_key=course.id, view_name='home')
         else:
             course_target = reverse('about_course', args=[str(course.id)])
 
@@ -1311,14 +1316,14 @@ def get_cert_data(student, course, enrollment_mode, course_grade=None):
     if cert_data.cert_status == EARNED_BUT_NOT_AVAILABLE_CERT_STATUS:
         return cert_data
 
-    certificates_enabled_for_course = certs_api.cert_generation_enabled(course.id)
+    certificates_enabled_for_course = certs_api.has_self_generated_certificates_enabled(course.id)
     if course_grade is None:
         course_grade = CourseGradeFactory().read(student, course)
 
-    if not auto_certs_api.can_show_certificate_message(course, student, course_grade, certificates_enabled_for_course):
+    if not certs_api.can_show_certificate_message(course, student, course_grade, certificates_enabled_for_course):
         return
 
-    if not certs_api.get_active_web_certificate(course) and not auto_certs_api.is_valid_pdf_certificate(cert_data):
+    if not certs_api.get_active_web_certificate(course) and not certs_api.is_valid_pdf_certificate(cert_data):
         return
 
     return cert_data
@@ -1753,6 +1758,11 @@ def render_xblock(request, usage_key_string, check_if_enrolled=True):
             staff_access,
         )
 
+        # Record user activity for tracking progress towards a user's course goals (for mobile app)
+        UserActivity.record_user_activity(
+            request.user, usage_key.course_key, request=request, only_if_mobile_app=True
+        )
+
         # get the block, which verifies whether the user has access to the block.
         recheck_access = request.GET.get('recheck_access') == '1'
         block, _ = get_module_by_usage_id(
@@ -1786,9 +1796,10 @@ def render_xblock(request, usage_key_string, check_if_enrolled=True):
         # timed exam started?").
         ancestor_sequence_block = enclosing_sequence_for_gating_checks(block)
         if ancestor_sequence_block:
+            context = {'specific_masquerade': is_masquerading_as_specific_student(request.user, course_key)}
             # If the SequenceModule feels that gating is necessary, redirect
             # there so we can have some kind of error message at any rate.
-            if ancestor_sequence_block.descendants_are_gated():
+            if ancestor_sequence_block.descendants_are_gated(context):
                 return redirect(
                     reverse(
                         'render_xblock',
@@ -1820,6 +1831,7 @@ def render_xblock(request, usage_key_string, check_if_enrolled=True):
             'is_learning_mfe': is_learning_mfe,
             'is_mobile_app': is_request_from_mobile_app(request),
             'reset_deadlines_url': reverse(RESET_COURSE_DEADLINES_NAME),
+            'render_course_wide_assets': True,
 
             **optimization_flags,
         }
@@ -2093,9 +2105,9 @@ def financial_assistance_form(request):
                 'placeholder': '',
                 'name': 'mktg-permission',
                 'label': _(
-                    'I allow edX to use the information provided in this application '
-                    '(except for financial information) for edX marketing purposes.'
-                ),
+                    'I allow {platform_name} to use the information provided in this application '
+                    '(except for financial information) for {platform_name} marketing purposes.'
+                ).format(platform_name=settings.PLATFORM_NAME),
                 'defaultValue': '',
                 'type': 'checkbox',
                 'required': False,

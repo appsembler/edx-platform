@@ -436,7 +436,7 @@ ENABLE_ELASTICSEARCH_FOR_TESTS = os.environ.get(
 
 TEST_ELASTICSEARCH_USE_SSL = os.environ.get(
     'EDXAPP_TEST_ELASTICSEARCH_USE_SSL', 'no').lower() in ('true', 'yes', '1')
-TEST_ELASTICSEARCH_HOST = os.environ.get('EDXAPP_TEST_ELASTICSEARCH_HOST', 'edx.devstack.elasticsearch')
+TEST_ELASTICSEARCH_HOST = os.environ.get('EDXAPP_TEST_ELASTICSEARCH_HOST', 'edx.devstack.elasticsearch710')
 TEST_ELASTICSEARCH_PORT = int(os.environ.get('EDXAPP_TEST_ELASTICSEARCH_PORT', '9200'))
 
 ######### custom courses #########
@@ -603,3 +603,5 @@ REGISTRATION_RATELIMIT = '5/minute'
 
 RESET_PASSWORD_TOKEN_VALIDATE_API_RATELIMIT = '2/m'
 RESET_PASSWORD_API_RATELIMIT = '2/m'
+
+CORS_ORIGIN_WHITELIST = ['https://sandbox.edx.org']

@@ -22,6 +22,7 @@ from openedx.core.lib.license import LicenseMixin
 from openedx.core.lib.teams_config import TeamsConfig  # lint-amnesty, pylint: disable=unused-import
 from xmodule import course_metadata_utils
 from xmodule.course_metadata_utils import DEFAULT_GRADING_POLICY, DEFAULT_START_DATE
+from xmodule.data import CertificatesDisplayBehaviors
 from xmodule.graders import grader_from_conf
 from xmodule.seq_module import SequenceBlock
 from xmodule.tabs import CourseTabList, InvalidTabsException
@@ -434,7 +435,9 @@ class CourseFields:  # lint-amnesty, pylint: disable=missing-class-docstring
     )
     video_upload_pipeline = Dict(
         display_name=_("Video Upload Credentials"),
-        help=_("Enter the unique identifier for your course's video files provided by edX."),
+        help=_(
+            "Enter the unique identifier for your course's video files provided by {platform_name}."
+        ).format(platform_name=settings.PLATFORM_NAME),
         scope=Scope.settings
     )
     no_grade = Boolean(
@@ -478,9 +481,10 @@ class CourseFields:  # lint-amnesty, pylint: disable=missing-class-docstring
             # Translators: Custom Courses for edX (CCX) is an edX feature for re-using course content. CCX Coach is
             # a role created by a course Instructor to enable a person (the "Coach") to manage the custom course for
             # his students.
-            "Allow course instructors to assign CCX Coach roles, and allow coaches to manage Custom Courses on edX."
-            " When false, Custom Courses cannot be created, but existing Custom Courses will be preserved."
-        ),
+            "Allow course instructors to assign CCX Coach roles, and allow coaches to manage "
+            "Custom Courses on {platform_name}. When false, Custom Courses cannot be created, "
+            "but existing Custom Courses will be preserved."
+        ).format(platform_name=settings.PLATFORM_NAME),
         default=False,
         scope=Scope.settings
     )
@@ -555,12 +559,8 @@ class CourseFields:  # lint-amnesty, pylint: disable=missing-class-docstring
     certificates_display_behavior = String(
         display_name=_("Certificates Display Behavior"),
         help=_(
-            "Enter end, early_with_info, or early_no_info. After certificate generation, students who passed see a "
-            "link to their certificates on the dashboard and students who did not pass see information about the "
-            "grading configuration. The default is end, which displays this certificate information to all students "
-            "after the course end date. To display this certificate information to all students as soon as "
-            "certificates are generated, enter early_with_info. To display only the links to passing students as "
-            "soon as certificates are generated, enter early_no_info."
+            "This field, together with certificate_available_date will determine when a "
+            "user can see their certificate for the course"
         ),
         scope=Scope.settings,
         # Tahoe: RED-1599: Customize the default value to 'early_with_info' instead of edX's 'end'
@@ -1000,6 +1000,19 @@ class CourseFields:  # lint-amnesty, pylint: disable=missing-class-docstring
         ),
         scope=Scope.settings, default=False
     )
+
+    course_wide_js = List(
+        display_name=_("Course-wide Custom JS"),
+        help=_('Enter Javascript resource URLs you want to be loaded globally throughout the course pages.'),
+        scope=Scope.settings,
+    )
+
+    course_wide_css = List(
+        display_name=_("Course-wide Custom CSS"),
+        help=_('Enter CSS resource URLs you want to be loaded globally throughout the course pages.'),
+        scope=Scope.settings,
+    )
+
     other_course_settings = Dict(
         display_name=_("Other Course Settings"),
         help=_(
@@ -1063,7 +1076,8 @@ class CourseBlock(
         except InvalidTabsException as err:
             raise type(err)(f'{str(err)} For course: {str(self.id)}')  # lint-amnesty, pylint: disable=line-too-long
 
-        self.set_default_certificate_available_date()
+        if not settings.FEATURES.get("ENABLE_V2_CERT_DISPLAY_SETTINGS"):
+            self.set_default_certificate_available_date()
 
     def set_grading_policy(self, course_policy):
         """
@@ -1198,18 +1212,6 @@ class CourseBlock(
         Returns False if there is no end date specified.
         """
         return course_metadata_utils.has_course_ended(self.end)
-
-    def may_certify(self):
-        """
-        Return whether it is acceptable to show the student a certificate download link.
-        """
-        return course_metadata_utils.may_certify_for_course(
-            self.certificates_display_behavior,
-            self.certificates_show_before_end,
-            self.has_ended(),
-            self.certificate_available_date,
-            self.self_paced
-        )
 
     def has_started(self):
         return course_metadata_utils.has_course_started(self.start)

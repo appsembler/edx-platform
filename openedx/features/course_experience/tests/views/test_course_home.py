@@ -9,6 +9,7 @@ from unittest import mock
 import ddt
 from django.conf import settings
 from django.http import QueryDict
+from django.test.utils import override_settings
 from django.urls import reverse
 from django.utils.http import urlquote_plus
 from django.utils.timezone import now
@@ -27,7 +28,7 @@ from common.djangoapps.student.tests.factories import OrgStaffFactory
 from common.djangoapps.student.tests.factories import StaffFactory
 from lms.djangoapps.commerce.models import CommerceConfiguration
 from lms.djangoapps.commerce.utils import EcommerceService
-from lms.djangoapps.course_goals.api import add_course_goal, get_course_goal
+from lms.djangoapps.course_goals.api import add_course_goal_deprecated, get_course_goal
 from lms.djangoapps.course_home_api.toggles import COURSE_HOME_USE_LEGACY_FRONTEND
 from lms.djangoapps.courseware.tests.helpers import get_expiration_banner_text
 from lms.djangoapps.discussion.django_comment_client.tests.factories import RoleFactory
@@ -613,6 +614,7 @@ class TestCourseHomePageAccess(CourseHomePageTestCase):
 
     @override_waffle_flag(COURSE_HOME_USE_LEGACY_FRONTEND, active=True)
     @override_waffle_flag(COURSE_PRE_START_ACCESS_FLAG, active=True)
+    @override_settings(PLATFORM_NAME="edX")
     def test_masters_course_message(self):
         enroll_button_html = "<button class=\"enroll-btn btn-link\">Enroll now</button>"
 
@@ -755,7 +757,7 @@ class TestCourseHomePageAccess(CourseHomePageTestCase):
         self.assertContains(response, TEST_COURSE_GOAL_OPTIONS)
 
         # Verify that enrolled users that have set a course goal are not shown the set course goal message.
-        add_course_goal(user, verifiable_course.id, COURSE_GOAL_DISMISS_OPTION)
+        add_course_goal_deprecated(user, verifiable_course.id, COURSE_GOAL_DISMISS_OPTION)
         response = self.client.get(course_home_url(verifiable_course))
         self.assertNotContains(response, TEST_COURSE_GOAL_OPTIONS)
 
@@ -797,7 +799,7 @@ class TestCourseHomePageAccess(CourseHomePageTestCase):
         self.assertContains(response, TEST_COURSE_GOAL_UPDATE_FIELD_HIDDEN)
 
         # Verify that enrolled users that have set a course goal are shown a visible update goal selection field.
-        add_course_goal(user, verifiable_course.id, COURSE_GOAL_DISMISS_OPTION)
+        add_course_goal_deprecated(user, verifiable_course.id, COURSE_GOAL_DISMISS_OPTION)
         response = self.client.get(course_home_url(verifiable_course))
         self.assertContains(response, TEST_COURSE_GOAL_UPDATE_FIELD)
         self.assertNotContains(response, TEST_COURSE_GOAL_UPDATE_FIELD_HIDDEN)

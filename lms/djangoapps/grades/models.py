@@ -8,7 +8,6 @@ a student's score or the course grading policy changes. As they are
 persisted, course grades are also immune to changes in course content.
 """
 
-
 import json
 import logging
 from base64 import b64encode
@@ -17,7 +16,7 @@ from hashlib import sha1
 
 from django.apps import apps
 from django.db import models, IntegrityError, transaction
-from django.utils.encoding import python_2_unicode_compatible
+
 from django.utils.timezone import now
 from lazy import lazy
 from model_utils.models import TimeStampedModel
@@ -28,6 +27,7 @@ from simple_history.models import HistoricalRecords
 from lms.djangoapps.courseware.fields import UnsignedBigIntAutoField
 from lms.djangoapps.grades import events  # lint-amnesty, pylint: disable=unused-import
 from openedx.core.lib.cache_utils import get_cache
+from lms.djangoapps.grades.signals.signals import COURSE_GRADE_PASSED_FIRST_TIME
 
 log = logging.getLogger(__name__)
 
@@ -125,7 +125,6 @@ class BlockRecordList:
         return cls(blocks, course_key)
 
 
-@python_2_unicode_compatible
 class VisibleBlocks(models.Model):
     """
     A django model used to track the state of a set of visible blocks under a
@@ -290,7 +289,6 @@ class VisibleBlocks(models.Model):
         return f"visible_blocks_cache.{course_key}.{user_id}"
 
 
-@python_2_unicode_compatible
 class PersistentSubsectionGrade(TimeStampedModel):
     """
     A django model tracking persistent grades at the subsection level.
@@ -533,7 +531,6 @@ class PersistentSubsectionGrade(TimeStampedModel):
         return f"subsection_grades_cache.{course_id}"
 
 
-@python_2_unicode_compatible
 class PersistentCourseGrade(TimeStampedModel):
     """
     A django model tracking persistent course grades.
@@ -648,6 +645,11 @@ class PersistentCourseGrade(TimeStampedModel):
             defaults=kwargs
         )
         if passed and not grade.passed_timestamp:
+            COURSE_GRADE_PASSED_FIRST_TIME.send(
+                sender=None,
+                course_id=course_id,
+                user_id=user_id
+            )
             grade.passed_timestamp = now()
             grade.save()
 
@@ -670,7 +672,6 @@ class PersistentCourseGrade(TimeStampedModel):
         events.course_grade_calculated(grade)
 
 
-@python_2_unicode_compatible
 class PersistentSubsectionGradeOverride(models.Model):
     """
     A django model tracking persistent grades overrides at the subsection level.

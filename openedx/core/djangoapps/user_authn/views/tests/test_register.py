@@ -16,6 +16,7 @@ from django.test.utils import override_settings
 from django.urls import reverse
 from pytz import UTC
 from social_django.models import Partial, UserSocialAuth
+from openedx_events.tests.utils import OpenEdxEventsTestMixin
 
 from edx_toggles.toggles.testutils import override_waffle_flag
 from openedx.core.djangoapps.site_configuration.helpers import get_value
@@ -68,11 +69,15 @@ from common.djangoapps.util.password_policy_validators import (
 
 @ddt.ddt
 @skip_unless_lms
-class RegistrationViewValidationErrorTest(ThirdPartyAuthTestMixin, UserAPITestCase, RetirementTestCase):
+class RegistrationViewValidationErrorTest(
+    ThirdPartyAuthTestMixin, UserAPITestCase, RetirementTestCase, OpenEdxEventsTestMixin
+):
     """
     Tests for catching duplicate email and username validation errors within
     the registration end-points of the User API.
     """
+
+    ENABLED_OPENEDX_EVENTS = []
 
     maxDiff = None
 
@@ -86,6 +91,17 @@ class RegistrationViewValidationErrorTest(ThirdPartyAuthTestMixin, UserAPITestCa
     CITY = "Springfield"
     COUNTRY = "us"
     GOALS = "Learn all the things!"
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Set up class method for the Test class.
+
+        This method starts manually events isolation. Explanation here:
+        openedx/core/djangoapps/user_authn/views/tests/test_events.py#L44
+        """
+        super().setUpClass()
+        cls.start_events_isolation()
 
     def setUp(self):  # pylint: disable=arguments-differ
         super().setUp()
@@ -233,6 +249,27 @@ class RegistrationViewValidationErrorTest(ThirdPartyAuthTestMixin, UserAPITestCa
                     )
                 }],
                 "error_code": "duplicate-email"
+            }
+        )
+
+    def test_register_fullname_url_validation_error(self):
+        """
+        Test for catching invalid full name errors
+        """
+        response = self.client.post(self.url, {
+            "email": "bob@example.com",
+            "name": "Bob Smith http://test.com",
+            "username": "bob",
+            "password": "password",
+            "honor_code": "true",
+        })
+        assert response.status_code == 400
+        response_json = json.loads(response.content.decode('utf-8'))
+        self.assertDictEqual(
+            response_json,
+            {
+                "name": [{"user_message": 'Enter a valid name'}],
+                "error_code": "validation-error"
             }
         )
 
@@ -401,8 +438,12 @@ class RegistrationViewValidationErrorTest(ThirdPartyAuthTestMixin, UserAPITestCa
 
 @ddt.ddt
 @skip_unless_lms
-class RegistrationViewTestV1(ThirdPartyAuthTestMixin, UserAPITestCase):
+class RegistrationViewTestV1(
+    ThirdPartyAuthTestMixin, UserAPITestCase, OpenEdxEventsTestMixin
+):
     """Tests for the registration end-points of the User API. """
+
+    ENABLED_OPENEDX_EVENTS = []
 
     maxDiff = None
 
@@ -463,6 +504,17 @@ class RegistrationViewTestV1(ThirdPartyAuthTestMixin, UserAPITestCase):
         }
     ]
     link_template = "<a href='/honor' rel='noopener' target='_blank'>{link_label}</a>"
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Set up class method for the Test class.
+
+        This method starts manually events isolation. Explanation here:
+        openedx/core/djangoapps/user_authn/views/tests/test_events.py#L44
+        """
+        super().setUpClass()
+        cls.start_events_isolation()
 
     def setUp(self):  # pylint: disable=arguments-differ
         super().setUp()
@@ -607,15 +659,15 @@ class RegistrationViewTestV1(ThirdPartyAuthTestMixin, UserAPITestCase):
             }
         )
 
-        self._assert_reg_field(
+        self._assert_reg_absent_field(
             no_extra_fields_setting,
             {
-                "name": "favorite_editor",
-                "type": "select",
+                "name": u"favorite_editor",
+                "type": u"select",
                 "required": False,
-                "label": "Favorite Editor",
-                "placeholder": "cat",
-                "defaultValue": "vim",
+                "label": u"Favorite Editor",
+                "placeholder": u"cat",
+                "defaultValue": u"vim",
                 "errorMessages": {
                     'required': 'This field is required.',
                     'invalid_choice': 'Select a valid choice. %(value)s is not one of the available choices.',
@@ -1209,6 +1261,7 @@ class RegistrationViewTestV1(ThirdPartyAuthTestMixin, UserAPITestCase):
             "honor_code": "required",
             "confirm_email": "required",
         },
+        REGISTRATION_FIELD_ORDER=None,
         REGISTRATION_EXTENSION_FORM='openedx.core.djangoapps.user_api.tests.test_helpers.TestCaseForm',
     )
     def test_field_order(self):
@@ -1218,9 +1271,22 @@ class RegistrationViewTestV1(ThirdPartyAuthTestMixin, UserAPITestCase):
         # Verify that all fields render in the correct order
         form_desc = json.loads(response.content.decode('utf-8'))
         field_names = [field["name"] for field in form_desc["fields"]]
-        assert field_names == ['email', 'name', 'username', 'password', 'favorite_movie', 'favorite_editor',
-                               'city', 'state', 'country', 'gender', 'year_of_birth', 'level_of_education',
-                               'mailing_address', 'goals', 'honor_code']
+        assert field_names == [
+            "email",
+            "name",
+            "username",
+            "password",
+            "city",
+            "state",
+            "country",
+            "gender",
+            "year_of_birth",
+            "level_of_education",
+            "mailing_address",
+            "goals",
+            "honor_code",
+            "favorite_movie",
+        ]
 
     @override_settings(
         REGISTRATION_EXTRA_FIELDS={
@@ -1308,9 +1374,23 @@ class RegistrationViewTestV1(ThirdPartyAuthTestMixin, UserAPITestCase):
         # Verify that all fields render in the correct order
         form_desc = json.loads(response.content.decode('utf-8'))
         field_names = [field["name"] for field in form_desc["fields"]]
-        assert field_names == ['email', 'name', 'username', 'password', 'favorite_movie', 'favorite_editor', 'city',
-                               'state', 'country', 'gender', 'year_of_birth', 'level_of_education',
-                               'mailing_address', 'goals', 'honor_code']
+
+        assert field_names == [
+            "name",
+            "password",
+            "gender",
+            "year_of_birth",
+            "level_of_education",
+            "mailing_address",
+            "goals",
+            "honor_code",
+            "city",
+            "country",
+            "email",
+            "favorite_movie",
+            "state",
+            "username",
+        ]
 
     def test_register(self):
         # Create a new registration
@@ -1771,6 +1851,31 @@ class RegistrationViewTestV1(ThirdPartyAuthTestMixin, UserAPITestCase):
 
         self._assert_fields_match(actual_field, expected_field)
 
+    def _assert_reg_absent_field(self, extra_fields_setting, expected_absent_field: str):
+        """
+        Retrieve the registration form description from the server and
+        verify that it not contains the expected absent field.
+
+        Args:
+            extra_fields_setting (dict): Override the Django setting controlling
+                which extra fields are displayed in the form.
+            expected_absent_field (str): The field name we expect to be absent in the form.
+
+        Raises:
+            AssertionError
+        """
+        # Retrieve the registration form description
+        with override_settings(REGISTRATION_EXTRA_FIELDS=extra_fields_setting):
+            response = self.client.get(self.url)
+            self.assertHttpOK(response)
+
+        # Verify that the form description matches what we'd expect
+        form_desc = json.loads(response.content.decode('utf-8'))
+
+        current_present_field_names = [field["name"] for field in form_desc["fields"]]
+        assert expected_absent_field not in current_present_field_names, \
+            "Expected absent field {expected}".format(expected=expected_absent_field)
+
     def _assert_password_field_hidden(self, field_settings):
         self._assert_reg_field(field_settings, {
             "name": "password",
@@ -1795,6 +1900,17 @@ class RegistrationViewTestV2(RegistrationViewTestV1):
     """
 
     # pylint: disable=test-inherits-tests
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Set up class method for the Test class.
+
+        This method starts manually events isolation. Explanation here:
+        openedx/core/djangoapps/user_authn/views/tests/test_events.py#L44
+        """
+        super().setUpClass()
+        cls.start_events_isolation()
 
     def setUp(self):  # pylint: disable=arguments-differ
         super(RegistrationViewTestV1, self).setUp()  # lint-amnesty, pylint: disable=bad-super-call
@@ -1839,9 +1955,23 @@ class RegistrationViewTestV2(RegistrationViewTestV1):
         form_desc = json.loads(response.content.decode('utf-8'))
         field_names = [field["name"] for field in form_desc["fields"]]
 
-        assert field_names == ['email', 'name', 'username', 'password', 'favorite_movie', 'favorite_editor',
-                               'confirm_email', 'city', 'state', 'country', 'gender', 'year_of_birth',
-                               'level_of_education', 'mailing_address', 'goals', 'honor_code']
+        assert field_names == [
+            "name",
+            "confirm_email",
+            "password",
+            "gender",
+            "year_of_birth",
+            "level_of_education",
+            "mailing_address",
+            "goals",
+            "honor_code",
+            "city",
+            "country",
+            "email",
+            "favorite_movie",
+            "state",
+            "username",
+        ]
 
     @override_settings(
         REGISTRATION_EXTRA_FIELDS={
@@ -1906,6 +2036,7 @@ class RegistrationViewTestV2(RegistrationViewTestV1):
             "honor_code": "required",
             "confirm_email": "required",
         },
+        REGISTRATION_FIELD_ORDER=None,
         REGISTRATION_EXTENSION_FORM='openedx.core.djangoapps.user_api.tests.test_helpers.TestCaseForm',
     )
     def test_field_order(self):
@@ -1915,10 +2046,23 @@ class RegistrationViewTestV2(RegistrationViewTestV1):
         # Verify that all fields render in the correct order
         form_desc = json.loads(response.content.decode('utf-8'))
         field_names = [field["name"] for field in form_desc["fields"]]
-        assert field_names ==\
-               ['email', 'name', 'username', 'password', 'favorite_movie', 'favorite_editor', 'confirm_email',
-                'city', 'state', 'country', 'gender', 'year_of_birth', 'level_of_education', 'mailing_address',
-                'goals', 'honor_code']
+        assert field_names == [
+            "email",
+            "name",
+            "username",
+            "password",
+            "confirm_email",
+            "city",
+            "state",
+            "country",
+            "gender",
+            "year_of_birth",
+            "level_of_education",
+            "mailing_address",
+            "goals",
+            "honor_code",
+            "favorite_movie",
+        ]
 
     def test_registration_form_confirm_email(self):
         self._assert_reg_field(
@@ -2024,15 +2168,30 @@ class RegistrationViewTestV2(RegistrationViewTestV1):
 
 @httpretty.activate
 @ddt.ddt
-class ThirdPartyRegistrationTestMixin(ThirdPartyOAuthTestMixin, CacheIsolationTestCase):
+class ThirdPartyRegistrationTestMixin(
+    ThirdPartyOAuthTestMixin, CacheIsolationTestCase, OpenEdxEventsTestMixin
+):
     """
     Tests for the User API registration endpoint with 3rd party authentication.
     """
     CREATE_USER = False
 
+    ENABLED_OPENEDX_EVENTS = []
+
     ENABLED_CACHES = ['default']
 
     __test__ = False
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Set up class method for the Test class.
+
+        This method starts manually events isolation. Explanation here:
+        openedx/core/djangoapps/user_authn/views/tests/test_events.py#L44
+        """
+        super().setUpClass()
+        cls.start_events_isolation()
 
     def setUp(self):
         super().setUp()
@@ -2190,10 +2349,24 @@ class ThirdPartyRegistrationTestMixin(ThirdPartyOAuthTestMixin, CacheIsolationTe
 
 @skipUnless(settings.FEATURES.get("ENABLE_THIRD_PARTY_AUTH"), "third party auth not enabled")
 class TestFacebookRegistrationView(
-    ThirdPartyRegistrationTestMixin, ThirdPartyOAuthTestMixinFacebook, TransactionTestCase
+    ThirdPartyRegistrationTestMixin, ThirdPartyOAuthTestMixinFacebook, TransactionTestCase, OpenEdxEventsTestMixin
 ):
     """Tests the User API registration endpoint with Facebook authentication."""
+
+    ENABLED_OPENEDX_EVENTS = []
+
     __test__ = True
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Set up class method for the Test class.
+
+        This method starts manually events isolation. Explanation here:
+        openedx/core/djangoapps/user_authn/views/tests/test_events.py#L44
+        """
+        super().setUpClass()
+        cls.start_events_isolation()
 
     def test_social_auth_exception(self):
         """
@@ -2208,20 +2381,47 @@ class TestFacebookRegistrationView(
 
 @skipUnless(settings.FEATURES.get("ENABLE_THIRD_PARTY_AUTH"), "third party auth not enabled")
 class TestGoogleRegistrationView(
-    ThirdPartyRegistrationTestMixin, ThirdPartyOAuthTestMixinGoogle, TransactionTestCase
+    ThirdPartyRegistrationTestMixin, ThirdPartyOAuthTestMixinGoogle, TransactionTestCase, OpenEdxEventsTestMixin
 ):
     """Tests the User API registration endpoint with Google authentication."""
+
+    ENABLED_OPENEDX_EVENTS = []
+
     __test__ = True
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Set up class method for the Test class.
+
+        This method starts manually events isolation. Explanation here:
+        openedx/core/djangoapps/user_authn/views/tests/test_events.py#L44
+        """
+        super().setUpClass()
+        cls.start_events_isolation()
 
 
 @ddt.ddt
-class RegistrationValidationViewTests(test_utils.ApiTestCase):
+class RegistrationValidationViewTests(test_utils.ApiTestCase, OpenEdxEventsTestMixin):
     """
     Tests for validity of user data in registration forms.
     """
 
+    ENABLED_OPENEDX_EVENTS = []
+
     endpoint_name = 'registration_validation'
     path = reverse(endpoint_name)
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Set up class method for the Test class.
+
+        This method starts manually events isolation. Explanation here:
+        openedx/core/djangoapps/user_authn/views/tests/test_events.py#L44
+        """
+        super().setUpClass()
+        cls.start_events_isolation()
 
     def setUp(self):
         super().setUp()
@@ -2305,7 +2505,7 @@ class RegistrationValidationViewTests(test_utils.ApiTestCase):
         Test if username '{0}' and email '{1}' have conflicts with
         username 'user' and email 'user@email.com'.
         """
-        user = User.objects.create_user(username='user', email='user@email.com')
+        user = UserFactory.create(username='user', email='user@email.com')
         self.assertValidationDecision(
             {
                 'username': username,
@@ -2441,7 +2641,7 @@ class RegistrationValidationViewTests(test_utils.ApiTestCase):
         Test that if `is_authn_mfe` is provided in request along with form_field_key, only
         error message for that field is returned.
         """
-        User.objects.create_user(username='user', email='user@email.com')
+        UserFactory.create(username='user', email='user@email.com')
         # using username and email that have conflicts but sending form_field_key will return
         # validation for only email
         self.assertValidationDecision(

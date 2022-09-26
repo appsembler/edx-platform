@@ -53,6 +53,7 @@ from openedx.core.djangoapps.programs.models import ProgramsApiConfig  # lint-am
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.theming import helpers as theming_helpers
 from openedx.core.djangoapps.user_api.preferences import api as preferences_api
+from openedx.core.djangoapps.user_authn.tasks import send_activation_email
 from openedx.core.djangoapps.user_authn.toggles import should_redirect_to_authn_microfrontend
 from openedx.core.djangolib.markup import HTML, Text
 from openedx.features.enterprise_support.utils import is_enterprise_learner
@@ -74,7 +75,6 @@ from common.djangoapps.student.models import (  # lint-amnesty, pylint: disable=
     email_exists_or_retired
 )
 from common.djangoapps.student.signals import REFUND_ORDER
-from common.djangoapps.student.tasks import send_activation_email
 from common.djangoapps.util.db import outer_atomic
 from common.djangoapps.util.json_request import JsonResponse
 from xmodule.modulestore.django import modulestore
@@ -287,7 +287,7 @@ def _update_email_opt_in(request, org):
 
 @transaction.non_atomic_requests
 @require_POST
-@outer_atomic(read_committed=True)
+@outer_atomic()
 def change_enrollment(request, check_access=True):
     """
     Modify the enrollment status for the logged-in user.
@@ -410,7 +410,7 @@ def change_enrollment(request, check_access=True):
         if not enrollment:
             return HttpResponseBadRequest(_("You are not enrolled in this course"))
 
-        certificate_info = cert_info(user, enrollment.course_overview)
+        certificate_info = cert_info(user, enrollment)
         if certificate_info.get('status') in DISABLE_UNENROLL_CERT_STATES:
             return HttpResponseBadRequest(_("Your certificate prevents you from unenrolling from this course"))
 
@@ -536,6 +536,7 @@ def activate_account(request, key):
         html_end=HTML('</p>'),
     )
 
+    show_account_activation_popup = None
     try:
         registration = Registration.objects.get(activation_key=key)
     except (Registration.DoesNotExist, Registration.MultipleObjectsReturned):
@@ -594,6 +595,7 @@ def activate_account(request, key):
                 ),
                 extra_tags='account-activation aa-icon',
             )
+            show_account_activation_popup = request.COOKIES.get(settings.SHOW_ACTIVATE_CTA_POPUP_COOKIE_NAME, None)
 
     # If a safe `next` parameter is provided in the request
     # and it's not the same as the dashboard, redirect there.
@@ -621,7 +623,14 @@ def activate_account(request, key):
         url_path = '/login?{}'.format(urllib.parse.urlencode(params))
         return redirect(settings.AUTHN_MICROFRONTEND_URL + url_path)
 
-    return redirect(redirect_url) if redirect_url and is_enterprise_learner(request.user) else redirect('dashboard')
+    response = redirect(redirect_url) if redirect_url and is_enterprise_learner(request.user) else redirect('dashboard')
+    if show_account_activation_popup:
+        response.delete_cookie(
+            settings.SHOW_ACTIVATE_CTA_POPUP_COOKIE_NAME,
+            domain=settings.SESSION_COOKIE_DOMAIN,
+            path='/',
+        )
+    return response
 
 
 @ensure_csrf_cookie

@@ -16,7 +16,6 @@ from ratelimitbackend import admin
 
 from lms.djangoapps.branding import views as branding_views
 from lms.djangoapps.debug import views as debug_views
-from lms.djangoapps.certificates import views as certificates_views
 from lms.djangoapps.courseware.masquerade import MasqueradeView
 from lms.djangoapps.courseware.module_render import (
     handle_xblock_callback,
@@ -894,13 +893,6 @@ if settings.FEATURES.get('ENABLE_OAUTH2_PROVIDER'):
 urlpatterns += [
     url(r'^certificates/', include('lms.djangoapps.certificates.urls')),
 
-    # Backwards compatibility with XQueue, which uses URLs that are not prefixed with /certificates/
-    url(r'^update_certificate$', certificates_views.update_certificate, name='update_certificate'),
-    url(r'^update_example_certificate$', certificates_views.update_example_certificate,
-        name='update_example_certificate'),
-    url(r'^request_certificate$', certificates_views.request_certificate,
-        name='request_certificate'),
-
     # REST APIs
     url(r'^api/certificates/',
         include(('lms.djangoapps.certificates.apis.urls', 'lms.djangoapps.certificates'),
@@ -935,11 +927,12 @@ urlpatterns += [
 
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # profile image urls must come before the media url to work
     urlpatterns += static(
         settings.PROFILE_IMAGE_BACKEND['options']['base_url'],
         document_root=settings.PROFILE_IMAGE_BACKEND['options']['location']
     )
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # UX reference templates
 urlpatterns += [
@@ -1021,7 +1014,13 @@ urlpatterns.extend(get_plugin_url_patterns(ProjectType.LMS))
 
 # Course Home API urls
 urlpatterns += [
-    url(r'^api/course_home/', include('lms.djangoapps.course_home_api.urls')),
+    # This is a BFF ("backend for frontend") djangoapp for the Learning MFE (like courseware_api).
+    # It will change and morph as needed for the frontend, and is not a stable API on which other code can rely.
+    url(r'^api/course_home/', include(('lms.djangoapps.course_home_api.urls', 'course-home'))),
+
+    # This v1 version is just kept for transitional reasons and is going away as soon as the MFE stops referencing it.
+    # We don't promise any sort of versioning stability.
+    url(r'^api/course_home/v1/', include(('lms.djangoapps.course_home_api.urls', 'course-home-v1'))),
 ]
 
 # Course Experience API urls
@@ -1033,4 +1032,15 @@ urlpatterns += [
 if settings.FEATURES.get('ENABLE_BULK_USER_RETIREMENT'):
     urlpatterns += [
         url(r'', include('lms.djangoapps.bulk_user_retirement.urls')),
+    ]
+
+# Provider States urls
+if getattr(settings, 'PROVIDER_STATES_URL', None):
+    from lms.djangoapps.courseware.tests.pacts.views import provider_state as courseware_xblock_handler_provider_state
+    urlpatterns += [
+        url(
+            r'^courses/xblock/handler/provider_states',
+            courseware_xblock_handler_provider_state,
+            name='courseware_xblock_handler_provider_state',
+        )
     ]

@@ -878,7 +878,7 @@ def _update_and_import_module(
     if block.location.block_type == 'library_content':
         # If library exists, update source_library_version and children
         # according to this existing library and library content block.
-        if store.get_library(block.source_library_key):
+        if block.source_library_id and store.get_library(block.source_library_key):
             # If the library content block is already in the course, then don't
             # refresh the children when we re-import it. This lets us address
             # TNL-7507 (Randomized Content Block Settings Lost in Course Import)
@@ -897,16 +897,20 @@ def _update_and_import_module(
             if lib_content_block_already_published:
                 return block
 
-            # Update library content block's children on draft branch
-            with store.branch_setting(branch_setting=ModuleStoreEnum.Branch.draft_preferred):
-                LibraryToolsService(store, user_id).update_children(
-                    block,
-                    version=block.source_library_version,
-                )
-
-            # Publish it if importing the course for branch setting published_only.
-            if store.get_branch_setting() == ModuleStoreEnum.Branch.published_only:
-                store.publish(block.location, user_id)
+            try:
+                # Update library content block's children on draft branch
+                with store.branch_setting(branch_setting=ModuleStoreEnum.Branch.draft_preferred):
+                    LibraryToolsService(store, user_id).update_children(
+                        block,
+                        version=block.source_library_version,
+                    )
+            except ValueError as err:
+                # The specified library version does not exist.
+                log.error(err)
+            else:
+                # Publish it if importing the course for branch setting published_only.
+                if store.get_branch_setting() == ModuleStoreEnum.Branch.published_only:
+                    store.publish(block.location, user_id)
 
     return block
 
@@ -1051,7 +1055,7 @@ def allowed_metadata_by_category(category):
     return {
         'vertical': [],
         'chapter': ['start'],
-        'sequential': ['due', 'due_num_weeks', 'format', 'start', 'graded']
+        'sequential': ['due', 'relative_weeks_due', 'format', 'start', 'graded']
     }.get(category, ['*'])
 
 

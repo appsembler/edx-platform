@@ -68,6 +68,17 @@ from tahoe_sites.api import (
 )
 from openedx.core.djangoapps.theming import helpers as theming_helpers
 
+from openedx_events.learning.data import (
+    CourseData,
+    CourseEnrollmentData,
+    UserData,
+    UserPersonalData,
+)
+from openedx_events.learning.signals import (
+    COURSE_ENROLLMENT_CHANGED,
+    COURSE_ENROLLMENT_CREATED,
+    COURSE_UNENROLLMENT_COMPLETED,
+)
 import openedx.core.djangoapps.django_comment_common.comment_client as cc
 from common.djangoapps.course_modes.models import CourseMode, get_cosmetic_verified_display_price
 from common.djangoapps.student.emails import send_proctoring_requirements_email
@@ -715,7 +726,7 @@ class UserProfile(models.Model):
     def get_meta(self):  # pylint: disable=missing-function-docstring
         js_str = self.meta
         if not js_str:
-            js_str = dict()
+            js_str = {}
         else:
             js_str = json.loads(self.meta)
 
@@ -898,6 +909,15 @@ def user_post_save_callback(sender, **kwargs):
                         enrollment
                     )
 
+    # Ensure the user has a profile when run via management command
+    _called_by_management_command = getattr(user, '_called_by_management_command', None)
+    if _called_by_management_command:
+        try:
+            __ = user.profile
+        except UserProfile.DoesNotExist:
+            UserProfile.objects.create(user=user)
+            log.info('Created new profile for user: %s', user)
+
     # Because `emit_field_changed_events` removes the record of the fields that
     # were changed, wait to do that until after we've checked them as part of
     # the condition on whether we want to check for automatic enrollments.
@@ -985,7 +1005,7 @@ class Registration(models.Model):
 
 class PendingNameChange(DeletableByUserValue, models.Model):
     """
-    This model keeps track of pending requested changes to a user's email address.
+    This model keeps track of pending requested changes to a user's name.
 
     .. pii: Contains new_name, retired in LMSAccountRetirementView
     .. pii_types: name
@@ -1445,7 +1465,7 @@ class CourseEnrollment(models.Model):
         from openedx.core.djangoapps.enrollments.permissions import ENROLL_IN_COURSE
         return not user.has_perm(ENROLL_IN_COURSE, course)
 
-    def update_enrollment(self, mode=None, is_active=None, skip_refund=False):
+    def update_enrollment(self, mode=None, is_active=None, skip_refund=False, enterprise_uuid=None):
         """
         Updates an enrollment for a user in a class.  This includes options
         like changing the mode, toggling is_active True/False, etc.
@@ -1471,6 +1491,16 @@ class CourseEnrollment(models.Model):
             self.mode = mode
             mode_changed = True
 
+        try:
+            course_data = CourseData(
+                course_key=self.course_id,
+                display_name=self.course.display_name,
+            )
+        except CourseOverview.DoesNotExist:
+            course_data = CourseData(
+                course_key=self.course_id,
+            )
+
         if activation_changed or mode_changed:
             self.save()
             self._update_enrollment_in_request_cache(
@@ -1479,13 +1509,51 @@ class CourseEnrollment(models.Model):
                 CourseEnrollmentState(self.mode, self.is_active),
             )
 
+            # .. event_implemented_name: COURSE_ENROLLMENT_CHANGED
+            COURSE_ENROLLMENT_CHANGED.send_event(
+                enrollment=CourseEnrollmentData(
+                    user=UserData(
+                        pii=UserPersonalData(
+                            username=self.user.username,
+                            email=self.user.email,
+                            name=self.user.profile.name,
+                        ),
+                        id=self.user.id,
+                        is_active=self.user.is_active,
+                    ),
+                    course=course_data,
+                    mode=self.mode,
+                    is_active=self.is_active,
+                    creation_date=self.created,
+                )
+            )
+
         if activation_changed:
             if self.is_active:
-                self.emit_event(EVENT_NAME_ENROLLMENT_ACTIVATED)
+                self.emit_event(EVENT_NAME_ENROLLMENT_ACTIVATED, enterprise_uuid=enterprise_uuid)
             else:
                 UNENROLL_DONE.send(sender=None, course_enrollment=self, skip_refund=skip_refund)
                 self.emit_event(EVENT_NAME_ENROLLMENT_DEACTIVATED)
                 self.send_signal(EnrollStatusChange.unenroll)
+
+                # .. event_implemented_name: COURSE_UNENROLLMENT_COMPLETED
+                COURSE_UNENROLLMENT_COMPLETED.send_event(
+                    enrollment=CourseEnrollmentData(
+                        user=UserData(
+                            pii=UserPersonalData(
+                                username=self.user.username,
+                                email=self.user.email,
+                                name=self.user.profile.name,
+                            ),
+                            id=self.user.id,
+                            is_active=self.user.is_active,
+                        ),
+                        course=course_data,
+                        mode=self.mode,
+                        is_active=self.is_active,
+                        creation_date=self.created,
+                    )
+                )
 
         if mode_changed:
             # If mode changed to one that requires proctoring, send proctoring requirements email
@@ -1525,7 +1593,7 @@ class CourseEnrollment(models.Model):
                                   mode=mode, course_id=course_id,
                                   cost=cost, currency=currency)
 
-    def emit_event(self, event_name):
+    def emit_event(self, event_name, enterprise_uuid=None):
         """
         Emits an event to explicitly track course enrollment and unenrollment.
         """
@@ -1533,12 +1601,17 @@ class CourseEnrollment(models.Model):
 
         try:
             context = contexts.course_context_from_course_id(self.course_id)
+            if enterprise_uuid:
+                context["enterprise_uuid"] = enterprise_uuid
             assert isinstance(self.course_id, CourseKey)
             data = {
                 'user_id': self.user.id,
                 'course_id': str(self.course_id),
                 'mode': self.mode,
             }
+            if enterprise_uuid and 'username' not in context:
+                data['username'] = self.user.username
+
             segment_properties = {
                 'category': 'conversion',
                 'label': str(self.course_id),
@@ -1579,7 +1652,7 @@ class CourseEnrollment(models.Model):
                 )
 
     @classmethod
-    def enroll(cls, user, course_key, mode=None, check_access=False, can_upgrade=False):
+    def enroll(cls, user, course_key, mode=None, check_access=False, can_upgrade=False, enterprise_uuid=None):
         """
         Enroll a user in a course. This saves immediately.
 
@@ -1608,6 +1681,8 @@ class CourseEnrollment(models.Model):
                 while selecting a session. The default is set to False to avoid
                 breaking the orignal course enroll code.
 
+        enterprise_uuid (str): Add course enterprise uuid
+
         Exceptions that can be raised: NonExistentCourseError,
         EnrollmentClosedError, CourseFullError, AlreadyEnrolledError.  All these
         are subclasses of CourseEnrollmentException if you want to catch all of
@@ -1623,9 +1698,16 @@ class CourseEnrollment(models.Model):
         # All the server-side checks for whether a user is allowed to enroll.
         try:
             course = CourseOverview.get_from_id(course_key)
+            course_data = CourseData(
+                course_key=course.id,
+                display_name=course.display_name,
+            )
         except CourseOverview.DoesNotExist:
             # This is here to preserve legacy behavior which allowed enrollment in courses
             # announced before the start of content creation.
+            course_data = CourseData(
+                course_key=course_key,
+            )
             if check_access:
                 log.warning("User %s failed to enroll in non-existent course %s", user.username, str(course_key))
                 raise NonExistentCourseError  # lint-amnesty, pylint: disable=raise-missing-from
@@ -1658,8 +1740,27 @@ class CourseEnrollment(models.Model):
 
         # User is allowed to enroll if they've reached this point.
         enrollment = cls.get_or_create_enrollment(user, course_key)
-        enrollment.update_enrollment(is_active=True, mode=mode)
+        enrollment.update_enrollment(is_active=True, mode=mode, enterprise_uuid=enterprise_uuid)
         enrollment.send_signal(EnrollStatusChange.enroll)
+
+        # .. event_implemented_name: COURSE_ENROLLMENT_CREATED
+        COURSE_ENROLLMENT_CREATED.send_event(
+            enrollment=CourseEnrollmentData(
+                user=UserData(
+                    pii=UserPersonalData(
+                        username=user.username,
+                        email=user.email,
+                        name=user.profile.name,
+                    ),
+                    id=user.id,
+                    is_active=user.is_active,
+                ),
+                course=course_data,
+                mode=enrollment.mode,
+                is_active=enrollment.is_active,
+                creation_date=enrollment.created,
+            )
+        )
 
         return enrollment
 

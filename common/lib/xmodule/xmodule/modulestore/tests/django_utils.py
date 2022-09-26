@@ -11,7 +11,7 @@ from enum import Enum
 from unittest.mock import patch
 
 from django.conf import settings
-from django.contrib.auth.models import AnonymousUser, User  # lint-amnesty, pylint: disable=imported-auth-user
+from django.contrib.auth.models import AnonymousUser
 from django.db import connections
 from django.test import TestCase
 from django.test.utils import override_settings
@@ -46,7 +46,7 @@ class StoreConstructors:
     draft, split = list(range(2))
 
 
-def mixed_store_config(data_dir, mappings, store_order=None):
+def mixed_store_config(data_dir, mappings, store_order=None, modulestore_options=None):
     """
     Return a `MixedModuleStore` configuration, which provides
     access to both Mongo-backed courses.
@@ -71,9 +71,17 @@ def mixed_store_config(data_dir, mappings, store_order=None):
     if store_order is None:
         store_order = [StoreConstructors.draft, StoreConstructors.split]
 
+    options = {
+        'default_class': 'xmodule.hidden_module.HiddenDescriptor',
+        'fs_root': data_dir,
+        'render_template': 'common.djangoapps.edxmako.shortcuts.render_to_string',
+    }
+    if modulestore_options:
+        options.update(modulestore_options)
+
     store_constructors = {
-        StoreConstructors.split: split_mongo_store_config(data_dir)['default'],
-        StoreConstructors.draft: draft_mongo_store_config(data_dir)['default'],
+        StoreConstructors.split: split_mongo_store_config(options)['default'],
+        StoreConstructors.draft: draft_mongo_store_config(options)['default'],
     }
 
     store = {
@@ -88,17 +96,10 @@ def mixed_store_config(data_dir, mappings, store_order=None):
     return store
 
 
-def draft_mongo_store_config(data_dir):
+def draft_mongo_store_config(modulestore_options):
     """
     Defines default module store using DraftMongoModuleStore.
     """
-
-    modulestore_options = {
-        'default_class': 'xmodule.hidden_module.HiddenDescriptor',
-        'fs_root': data_dir,
-        'render_template': 'common.djangoapps.edxmako.shortcuts.render_to_string'
-    }
-
     store = {
         'default': {
             'NAME': 'draft',
@@ -116,16 +117,10 @@ def draft_mongo_store_config(data_dir):
     return store
 
 
-def split_mongo_store_config(data_dir):
+def split_mongo_store_config(modulestore_options):
     """
     Defines split module store.
     """
-    modulestore_options = {
-        'default_class': 'xmodule.hidden_module.HiddenDescriptor',
-        'fs_root': data_dir,
-        'render_template': 'common.djangoapps.edxmako.shortcuts.render_to_string',
-    }
-
     store = {
         'default': {
             'NAME': 'draft',
@@ -205,6 +200,16 @@ TEST_DATA_SPLIT_MODULESTORE = functools.partial(
     mkdtemp_clean(),
     {},
     store_order=[StoreConstructors.split, StoreConstructors.draft]
+)
+
+# Tests that use mixed modulestore and split, but don't load/use draft modulestore.
+# This also enables "draft preferred" mode, like Studio.
+TEST_DATA_ONLY_SPLIT_MODULESTORE_DRAFT_PREFERRED = functools.partial(
+    mixed_store_config,
+    mkdtemp_clean(),
+    {},
+    store_order=[StoreConstructors.split],
+    modulestore_options={'branch_setting_func': lambda: ModuleStoreEnum.Branch.draft_preferred},
 )
 
 
@@ -520,7 +525,7 @@ class ModuleStoreTestCase(
 
         if self.CREATE_USER:
             # Create the user so we can log them in.
-            self.user = User.objects.create_user(uname, email, self.user_password)
+            self.user = UserFactory.create(username=uname, email=email, password=self.user_password)
 
             # Note that we do not actually need to do anything
             # for registration if we directly mark them active.
@@ -537,7 +542,7 @@ class ModuleStoreTestCase(
         """
         uname = 'teststudent'
         password = 'foo'
-        nonstaff_user = User.objects.create_user(uname, 'test+student@edx.org', password)
+        nonstaff_user = UserFactory.create(username=uname, email='test+student@edx.org', password=password)
 
         # Note that we do not actually need to do anything
         # for registration if we directly mark them active.

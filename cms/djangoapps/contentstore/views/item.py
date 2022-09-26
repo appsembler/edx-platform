@@ -114,7 +114,7 @@ def _is_library_component_limit_reached(usage_key):
 @require_http_methods(("DELETE", "GET", "PUT", "POST", "PATCH"))
 @login_required
 @expect_json
-def xblock_handler(request, usage_key_string):
+def xblock_handler(request, usage_key_string=None):
     """
     The restful handler for xblock requests.
 
@@ -1230,7 +1230,7 @@ def create_xblock_info(xblock, data=None, metadata=None, include_ancestor_info=F
             'graded': xblock.graded,
             'due_date': get_default_time_display(xblock.due),
             'due': xblock.fields['due'].to_json(xblock.due),
-            'due_num_weeks': xblock.due_num_weeks,
+            'relative_weeks_due': xblock.relative_weeks_due,
             'format': xblock.format,
             'course_graders': [grader.get('type') for grader in graders],
             'has_changes': has_changes,

@@ -2,7 +2,7 @@
 Tests for courseware API
 """
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlencode
 from typing import Optional
 
@@ -26,11 +26,8 @@ from lms.djangoapps.courseware.tests.helpers import MasqueradeMixin
 from lms.djangoapps.courseware.toggles import (
     COURSEWARE_MICROFRONTEND_PROGRESS_MILESTONES,
     COURSEWARE_MICROFRONTEND_PROGRESS_MILESTONES_STREAK_CELEBRATION,
-    COURSEWARE_MICROFRONTEND_SPECIAL_EXAMS,
-    COURSEWARE_MICROFRONTEND_PROCTORED_EXAMS,
 )
-from lms.djangoapps.experiments.testutils import override_experiment_waffle_flag
-from lms.djangoapps.experiments.utils import STREAK_DISCOUNT_EXPERIMENT_FLAG
+from lms.djangoapps.courseware.toggles import COURSEWARE_MFE_MILESTONES_STREAK_DISCOUNT
 from lms.djangoapps.verify_student.services import IDVerificationService
 from common.djangoapps.student.models import (
     CourseEnrollment, CourseEnrollmentCelebration
@@ -39,12 +36,15 @@ from common.djangoapps.student.roles import CourseInstructorRole
 from common.djangoapps.student.tests.factories import CourseEnrollmentCelebrationFactory, UserFactory
 from openedx.core.djangoapps.agreements.api import create_integrity_signature
 from openedx.core.djangoapps.agreements.toggles import ENABLE_INTEGRITY_SIGNATURE
+from xmodule.data import CertificatesDisplayBehaviors
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.tests.django_utils import TEST_DATA_SPLIT_MODULESTORE, SharedModuleStoreTestCase
 from xmodule.modulestore.tests.factories import ItemFactory, ToyCourseFactory
 
 
 User = get_user_model()
+
+_NEXT_WEEK = datetime.now() + timedelta(days=7)
 
 
 @unittest.skipUnless(settings.ROOT_URLCONF == 'lms.urls', 'Test only valid in lms')
@@ -64,6 +64,8 @@ class BaseCoursewareTests(SharedModuleStoreTestCase):
             enrollment_end=datetime(2028, 1, 1, 1, 1, 1),
             emit_signals=True,
             modulestore=cls.store,
+            certificate_available_date=_NEXT_WEEK,
+            certificates_display_behavior=CertificatesDisplayBehaviors.END_WITH_DATE
         )
         cls.chapter = ItemFactory(parent=cls.course, category='chapter')
         cls.sequence = ItemFactory(parent=cls.chapter, category='sequential', display_name='sequence')
@@ -97,6 +99,7 @@ class BaseCoursewareTests(SharedModuleStoreTestCase):
 @ddt.ddt
 @override_waffle_flag(COURSEWARE_MICROFRONTEND_PROGRESS_MILESTONES, active=True)
 @override_waffle_flag(COURSEWARE_MICROFRONTEND_PROGRESS_MILESTONES_STREAK_CELEBRATION, active=True)
+@unittest.skipUnless(settings.ROOT_URLCONF == 'lms.urls', 'Test only valid in lms')
 class CourseApiTestViews(BaseCoursewareTests, MasqueradeMixin):
     """
     Tests for the courseware REST API
@@ -152,7 +155,7 @@ class CourseApiTestViews(BaseCoursewareTests, MasqueradeMixin):
                 enrollment = response.data['enrollment']
                 assert enrollment_mode == enrollment['mode']
                 assert enrollment['is_active']
-                assert len(response.data['tabs']) == 6
+                assert len(response.data['tabs']) == 5
                 found = False
                 for tab in response.data['tabs']:
                     if tab['type'] == 'external_link':
@@ -162,6 +165,16 @@ class CourseApiTestViews(BaseCoursewareTests, MasqueradeMixin):
                 assert found, 'external link not in course tabs'
 
                 assert not response.data['user_has_passing_grade']
+
+                # This import errors in cms if it is imported at the top level
+                from lms.djangoapps.course_goals.api import get_course_goal
+                selected_goal = get_course_goal(self.user, self.course.id)
+                if selected_goal:
+                    assert response.data['course_goals']['selected_goal'] == {
+                        'days_per_week': selected_goal.days_per_week,
+                        'subscribed_to_reminders': selected_goal.subscribed_to_reminders,
+                    }
+
                 if enrollment_mode == 'audit':
                     assert response.data['verify_identity_url'] is None
                     assert response.data['verification_status'] == 'none'  # lint-amnesty, pylint: disable=literal-comparison
@@ -198,9 +211,10 @@ class CourseApiTestViews(BaseCoursewareTests, MasqueradeMixin):
                 # multiple checks use this handler
                 check_public_access.assert_called()
                 assert response.data['enrollment']['mode'] is None
-                assert response.data['can_load_courseware']['has_access']
+                assert response.data['course_access']['has_access']
+                assert response.data['course_goals'] is None
             else:
-                assert not response.data['can_load_courseware']['has_access']
+                assert not response.data['course_access']['has_access']
 
     @ddt.data(
         # Who has access to MFE courseware?
@@ -210,7 +224,7 @@ class CourseApiTestViews(BaseCoursewareTests, MasqueradeMixin):
             "username": "student",
             "enroll_user": True,
             "masquerade_role": None,
-            "expect_can_load_courseware": True,
+            "expect_course_access": True,
         },
         {
             # Un-enrolled learners should NOT have access.
@@ -218,7 +232,7 @@ class CourseApiTestViews(BaseCoursewareTests, MasqueradeMixin):
             "username": "student",
             "enroll_user": False,
             "masquerade_role": None,
-            "expect_can_load_courseware": False,
+            "expect_course_access": False,
         },
         {
             # Un-enrolled instructors should have access.
@@ -226,7 +240,7 @@ class CourseApiTestViews(BaseCoursewareTests, MasqueradeMixin):
             "username": "instructor",
             "enroll_user": False,
             "masquerade_role": None,
-            "expect_can_load_courseware": True,
+            "expect_course_access": True,
         },
         {
             # Un-enrolled instructors masquerading as students should have access.
@@ -234,7 +248,7 @@ class CourseApiTestViews(BaseCoursewareTests, MasqueradeMixin):
             "username": "instructor",
             "enroll_user": False,
             "masquerade_role": "student",
-            "expect_can_load_courseware": True,
+            "expect_course_access": True,
         },
         {
             # If MFE is not visible, enrolled learners shouldn't have access.
@@ -242,7 +256,7 @@ class CourseApiTestViews(BaseCoursewareTests, MasqueradeMixin):
             "username": "student",
             "enroll_user": True,
             "masquerade_role": None,
-            "expect_can_load_courseware": False,
+            "expect_course_access": False,
         },
         {
             # If MFE is not visible, instructors shouldn't have access.
@@ -250,7 +264,7 @@ class CourseApiTestViews(BaseCoursewareTests, MasqueradeMixin):
             "username": "instructor",
             "enroll_user": False,
             "masquerade_role": None,
-            "expect_can_load_courseware": False,
+            "expect_course_access": False,
         },
         {
             # If MFE is not visible, masquerading instructors shouldn't have access.
@@ -258,20 +272,20 @@ class CourseApiTestViews(BaseCoursewareTests, MasqueradeMixin):
             "username": "instructor",
             "enroll_user": False,
             "masquerade_role": "student",
-            "expect_can_load_courseware": False,
+            "expect_course_access": False,
         },
     )
     @ddt.unpack
-    def test_can_load_courseware(
+    def test_course_access(
             self,
             mfe_is_visible: bool,
             username: str,
             enroll_user: bool,
             masquerade_role: Optional[str],
-            expect_can_load_courseware: bool,
+            expect_course_access: bool,
     ):
         """
-        Test that can_load_courseware is calculated correctly based on
+        Test that course_access is calculated correctly based on
         access to MFE and access to the course itself.
         """
         user = User.objects.get(username=username)
@@ -289,37 +303,34 @@ class CourseApiTestViews(BaseCoursewareTests, MasqueradeMixin):
             response = self.client.get(self.url)
 
         assert response.status_code == 200
-        if expect_can_load_courseware:
-            assert response.data['can_load_courseware']['has_access']
+        if expect_course_access:
+            assert response.data['course_access']['has_access']
         else:
-            assert not response.data['can_load_courseware']['has_access']
+            assert not response.data['course_access']['has_access']
 
     def test_streak_data_in_response(self):
         """ Test that metadata endpoint returns data for the streak celebration """
         CourseEnrollment.enroll(self.user, self.course.id, 'audit')
-        with override_experiment_waffle_flag(STREAK_DISCOUNT_EXPERIMENT_FLAG, active=True):
+        with override_waffle_flag(COURSEWARE_MFE_MILESTONES_STREAK_DISCOUNT, active=True):
             with mock.patch('common.djangoapps.student.models.UserCelebration.perform_streak_updates', return_value=3):
-                response = self.client.get(self.url, content_type='application/json')
-                celebrations = response.json()['celebrations']
-                assert celebrations['streak_length_to_celebrate'] == 3
-                assert celebrations['streak_discount_experiment_enabled'] is True
+                with mock.patch('common.djangoapps.track.segment.track') as mock_segment_track:
+                    response = self.client.get(self.url, content_type='application/json')
+                    celebrations = response.json()['celebrations']
+                    assert celebrations['streak_length_to_celebrate'] == 3
+                    assert celebrations['streak_discount_enabled'] is True
+                    mock_segment_track.assert_called_once()
 
-    @ddt.data(
-        (False, False),
-        (False, True),
-        (True, False),
-        (True, True),
-    )
-    @ddt.unpack
-    def test_special_exams_enabled_for_course(self, is_globally_enabled, is_waffle_enabled):
-        """ Ensure that special exams flag present in courseware meta data with expected value """
-        with mock.patch.dict('django.conf.settings.FEATURES', {'ENABLE_SPECIAL_EXAMS': is_globally_enabled}):
-            with override_waffle_flag(COURSEWARE_MICROFRONTEND_SPECIAL_EXAMS, active=is_waffle_enabled):
-                response = self.client.get(self.url)
-                assert response.status_code == 200
-                courseware_data = response.json()
-                assert 'is_mfe_special_exams_enabled' in courseware_data
-                assert courseware_data['is_mfe_special_exams_enabled'] == (is_globally_enabled and is_waffle_enabled)
+    def test_streak_segment_suppressed_for_unverified(self):
+        """ Test that metadata endpoint does not return a discount and signal is not sent if flag is not set """
+        CourseEnrollment.enroll(self.user, self.course.id, 'audit')
+        with override_waffle_flag(COURSEWARE_MFE_MILESTONES_STREAK_DISCOUNT, active=False):
+            with mock.patch('common.djangoapps.student.models.UserCelebration.perform_streak_updates', return_value=3):
+                with mock.patch('common.djangoapps.track.segment.track') as mock_segment_track:
+                    response = self.client.get(self.url, content_type='application/json')
+                    celebrations = response.json()['celebrations']
+                    assert celebrations['streak_length_to_celebrate'] == 3
+                    assert celebrations['streak_discount_enabled'] is False
+                    mock_segment_track.assert_not_called()
 
     @ddt.data(
         (None, False, False, False),
@@ -351,25 +362,9 @@ class CourseApiTestViews(BaseCoursewareTests, MasqueradeMixin):
         assert 'user_needs_integrity_signature' in courseware_data
         assert courseware_data['user_needs_integrity_signature'] == needs_integrity_signature
 
-    @ddt.data(
-        (False, False),
-        (False, True),
-        (True, False),
-        (True, True),
-    )
-    @ddt.unpack
-    def test_proctored_exams_enabled_for_course(self, is_globally_enabled, is_waffle_enabled):
-        """ Ensure that proctored exams flag present in courseware meta data with expected value """
-        with mock.patch.dict('django.conf.settings.FEATURES', {'ENABLE_SPECIAL_EXAMS': is_globally_enabled}):
-            with override_waffle_flag(COURSEWARE_MICROFRONTEND_PROCTORED_EXAMS, active=is_waffle_enabled):
-                response = self.client.get(self.url)
-                assert response.status_code == 200
-                courseware_data = response.json()
-                assert 'is_mfe_proctored_exams_enabled' in courseware_data
-                assert courseware_data['is_mfe_proctored_exams_enabled'] == (is_globally_enabled and is_waffle_enabled)
 
-
-class SequenceApiTestViews(BaseCoursewareTests):
+@ddt.ddt
+class SequenceApiTestViews(MasqueradeMixin, BaseCoursewareTests):
     """
     Tests for the sequence REST API
     """
@@ -388,6 +383,32 @@ class SequenceApiTestViews(BaseCoursewareTests):
         assert response.status_code == 200
         assert response.data['display_name'] == 'sequence'
         assert len(response.data['items']) == 1
+
+    @ddt.data(
+        (False, None, False, False),
+        (True, None, True, False),
+        (True, {'username': 'student'}, False, True),
+        # Masquerading as a limited-access learner here, but specific partition/group doesn't matter.
+        # We just want to test that masquerading as a non-specific learner has a different outcome.
+        (True, {'user_partition_id': 51, 'group_id': 1}, True, False),
+    )
+    @ddt.unpack
+    def test_hidden_after_due(self, is_past_due, masquerade_config, expected_hidden, expected_banner):
+        """Validate the metadata when hide-after-due is set for a sequence"""
+        due = datetime.now() + timedelta(days=-1 if is_past_due else 1)
+        sequence = ItemFactory(parent=self.chapter, category='sequential', hide_after_due=True, due=due)
+
+        CourseEnrollment.enroll(self.user, self.course.id)
+
+        user = self.instructor if masquerade_config else self.user
+        self.client.login(username=user.username, password='foo')
+        if masquerade_config:
+            self.update_masquerade(**masquerade_config)
+
+        response = self.client.get(f'/api/courseware/sequence/{sequence.location}')
+        assert response.status_code == 200
+        assert response.data['is_hidden_after_due'] == expected_hidden
+        assert bool(response.data['banner_text']) == expected_banner
 
 
 class ResumeApiTestViews(BaseCoursewareTests, CompletionWaffleTestMixin):

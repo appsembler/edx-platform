@@ -1,0 +1,12 @@
+# Run commitlint on the commit messages in a pull request.
+
+name: Lint Commit Messages
+
+on:
+  pull_request:
+    branches:
+      - master  # Tahoe: this line effectively disables it on Tahoe
+
+jobs:
+  commitlint:
+    uses: edx/.github/.github/workflows/commitlint.yml@master

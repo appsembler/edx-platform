@@ -10,6 +10,12 @@ import beeline
 import logging
 import os
 
+# Patch the xml libs before anything else.
+from safe_lxml import defuse_xml_libs
+
+defuse_xml_libs()
+
+
 # Set the default Django settings module for the 'celery' program
 # and then instantiate the Celery singleton.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cms.envs.production')

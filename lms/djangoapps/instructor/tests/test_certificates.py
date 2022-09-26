@@ -248,7 +248,7 @@ class CertificatesInstructorApiTest(SharedModuleStoreTestCase):
         cache.clear()
         CertificateGenerationConfiguration.objects.create(enabled=True)
 
-    @ddt.data('generate_example_certificates', 'enable_certificate_generation')
+    @ddt.data('enable_certificate_generation')
     def test_allow_course_staff(self, url_name):
         """
         Tahoe: Certificate views permission.
@@ -270,23 +270,6 @@ class CertificatesInstructorApiTest(SharedModuleStoreTestCase):
         response = self.client.post(url)
         assert response.status_code == 302
 
-    def test_generate_example_certificates(self):
-        self.client.login(username=self.global_staff.username, password='test')
-        url = reverse(
-            'generate_example_certificates',
-            kwargs={'course_id': str(self.course.id)}
-        )
-        response = self.client.post(url)
-
-        # Expect a redirect back to the instructor dashboard
-        self._assert_redirects_to_instructor_dash(response)
-
-        # Expect that certificate generation started
-        # Cert generation will fail here because XQueue isn't configured,
-        # but the status should at least not be None.
-        status = certs_api.example_certificates_status(self.course.id)
-        assert status is not None
-
     @ddt.data(True, False)
     def test_enable_certificate_generation(self, is_enabled):
         self.client.login(username=self.global_staff.username, password='test')
@@ -301,7 +284,7 @@ class CertificatesInstructorApiTest(SharedModuleStoreTestCase):
         self._assert_redirects_to_instructor_dash(response)
 
         # Expect that certificate generation is now enabled for the course
-        actual_enabled = certs_api.cert_generation_enabled(self.course.id)
+        actual_enabled = certs_api.has_self_generated_certificates_enabled(self.course.id)
         assert is_enabled == actual_enabled
 
     def _assert_redirects_to_instructor_dash(self, response):

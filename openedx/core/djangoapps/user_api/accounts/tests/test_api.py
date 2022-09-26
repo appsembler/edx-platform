@@ -4,6 +4,7 @@ Most of the functionality is covered in test_views.py.
 """
 
 
+import datetime
 import itertools
 import unicodedata
 from unittest.mock import Mock, patch
@@ -16,6 +17,9 @@ from django.http import HttpResponse
 from django.test import TestCase
 from django.test.client import RequestFactory
 from django.urls import reverse
+from edx_name_affirmation.toggles import VERIFIED_NAME_FLAG
+from edx_toggles.toggles.testutils import override_waffle_flag
+from pytz import UTC
 from social_django.models import UserSocialAuth
 from common.djangoapps.student.models import (
     AccountRecovery,
@@ -361,6 +365,64 @@ class TestAccountApi(UserSettingsEventTestMixin, EmailTemplateTagMixin, CreateAc
         assert 'Valid e-mail address required.' in field_errors['email']['developer_message']
         assert 'Full Name cannot contain the following characters: < >' in field_errors['name']['user_message']
 
+    @override_waffle_flag(VERIFIED_NAME_FLAG, active=True)
+    def test_validate_name_change_same_name(self):
+        """
+        Test that saving the user's profile name without changing it should not raise an error.
+        """
+        account_settings = get_account_settings(self.default_request)[0]
+
+        # Add name change history to the profile metadeta; if the user has at least one certificate,
+        # too many name changes will trigger the verification requirement, but this should only happen
+        # if the name has actually been changed
+        user_profile = UserProfile.objects.get(user=self.user)
+        meta = user_profile.get_meta()
+        meta['old_names'] = []
+        for num in range(3):
+            meta['old_names'].append(
+                [f'old_name_{num}', 'test', datetime.datetime.now(UTC).isoformat()]
+            )
+        user_profile.set_meta(meta)
+        user_profile.save()
+
+        with patch(
+            'openedx.core.djangoapps.user_api.accounts.api.get_certificates_for_user',
+            return_value=['mock_certificate']
+        ):
+            update_account_settings(self.user, {'name': account_settings['name']})
+            # The name should not be added to profile metadata
+            updated_meta = user_profile.get_meta()
+            self.assertEqual(meta, updated_meta)
+
+    @patch('edx_name_affirmation.name_change_validator.NameChangeValidator', Mock())
+    @patch('edx_name_affirmation.name_change_validator.NameChangeValidator.validate', Mock(return_value=False))
+    @override_waffle_flag(VERIFIED_NAME_FLAG, active=True)
+    def test_name_update_requires_idv(self):
+        """
+        Test that a name change is blocked through this API if it requires ID verification.
+        """
+        with pytest.raises(AccountValidationError) as context_manager:
+            update_account_settings(self.user, {'name': 'New Name'})
+
+        field_errors = context_manager.value.field_errors
+        assert len(field_errors) == 1
+        assert field_errors['name']['developer_message'] == 'This name change requires ID verification.'
+
+        account_settings = get_account_settings(self.default_request)[0]
+        assert account_settings['name'] != 'New Name'
+
+    @patch('edx_name_affirmation.name_change_validator.NameChangeValidator', Mock())
+    @patch('edx_name_affirmation.name_change_validator.NameChangeValidator.validate', Mock(return_value=True))
+    @override_waffle_flag(VERIFIED_NAME_FLAG, active=True)
+    def test_name_update_does_not_require_idv(self):
+        """
+        Test that the user can change their name if change does not require IDV.
+        """
+        update_account_settings(self.user, {'name': 'New Name'})
+
+        account_settings = get_account_settings(self.default_request)[0]
+        assert account_settings['name'] == 'New Name'
+
     @patch('django.core.mail.EmailMultiAlternatives.send')
     @patch('common.djangoapps.student.views.management.render_to_string', Mock(side_effect=mock_render_to_string, autospec=True))  # lint-amnesty, pylint: disable=line-too-long
     def test_update_sending_email_fails(self, send_mail):
@@ -554,7 +616,9 @@ class AccountSettingsOnCreationTest(CreateAccountMixin, TestCase):
             'secondary_email_enabled': None,
             'time_zone': None,
             'course_certificates': None,
-            'phone_number': None
+            'phone_number': None,
+            'pending_name_change': None,
+            'is_verified_name_enabled': False,
         }
 
     def test_normalize_password(self):

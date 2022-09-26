@@ -25,7 +25,7 @@ from django.contrib.auth.models import User  # lint-amnesty, pylint: disable=imp
 from django.core.files.base import ContentFile
 from django.db import models, transaction
 from django.urls import reverse
-from django.utils.encoding import python_2_unicode_compatible
+
 from django.utils.functional import cached_property
 from django.utils.timezone import now
 from django.utils.translation import ugettext_lazy
@@ -158,7 +158,6 @@ class IDVerificationAttempt(StatusModel):
         )
 
 
-@python_2_unicode_compatible
 class ManualVerification(IDVerificationAttempt):
     """
     Each ManualVerification represents a user's verification that bypasses the need for
@@ -193,7 +192,6 @@ class ManualVerification(IDVerificationAttempt):
         return False
 
 
-@python_2_unicode_compatible
 class SSOVerification(IDVerificationAttempt):
     """
     Each SSOVerification represents a Student's attempt to establish their identity
@@ -400,10 +398,10 @@ class PhotoVerification(IDVerificationAttempt):
             they uploaded are good. Note that we don't actually do a submission
             anywhere yet.
         """
-        # At any point prior to this, they can change their names via their
-        # student dashboard. But at this point, we lock the value into the
-        # attempt.
-        self.name = self.user.profile.name  # pylint: disable=no-member
+        # If a name is not already set via the verified_name flow,
+        # pick up the profile name at this time.
+        if not self.name:
+            self.name = self.user.profile.name  # pylint: disable=no-member
         self.status = self.STATUS.ready
         self.save()
 

@@ -24,6 +24,8 @@ from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.debug import sensitive_post_parameters
 from edx_django_utils.monitoring import set_custom_attribute
 from edx_toggles.toggles import LegacyWaffleFlag, LegacyWaffleFlagNamespace
+from openedx_events.learning.data import UserData, UserPersonalData
+from openedx_events.learning.signals import STUDENT_REGISTRATION_COMPLETED
 from pytz import UTC
 from ratelimit.decorators import ratelimit
 from requests import HTTPError
@@ -61,13 +63,14 @@ from openedx.core.djangoapps.user_api.accounts.api import (
 from openedx.core.djangoapps.user_api.preferences import api as preferences_api
 from openedx.core.djangoapps.user_authn.cookies import set_logged_in_cookies
 from openedx.core.djangoapps.user_authn.utils import (
-    generate_password, generate_username_suggestions, is_registration_api_v1
+    generate_username_suggestions, is_registration_api_v1
 )
 from openedx.core.djangoapps.user_authn.views.registration_form import (
     AccountCreationForm,
     RegistrationFormFactory,
     get_registration_extension_form
 )
+from openedx.core.djangoapps.user_authn.tasks import check_pwned_password_and_send_track_event
 from openedx.core.djangoapps.user_authn.toggles import is_require_third_party_auth_enabled
 from common.djangoapps.student.helpers import (
     AccountValidationError,
@@ -97,6 +100,7 @@ from openedx.core.djangoapps.appsembler.sites.utils import (
     is_request_for_amc_admin,
     is_request_for_new_amc_site,
 )
+from edx_django_utils.user import generate_password
 
 log = logging.getLogger("edx.student")
 AUDIT_LOG = logging.getLogger("audit")
@@ -112,6 +116,7 @@ REGISTRATION_UTM_PARAMETERS = {
     'utm_content': 'registration_utm_content',
 }
 REGISTRATION_UTM_CREATED_AT = 'registration_utm_created_at'
+MARKETING_EMAILS_OPT_IN = 'marketing_emails_opt_in'
 # used to announce a registration
 REGISTER_USER = Signal(providing_args=["user", "registration"])
 
@@ -225,7 +230,7 @@ def create_account_with_params(request, params):
     custom_form = get_registration_extension_form(data=params)
 
     # Perform operations within a transaction that are critical to account creation
-    with outer_atomic(read_committed=True):
+    with outer_atomic():
         # first, create the account
         (user, profile, registration) = do_create_account(form, custom_form)
 
@@ -266,7 +271,7 @@ def create_account_with_params(request, params):
         except Exception:  # pylint: disable=broad-except
             log.exception(f"Enable discussion notifications failed for user {user.id}.")
 
-    _track_user_registration(user, profile, params, third_party_provider)
+    _track_user_registration(user, profile, params, third_party_provider, registration)
 
     # TODO: RED-2845 Clean when AMC is removed.
     if not is_request_for_new_amc_site(request):
@@ -285,20 +290,39 @@ def create_account_with_params(request, params):
     # Announce registration
     REGISTER_USER.send(sender=None, user=user, registration=registration)
 
+    # .. event_implemented_name: STUDENT_REGISTRATION_COMPLETED
+    STUDENT_REGISTRATION_COMPLETED.send_event(
+        user=UserData(
+            pii=UserPersonalData(
+                username=user.username,
+                email=user.email,
+                name=user.profile.name,
+            ),
+            id=user.id,
+            is_active=user.is_active,
+        ),
+    )
+
     create_comments_service_user(user)
 
     try:
         _record_registration_attributions(request, new_user)
+        _record_marketing_emails_opt_in_attribute(params.get('marketing_emails_opt_in'), new_user)
     # Don't prevent a user from registering due to attribution errors.
     except Exception:   # pylint: disable=broad-except
         log.exception('Error while attributing cookies to user registration.')
 
     # TODO: there is no error checking here to see that the user actually logged in successfully,
     # and is not yet an active user.
-    if new_user is not None:
-        AUDIT_LOG.info(f"Login success on new account creation - {new_user.username}")
-
+    is_new_user(request, new_user)
     return new_user
+
+
+def is_new_user(request, user):
+    if user is not None:
+        AUDIT_LOG.info(f"Login success on new account creation - {user.username}")
+        is_internal_user = user.email.split('@')[1] == 'edx.org'
+        check_pwned_password_and_send_track_event.delay(user.id, request.POST.get('password'), is_internal_user)
 
 
 def _link_user_to_third_party_provider(
@@ -356,7 +380,7 @@ def _link_user_to_third_party_provider(
     return third_party_provider, running_pipeline
 
 
-def _track_user_registration(user, profile, params, third_party_provider):
+def _track_user_registration(user, profile, params, third_party_provider, registration):
     """ Track the user's registration. """
     if hasattr(settings, 'LMS_SEGMENT_KEY') and settings.LMS_SEGMENT_KEY:
         identity_args = [
@@ -372,6 +396,8 @@ def _track_user_registration(user, profile, params, third_party_provider):
                 'address': profile.mailing_address,
                 'gender': profile.gender_display,
                 'country': str(profile.country),
+                'email_subscribe': 'unsubscribed' if settings.MARKETING_EMAILS_OPT_IN and
+                                   params.get('marketing_emails_opt_in') == 'false' else 'subscribed',
             }
         ]
         # .. pii: Many pieces of PII are sent to Segment here. Retired directly through Segment API call in Tubular.
@@ -389,7 +415,12 @@ def _track_user_registration(user, profile, params, third_party_provider):
             'is_education_selected': bool(profile.level_of_education_display),
             'is_goal_set': bool(profile.goals),
             'total_registration_time': round(float(params.get('totalRegistrationTime', '0'))),
+            'activation_key': registration.activation_key if registration else None,
         }
+        # VAN-738 - added below properties to experiment marketing emails opt in/out events on Braze.
+        if params.get('marketing_emails_opt_in') and settings.MARKETING_EMAILS_OPT_IN:
+            properties['marketing_emails_opt_in'] = params.get('marketing_emails_opt_in') == 'true'
+
         # DENG-803: For segment events forwarded along to Hubspot, duplicate the `properties` section of
         # the event payload into the `traits` section so that they can be received. This is a temporary
         # fix until we implement this behavior outside of the LMS.
@@ -462,6 +493,14 @@ def _skip_activation_email(user, running_pipeline, third_party_provider, params)
         is_request_for_amc_admin(get_current_request()) or
         (third_party_provider and third_party_provider.skip_email_verification and valid_email)
     )
+
+
+def _record_marketing_emails_opt_in_attribute(opt_in, user):
+    """
+    Attribute this user's registration based on form data
+    """
+    if settings.MARKETING_EMAILS_OPT_IN and user and opt_in:
+        UserAttribute.set_user_attribute(user, MARKETING_EMAILS_OPT_IN, opt_in)
 
 
 def _record_registration_attributions(request, user):

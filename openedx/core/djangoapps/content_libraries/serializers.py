@@ -11,8 +11,12 @@ from openedx.core.djangoapps.content_libraries.constants import (
     ALL_RIGHTS_RESERVED,
     LICENSE_OPTIONS,
 )
-from openedx.core.djangoapps.content_libraries.models import ContentLibraryPermission
+from openedx.core.djangoapps.content_libraries.models import (
+    ContentLibraryPermission, ContentLibraryBlockImportTask
+)
 from openedx.core.lib import blockstore_api
+from openedx.core.lib.api.serializers import CourseKeyField
+
 
 DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 
@@ -37,6 +41,7 @@ class ContentLibraryMetadataSerializer(serializers.Serializer):
     num_blocks = serializers.IntegerField(read_only=True)
     version = serializers.IntegerField(read_only=True)
     last_published = serializers.DateTimeField(format=DATETIME_FORMAT, read_only=True)
+    allow_lti = serializers.BooleanField(default=False, read_only=True)
     allow_public_learning = serializers.BooleanField(default=False)
     allow_public_read = serializers.BooleanField(default=False)
     has_unpublished_changes = serializers.BooleanField(read_only=True)
@@ -85,12 +90,18 @@ class ContentLibraryPermissionSerializer(ContentLibraryPermissionLevelSerializer
     group_name = serializers.CharField(source="group.name", allow_null=True, allow_blank=False, default=None)
 
 
-class ContentLibraryFilterSerializer(serializers.Serializer):
+class BaseFilterSerializer(serializers.Serializer):
     """
-    Serializer for filtering library listings.
+    Base serializer for filtering listings on the content library APIs.
     """
     text_search = serializers.CharField(default=None, required=False)
     org = serializers.CharField(default=None, required=False)
+
+
+class ContentLibraryFilterSerializer(BaseFilterSerializer):
+    """
+    Serializer for filtering library listings.
+    """
     type = serializers.ChoiceField(choices=LIBRARY_TYPES, default=None, required=False)
 
 
@@ -190,3 +201,30 @@ class LibraryXBlockStaticFilesSerializer(serializers.Serializer):
     Serializes a LibraryXBlockStaticFile (or a BundleFile)
     """
     files = LibraryXBlockStaticFileSerializer(many=True)
+
+
+class ContentLibraryBlockImportTaskSerializer(serializers.ModelSerializer):
+    """
+    Serializer for a Content Library block import task.
+    """
+
+    org = serializers.SerializerMethodField()
+
+    def get_org(self, obj):
+        return obj.course_id.org
+
+    class Meta:
+        model = ContentLibraryBlockImportTask
+        fields = '__all__'
+
+
+class ContentLibraryBlockImportTaskCreateSerializer(serializers.Serializer):
+    """
+    Serializer to create a new block import task.
+
+    The serializer accepts the following parameter:
+
+    - The courseware course key to import blocks from.
+    """
+
+    course_key = CourseKeyField()

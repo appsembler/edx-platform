@@ -2,7 +2,6 @@
 Unit tests for masquerade.
 """
 
-
 import json
 import pickle
 from datetime import datetime
@@ -10,6 +9,7 @@ from importlib import import_module
 from unittest.mock import patch
 import pytest
 import ddt
+from operator import itemgetter
 from django.conf import settings
 from django.test import TestCase, RequestFactory
 from django.urls import reverse
@@ -25,6 +25,7 @@ from lms.djangoapps.courseware.masquerade import (
     get_masquerading_user_group,
     setup_masquerade,
 )
+
 from lms.djangoapps.courseware.tests.helpers import LoginEnrollmentTestCase, MasqueradeMixin, masquerade_as_group_member
 from lms.djangoapps.courseware.tests.test_submitting_problems import ProblemSubmissionTestMixin
 from openedx.core.djangoapps.lang_pref import LANGUAGE_KEY
@@ -44,6 +45,7 @@ class MasqueradeTestCase(SharedModuleStoreTestCase, LoginEnrollmentTestCase, Mas
     """
     Base class for masquerade tests that sets up a test course and enrolls a user in the course.
     """
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -128,6 +130,18 @@ class MasqueradeTestCase(SharedModuleStoreTestCase, LoginEnrollmentTestCase, Mas
         )
         return self.client.get(url)
 
+    def get_available_masquerade_identities(self):
+        """
+        Returns: the server response for masquerade options
+        """
+        url = reverse(
+            'masquerade_update',
+            kwargs={
+                'course_key_string': str(self.course.id),
+            }
+        )
+        return self.client.get(url)
+
     def verify_staff_debug_present(self, staff_debug_expected):
         """
         Verifies that the staff debug control visibility is as expected (for staff only).
@@ -177,6 +191,7 @@ class NormalStudentVisibilityTest(MasqueradeTestCase):
     """
     Verify the course displays as expected for a "normal" student (to ensure test setup is correct).
     """
+
     def create_user(self):
         """
         Creates a normal student user.
@@ -202,6 +217,7 @@ class StaffMasqueradeTestCase(MasqueradeTestCase):
     """
     Base class for tests of the masquerade behavior for a staff member.
     """
+
     def create_user(self):
         """
         Creates a staff user.
@@ -209,10 +225,69 @@ class StaffMasqueradeTestCase(MasqueradeTestCase):
         return StaffFactory(course_key=self.course.id)
 
 
+@ddt.ddt
+class TestMasqueradeLearnerOptions(StaffMasqueradeTestCase):
+    """
+    Check that 'View as Learner' option is available only if there are NO groups or partitions
+    """
+
+    @ddt.data(True, False)
+    @patch.dict('django.conf.settings.FEATURES', {'ENABLE_MASQUERADE': True})
+    def test_masquerade_options_for_learner(self, partitions_enabled):
+        """
+        If there are partitions, then the View as Learner should NOT be available
+        """
+        with patch.dict('django.conf.settings.FEATURES',
+                        {'ENABLE_ENROLLMENT_TRACK_USER_PARTITION': partitions_enabled}):
+            response = self.get_available_masquerade_identities()
+            is_learner_available = 'Learner' in map(itemgetter('name'), response.json()['available'])
+            assert partitions_enabled != is_learner_available
+
+
+@ddt.ddt
+class TestMasqueradeOptionsNoContentGroups(StaffMasqueradeTestCase):
+    """
+    Test that split_test content groups (which are the partitions with a "random" scheme),
+    do not show up in the masquerade options popup, but cohort groups do appear.
+    """
+
+    def setUp(self):
+        super().setUp()
+
+        self.user_partition = UserPartition(
+            0, 'Test User Partition', '',
+            [Group(0, 'Cohort Group 1'), Group(1, 'Cohort Group 2')],
+            scheme_id='cohort'
+        )
+        self.course.user_partitions.append(self.user_partition)
+        self.user_partition = UserPartition(
+            0, 'Test User Partition 2', '',
+            [Group(0, 'Content Group 1'), Group(1, 'Content Group 2')],
+            scheme_id='random'
+        )
+        self.course.user_partitions.append(self.user_partition)
+
+        modulestore().update_item(self.course, self.test_user.id)
+
+    @ddt.data(['Cohort Group 1', True], ['Content Group 1', False])
+    @ddt.unpack
+    @patch.dict('django.conf.settings.FEATURES', {'ENABLE_MASQUERADE': True})
+    def testMasqueradeCohortAvailable(self, target, expected):
+        """
+        Args:
+            target: The partition to check for in masquerade options
+            expected: Whether to partition should be in the list
+        """
+        response = self.get_available_masquerade_identities()
+        is_target_available = target in map(itemgetter('name'), response.json()['available'])
+        assert is_target_available == expected
+
+
 class TestStaffMasqueradeAsStudent(StaffMasqueradeTestCase):
     """
     Check for staff being able to masquerade as student.
     """
+
     @patch.dict('django.conf.settings.FEATURES', {'DISABLE_START_DATES': False})
     def test_staff_debug_with_masquerade(self):
         """
@@ -251,6 +326,7 @@ class TestStaffMasqueradeAsSpecificStudent(StaffMasqueradeTestCase, ProblemSubmi
     """
     Check for staff being able to masquerade as a specific student.
     """
+
     def setUp(self):
         super().setUp()
         self.student_user = self.create_user()
@@ -296,7 +372,7 @@ class TestStaffMasqueradeAsSpecificStudent(StaffMasqueradeTestCase, ProblemSubmi
             expected_language_code: string indicating a language code
         """
         assert get_user_preference(user, LANGUAGE_KEY) == expected_language_code
-        assert self.client.cookies[settings.LANGUAGE_COOKIE].value == expected_language_code
+        assert self.client.cookies[settings.LANGUAGE_COOKIE_NAME].value == expected_language_code
 
     @override_waffle_flag(DISABLE_UNIFIED_COURSE_TAB_FLAG, active=True)
     @patch.dict('django.conf.settings.FEATURES', {'DISABLE_START_DATES': False})
@@ -437,6 +513,7 @@ class TestGetMasqueradingGroupId(StaffMasqueradeTestCase):
     """
     Check for staff being able to masquerade as belonging to a group.
     """
+
     def setUp(self):
         super().setUp()
         self.user_partition = UserPartition(
@@ -470,6 +547,7 @@ class ReadOnlyKeyValueStore(DictKeyValueStore):
 
     Used to make sure MasqueradingKeyValueStore does not try to modify the underlying KeyValueStore.
     """
+
     def set(self, key, value):
         assert False, "ReadOnlyKeyValueStore may not be modified."
 
@@ -489,6 +567,7 @@ class MasqueradingKeyValueStoreTest(TestCase):
     """
     Unit tests for the MasqueradingKeyValueStore class.
     """
+
     def setUp(self):
         super().setUp()
         self.ro_kvs = ReadOnlyKeyValueStore({'a': 42, 'b': None, 'c': 'OpenCraft'})
@@ -528,6 +607,7 @@ class CourseMasqueradeTest(TestCase):
     """
     Unit tests for the CourseMasquerade class.
     """
+
     def test_unpickling_sets_all_attributes(self):
         """
         Make sure that old CourseMasquerade objects receive missing attributes when unpickled from
@@ -540,10 +620,11 @@ class CourseMasqueradeTest(TestCase):
         assert unpickled_cmasq.user_name is None
 
 
-class SetupMasqueradeTests(SharedModuleStoreTestCase,):
+class SetupMasqueradeTests(SharedModuleStoreTestCase, ):
     """
     Tests for the setup_masquerade function.
     """
+
     def setUp(self):
         super().setUp()
         self.course = CourseFactory.create(number='setup-masquerade-test', metadata={'start': datetime.now(UTC)})

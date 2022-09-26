@@ -25,9 +25,9 @@ def update_session_language(request):
         if request.session.get(LANGUAGE_SESSION_KEY, None) != language:
             request.session[LANGUAGE_SESSION_KEY] = str(language)
         response.set_cookie(
-            settings.LANGUAGE_COOKIE,
+            settings.LANGUAGE_COOKIE_NAME,
             language,
-            domain=settings.SESSION_COOKIE_DOMAIN,
+            domain=settings.SHARED_COOKIE_DOMAIN,
             max_age=COOKIE_DURATION,
             secure=request.is_secure(),
         )

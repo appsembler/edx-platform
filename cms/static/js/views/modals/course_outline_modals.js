@@ -390,12 +390,11 @@ define(['jquery', 'backbone', 'underscore', 'gettext', 'js/views/baseview',
     });
 
     SelfPacedDueDateEditor = AbstractEditor.extend({
-        fieldName: 'due_num_weeks',
+        fieldName: 'relative_weeks_due',
         templateName: 'self-paced-due-date-editor',
         className: 'modal-section-content has-actions due-date-input grading-due-date',
-
         events: {
-            'click .clear-date': 'clearValue',
+            'change #due_in': 'validateDueIn',
             'keyup #due_in': 'validateDueIn',
             'blur #due_in': 'validateDueIn',
         },
@@ -404,43 +403,77 @@ define(['jquery', 'backbone', 'underscore', 'gettext', 'js/views/baseview',
             return parseInt(this.$('#due_in').val());
         },
 
+        showProjectedDate: function() {
+            if (!this.getValue() || !course.get('start')) return;
+            var startDate = new Date(course.get('start'));
+            // The value returned by toUTCString() is a string in the form Www, dd Mmm yyyy hh:mm:ss GMT
+            var startDateList = startDate.toUTCString().split(' ')
+            // This text will look like Mmm dd, yyyy (i.e. Jul 26, 2021)
+            this.$("#relative_weeks_due_start_date").text(startDateList[2] + ' ' + startDateList[1] + ', ' + startDateList[3]);
+            var projectedDate = new Date(startDate)
+            projectedDate.setDate(projectedDate.getDate() + this.getValue()*7);
+            var projectedDateList = projectedDate.toUTCString().split(' ');
+            this.$("#relative_weeks_due_projected_due_in").text(projectedDateList[2] + ' ' + projectedDateList[1] + ', ' + projectedDateList[3]);
+            this.$('#relative_weeks_due_projected').show();
+        },
+
         validateDueIn: function() {
+            this.$('#relative_weeks_due_projected').hide();
             if (this.getValue() > 18){
-                this.$('#due-num-weeks-warning-max').show();
+                this.$('#relative_weeks_due_warning_max').show();
                 BaseModal.prototype.disableActionButton.call(this.parent, 'save');
             }
             else if (this.getValue() < 1){
-                this.$('#due-num-weeks-warning-min').show()
+                this.$('#relative_weeks_due_warning_min').show()
                 BaseModal.prototype.disableActionButton.call(this.parent, 'save');
             }
             else {
-                this.$('#due-num-weeks-warning-max').hide();
-                this.$('#due-num-weeks-warning-min').hide();
+                this.$('#relative_weeks_due_warning_max').hide();
+                this.$('#relative_weeks_due_warning_min').hide();
+                this.showProjectedDate();
                 BaseModal.prototype.enableActionButton.call(this.parent, 'save');
             }
         },
 
-        clearValue: function(event) {
-            event.preventDefault();
-            this.$('#due_in').val('');
-        },
-
         afterRender: function() {
             AbstractEditor.prototype.afterRender.call(this);
-            this.$('.field-due-in input').val(this.model.get('due_num_weeks'));
+            if (this.model.get('graded')) {
+                this.$('#relative_date_input').show()
+            }
+            else {
+                this.$('#relative_date_input').hide()
+            }
+            this.$('.field-due-in input').val(this.model.get('relative_weeks_due'));
+            this.$('#relative_weeks_due_projected').hide();
+            this.showProjectedDate();
         },
 
         getRequestData: function() {
-            if (this.getValue() < 19 && this.getValue() > 0) {
-                return {
-                    metadata: {
-                        due_num_weeks: this.getValue()
-                    }
-                };
+            // Grab all the sections, map them to their block_ids, then return as an Array
+            var sectionIds = $('.outline-section').map(function(){return this.id;}).get()
+            // Grab all the subsections, map them to their block_ids, then return as an Array
+            var subsectionIds = $('.outline-subsection').map(function(){return this.id;}).get()
+            var relative_weeks_due = null;
+            if (this.getValue() < 19 && this.getValue() > 0 && $('#grading_type').val() !== 'notgraded') {
+                relative_weeks_due = this.getValue()
             }
-        }
+            window.analytics.track('edx.bi.studio.relative_date.saved', {
+                block_id: this.model.get('id'),
+                courserun_key: course.get('id'),
+                num_of_sections_in_course: $('.outline-section').length,
+                num_of_subsections_in_course: $('.outline-subsection').length,
+                order_in_sections: sectionIds.indexOf(this.parent.options.parentInfo.get('id')) + 1,
+                order_in_subsections: subsectionIds.indexOf(this.model.get('id')) + 1,
+                org_key: course.get('org'),
+                relative_weeks_due: relative_weeks_due,
+            });
+            return {
+                metadata: {
+                    relative_weeks_due: relative_weeks_due
+                }
+            };
+        },
     });
-
 
     ReleaseDateEditor = BaseDateEditor.extend({
         fieldName: 'start',
@@ -692,6 +725,18 @@ define(['jquery', 'backbone', 'underscore', 'gettext', 'js/views/baseview',
     GradingEditor = AbstractEditor.extend({
         templateName: 'grading-editor',
         className: 'edit-settings-grading',
+        events: {
+            'change #grading_type': 'handleGradingSelect',
+        },
+
+        handleGradingSelect: function(event) {
+            event.preventDefault();
+            if (this.$('#grading_type').val() !== 'notgraded' && course.get('self_paced') && course.get('is_custom_relative_dates_active')) {
+                $('#relative_date_input').show();
+            } else {
+                $('#relative_date_input').hide();
+            }
+        },
 
         afterRender: function() {
             AbstractEditor.prototype.afterRender.call(this);
@@ -1130,10 +1175,9 @@ define(['jquery', 'backbone', 'underscore', 'gettext', 'js/views/baseview',
                 } else if (xblockInfo.isSequential()) {
                     tabs[0].editors = [ReleaseDateEditor, GradingEditor, DueDateEditor];
                     tabs[1].editors = [ContentVisibilityEditor, ShowCorrectnessEditor];
-                    if (course.get('self_paced') && course.get('is_custom_pls_active')) {
+                    if (course.get('self_paced') && course.get('is_custom_relative_dates_active')) {
                         tabs[0].editors.push(SelfPacedDueDateEditor);
                     }
-
                     if (options.enable_proctored_exams || options.enable_timed_exams) {
                         advancedTab.editors.push(TimedExaminationPreferenceEditor);
                     }

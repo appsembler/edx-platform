@@ -11,12 +11,14 @@ import random
 import re
 import string
 from collections import defaultdict
+from typing import Dict
 
 import django.utils
 from ccx_keys.locator import CCXLocator
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -31,6 +33,7 @@ from opaque_keys.edx.keys import CourseKey
 from opaque_keys.edx.locator import BlockUsageLocator
 from organizations.api import add_organization_course, ensure_organization
 from organizations.exceptions import InvalidOrganizationException
+from rest_framework.exceptions import ValidationError
 
 from cms.djangoapps.course_creators.views import add_user_with_status_unrequested, get_course_creator_status
 from cms.djangoapps.models.settings.course_grading import CourseGradingModel
@@ -40,10 +43,8 @@ from common.djangoapps.course_action_state.managers import CourseActionStateItem
 from common.djangoapps.course_action_state.models import CourseRerunState, CourseRerunUIStateManager
 from common.djangoapps.course_modes.models import CourseMode
 from common.djangoapps.edxmako.shortcuts import render_to_response
-from common.djangoapps.student import auth
 from common.djangoapps.student.auth import has_course_author_access, has_studio_read_access, has_studio_write_access
 from common.djangoapps.student.roles import (
-    CourseCreatorRole,
     CourseInstructorRole,
     CourseStaffRole,
     GlobalStaff,
@@ -76,7 +77,7 @@ from openedx.features.content_type_gating.partitions import CONTENT_TYPE_GATING_
 from openedx.features.course_experience.waffle import ENABLE_COURSE_ABOUT_SIDEBAR_HTML
 from openedx.features.course_experience.waffle import waffle as course_experience_waffle
 from xmodule.contentstore.content import StaticContent
-from xmodule.course_module import DEFAULT_START_DATE, CourseFields
+from xmodule.course_module import CourseBlock, DEFAULT_START_DATE, CourseFields
 from xmodule.error_module import ErrorBlock
 from xmodule.modulestore import EdxJSONEncoder
 from xmodule.modulestore.django import modulestore
@@ -98,7 +99,6 @@ from ..toggles import split_library_view_on_dashboard
 from ..utils import (
     add_instructor,
     get_lms_link_for_item,
-    get_pages_and_resources_url,
     get_proctored_exam_settings_url,
     initialize_permissions,
     remove_all_instructors,
@@ -108,17 +108,18 @@ from ..utils import (
     reverse_usage_url
 )
 from .component import ADVANCED_COMPONENT_TYPES
+from .helpers import is_content_creator
 from .entrance_exam import create_entrance_exam, delete_entrance_exam, update_entrance_exam
 from .item import create_xblock_info
 from .library import (
     LIBRARIES_ENABLED,
     LIBRARY_AUTHORING_MICROFRONTEND_URL,
-    get_library_creator_status,
+    user_can_create_library,
     should_redirect_to_library_authoring_mfe
 )
 
 log = logging.getLogger(__name__)
-
+User = get_user_model()
 
 __all__ = ['course_info_handler', 'course_handler', 'course_listing',
            'course_info_update_handler', 'course_search_index_handler',
@@ -129,7 +130,8 @@ __all__ = ['course_info_handler', 'course_handler', 'course_listing',
            'advanced_settings_handler',
            'course_notifications_handler',
            'textbooks_list_handler', 'textbooks_detail_handler',
-           'group_configurations_list_handler', 'group_configurations_detail_handler']
+           'group_configurations_list_handler', 'group_configurations_detail_handler',
+           'get_course_and_check_access']
 
 WAFFLE_NAMESPACE = 'studio_home'
 
@@ -144,7 +146,7 @@ class AccessListFallback(Exception):
 
 def get_course_and_check_access(course_key, user, depth=0):
     """
-    Internal method used to calculate and return the locator and course module
+    Function used to calculate and return the locator and course module
     for the view functions in this file.
     """
     if not has_studio_read_access(user, course_key):
@@ -566,7 +568,7 @@ def course_listing(request):
         'redirect_to_library_authoring_mfe': should_redirect_to_library_authoring_mfe(),
         'library_authoring_mfe_url': LIBRARY_AUTHORING_MICROFRONTEND_URL,
         'libraries': [_format_library_for_view(lib, request) for lib in libraries],
-        'show_new_library_button': get_library_creator_status(user) and not should_redirect_to_library_authoring_mfe(),
+        'show_new_library_button': user_can_create_library(user) and not should_redirect_to_library_authoring_mfe(),
         'user': user,
         'request_course_creator_url': reverse('request_course_creator'),
         'course_creator_status': _get_course_creator_status(user),
@@ -733,7 +735,6 @@ def course_index(request, course_key):
             'mfe_proctored_exam_settings_url': get_proctored_exam_settings_url(course_module.id),
             'advance_settings_url': reverse_course_url('advanced_settings_handler', course_module.id),
             'proctoring_errors': proctoring_errors,
-            'pages_and_resources_mfe_link': get_pages_and_resources_url(course_module.id),
         })
 
 
@@ -853,9 +854,6 @@ def _create_or_rerun_course(request):
     Returns the destination course_key and overriding fields for the new course.
     Raises DuplicateCourseError and InvalidKeyError
     """
-    if not auth.user_has_role(request.user, CourseCreatorRole()):
-        raise PermissionDenied()
-
     try:
         org = request.json.get('org')
         course = request.json.get('number', request.json.get('course'))
@@ -863,6 +861,10 @@ def _create_or_rerun_course(request):
         # force the start date for reruns and allow us to override start via the client
         start = request.json.get('start', CourseFields.start.default)
         run = request.json.get('run')
+        has_course_creator_role = is_content_creator(request.user, org)
+
+        if not has_course_creator_role:
+            raise PermissionDenied()
 
         # allow/disable unicode characters in course_id according to settings
         if not settings.FEATURES.get('ALLOW_UNICODE_COURSE_ID'):
@@ -918,6 +920,20 @@ def _create_or_rerun_course(request):
     except InvalidKeyError as error:
         return JsonResponse({
             "ErrMsg": _("Unable to create course '{name}'.\n\n{err}").format(name=display_name, err=str(error))}
+        )
+    except PermissionDenied as error:
+        log.info(
+            "User does not have the permission to create course in this organization"
+            "or course creation is disabled."
+            "User: '%s' Org: '%s' Course #: '%s'.",
+            request.user.id,
+            org,
+            course,
+        )
+        return JsonResponse({
+            'error': _('User does not have the permission to create courses in this organization '
+                       'or course creation is disabled')},
+            status=403
         )
 
 
@@ -1170,7 +1186,6 @@ def settings_handler(request, course_key_string):  # lint-amnesty, pylint: disab
                 'enable_extended_course_details': enable_extended_course_details,
                 'upgrade_deadline': upgrade_deadline,
                 'mfe_proctored_exam_settings_url': get_proctored_exam_settings_url(course_module.id),
-                'pages_and_resources_mfe_link': get_pages_and_resources_url(course_module.id),
             }
             if is_prerequisite_courses_enabled():
                 courses, in_process_course_actions = get_courses_accessible_to_user(request)
@@ -1296,7 +1311,6 @@ def grading_handler(request, course_key_string, grader_index=None):
                 'grading_url': reverse_course_url('grading_handler', course_key),
                 'is_credit_course': is_credit_course(course_key),
                 'mfe_proctored_exam_settings_url': get_proctored_exam_settings_url(course_module.id),
-                'pages_and_resources_mfe_link': get_pages_and_resources_url(course_module.id),
             })
         elif 'application/json' in request.META.get('HTTP_ACCEPT', ''):
             if request.method == 'GET':
@@ -1329,7 +1343,7 @@ def grading_handler(request, course_key_string, grader_index=None):
                 return JsonResponse()
 
 
-def _refresh_course_tabs(request, course_module):
+def _refresh_course_tabs(user: User, course_module: CourseBlock):
     """
     Automatically adds/removes tabs if changes to the course require them.
 
@@ -1355,7 +1369,7 @@ def _refresh_course_tabs(request, course_module):
     # Additionally update any tabs that are provided by non-dynamic course views
     for tab_type in CourseTabPluginManager.get_tab_types():
         if not tab_type.is_dynamic and tab_type.is_default:
-            tab_enabled = tab_type.is_enabled(course_module, user=request.user)
+            tab_enabled = tab_type.is_enabled(course_module, user=user)
             update_tab(course_tabs, tab_type, tab_enabled)
 
     CourseTabList.validate_tabs(course_tabs)
@@ -1402,7 +1416,6 @@ def advanced_settings_handler(request, course_key_string):
                 'advanced_settings_url': reverse_course_url('advanced_settings_handler', course_key),
                 'publisher_enabled': publisher_enabled,
                 'mfe_proctored_exam_settings_url': get_proctored_exam_settings_url(course_module.id),
-                'pages_and_resources_mfe_link': get_pages_and_resources_url(course_module.id),
                 'proctoring_errors': proctoring_errors,
             })
         elif 'application/json' in request.META.get('HTTP_ACCEPT', ''):
@@ -1410,41 +1423,61 @@ def advanced_settings_handler(request, course_key_string):
                 return JsonResponse(CourseMetadata.fetch(course_module))
             else:
                 try:
-                    # validate data formats and update the course module.
-                    # Note: don't update mongo yet, but wait until after any tabs are changed
-                    is_valid, errors, updated_data = CourseMetadata.validate_and_update_from_json(
-                        course_module,
-                        request.json,
-                        user=request.user,
+                    return JsonResponse(
+                        update_course_advanced_settings(course_module, request.json, request.user)
                     )
+                except ValidationError as err:
+                    return JsonResponseBadRequest(err.detail)
 
-                    if is_valid:
-                        try:
-                            # update the course tabs if required by any setting changes
-                            _refresh_course_tabs(request, course_module)
-                        except InvalidTabsException as err:
-                            log.exception(str(err))
-                            response_message = [
-                                {
-                                    'message': _('An error occurred while trying to save your tabs'),
-                                    'model': {'display_name': _('Tabs Exception')}
-                                }
-                            ]
-                            return JsonResponseBadRequest(response_message)
 
-                        # now update mongo
-                        modulestore().update_item(course_module, request.user.id)
+def update_course_advanced_settings(course_module: CourseBlock, data: Dict, user: User) -> Dict:
+    """
+    Helper function to update course advanced settings from API data.
 
-                        return JsonResponse(updated_data)
-                    else:
-                        return JsonResponseBadRequest(errors)
+    This function takes JSON data returned from the API and applies changes from
+    it to the course advanced settings.
 
-                # Handle all errors that validation doesn't catch
-                except (TypeError, ValueError, InvalidTabsException) as err:
-                    return HttpResponseBadRequest(
-                        django.utils.html.escape(str(err)),
-                        content_type="text/plain"
-                    )
+    Args:
+        course_module (CourseBlock): The course run object on which to operate.
+        data (Dict): JSON data as found the ``request.data``
+        user (User): The user performing the operation
+
+    Returns:
+        Dict: The updated data after applying changes based on supplied data.
+    """
+    try:
+        # validate data formats and update the course module.
+        # Note: don't update mongo yet, but wait until after any tabs are changed
+        is_valid, errors, updated_data = CourseMetadata.validate_and_update_from_json(
+            course_module,
+            data,
+            user=user,
+        )
+
+        if not is_valid:
+            raise ValidationError(errors)
+
+        try:
+            # update the course tabs if required by any setting changes
+            _refresh_course_tabs(user, course_module)
+        except InvalidTabsException as err:
+            log.exception(str(err))
+            response_message = [
+                {
+                    'message': _('An error occurred while trying to save your tabs'),
+                    'model': {'display_name': _('Tabs Exception')}
+                }
+            ]
+            raise ValidationError(response_message) from err
+
+        # now update mongo
+        modulestore().update_item(course_module, user.id)
+
+        return updated_data
+
+    # Handle all errors that validation doesn't catch
+    except (TypeError, ValueError, InvalidTabsException) as err:
+        raise ValidationError(django.utils.html.escape(str(err))) from err
 
 
 class TextbookValidationError(Exception):
@@ -1755,7 +1788,6 @@ def group_configurations_list_handler(request, course_key_string):
                 'all_group_configurations': displayable_partitions,
                 'should_show_enrollment_track': should_show_enrollment_track,
                 'mfe_proctored_exam_settings_url': get_proctored_exam_settings_url(course.id),
-                'pages_and_resources_mfe_link': get_pages_and_resources_url(course.id),
             })
         elif "application/json" in request.META.get('HTTP_ACCEPT'):
             if request.method == 'POST':

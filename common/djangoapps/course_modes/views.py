@@ -25,8 +25,10 @@ from ipware.ip import get_client_ip
 from opaque_keys.edx.keys import CourseKey
 
 from common.djangoapps.course_modes.models import CourseMode
-from common.djangoapps.course_modes.helpers import get_course_final_price
+from common.djangoapps.course_modes.helpers import get_course_final_price, get_verified_track_links
 from common.djangoapps.edxmako.shortcuts import render_to_response
+from common.djangoapps.util.date_utils import strftime_localized_html
+from edx_toggles.toggles import WaffleFlag
 from lms.djangoapps.commerce.utils import EcommerceService
 from lms.djangoapps.experiments.utils import get_experiment_user_metadata_context
 from lms.djangoapps.verify_student.services import IDVerificationService
@@ -35,12 +37,24 @@ from openedx.core.djangoapps.embargo import api as embargo_api
 from openedx.core.djangoapps.enrollments.permissions import ENROLL_IN_COURSE
 from openedx.features.content_type_gating.models import ContentTypeGatingConfig
 from openedx.features.course_duration_limits.models import CourseDurationLimitConfig
+from openedx.features.course_duration_limits.access import get_user_course_duration, get_user_course_expiration_date
 from openedx.features.enterprise_support.api import enterprise_customer_for_request
 from common.djangoapps.student.models import CourseEnrollment
 from common.djangoapps.util.db import outer_atomic
 from xmodule.modulestore.django import modulestore
 
 LOG = logging.getLogger(__name__)
+
+# .. toggle_name: course_modes.use_new_track_selection
+# .. toggle_implementation: WaffleFlag
+# .. toggle_default: False
+# .. toggle_description: This flag enables the use of the new track selection template for testing purposes before full rollout
+# .. toggle_use_cases: temporary
+# .. toggle_creation_date: 2021-8-23
+# .. toggle_target_removal_date: None
+# .. toggle_tickets: REV-2133
+# .. toggle_warnings: This temporary feature toggle does not have a target removal date.
+VALUE_PROP_TRACK_SELECTION_FLAG = WaffleFlag('course_modes.use_new_track_selection', __name__)
 
 
 class ChooseModeView(View):
@@ -107,7 +121,7 @@ class ChooseModeView(View):
         ecommerce_service = EcommerceService()
 
         # We assume that, if 'professional' is one of the modes, it should be the *only* mode.
-        # If there are both modes, default to non-id-professional.
+        # If there are both modes, default to 'no-id-professional'.
         has_enrolled_professional = (CourseMode.is_professional_slug(enrollment_mode) and is_active)
         if CourseMode.has_professional_mode(modes) and not has_enrolled_professional:
             purchase_workflow = request.GET.get("purchase_workflow", "single")
@@ -125,14 +139,11 @@ class ChooseModeView(View):
         # If there isn't a verified mode available, then there's nothing
         # to do on this page.  Send the user to the dashboard.
         if not CourseMode.has_verified_mode(modes):
-            return redirect(reverse('dashboard'))
+            return self._redirect_to_course_or_dashboard(course, course_key, request.user)
 
         # If a user has already paid, redirect them to the dashboard.
         if is_active and (enrollment_mode in CourseMode.VERIFIED_MODES + [CourseMode.NO_ID_PROFESSIONAL_MODE]):
-            # If the course has started redirect to course home instead
-            if course.has_started():
-                return redirect(reverse('openedx.course_experience.course_home', kwargs={'course_id': course_key}))
-            return redirect(reverse('dashboard'))
+            return self._redirect_to_course_or_dashboard(course, course_key, request.user)
 
         donation_for_course = request.session.get("donation_for_course", {})
         chosen_price = donation_for_course.get(str(course_key), None)
@@ -156,7 +167,10 @@ class ChooseModeView(View):
             in CourseMode.modes_for_course(course_key, only_selectable=False)
         )
         course_id = str(course_key)
-
+        gated_content = ContentTypeGatingConfig.enabled_for_enrollment(
+            user=request.user,
+            course_key=course_key
+        )
         context = {
             "course_modes_choose_url": reverse(
                 "course_modes_choose",
@@ -171,10 +185,7 @@ class ChooseModeView(View):
             "error": error,
             "responsive": True,
             "nav_hidden": True,
-            "content_gating_enabled": ContentTypeGatingConfig.enabled_for_enrollment(
-                user=request.user,
-                course_key=course_key
-            ),
+            "content_gating_enabled": gated_content,
             "course_duration_limit_enabled": CourseDurationLimitConfig.enabled_for_enrollment(request.user, course),
         }
         context.update(
@@ -233,11 +244,34 @@ class ChooseModeView(View):
                     context['currency_data'] = json.dumps(currency_data)
                 except TypeError:
                     pass
+
+        language = get_language()
+        context['track_links'] = get_verified_track_links(language)
+
+        duration = get_user_course_duration(request.user, course)
+        deadline = duration and get_user_course_expiration_date(request.user, course)
+        if deadline:
+            formatted_audit_access_date = strftime_localized_html(deadline, 'SHORT_DATE')
+            context['audit_access_deadline'] = formatted_audit_access_date
+        fbe_is_on = deadline and gated_content
+
+        # Route to correct Track Selection page.
+        # REV-2133 TODO Value Prop: remove waffle flag after testing is completed
+        # and happy path version is ready to be rolled out to all users.
+        if VALUE_PROP_TRACK_SELECTION_FLAG.is_enabled():
+            if not error:  # TODO: Remove by executing REV-2355
+                if not enterprise_customer_for_request(request):  # TODO: Remove by executing REV-2342
+                    if fbe_is_on:
+                        return render_to_response("course_modes/fbe.html", context)
+                    else:
+                        return render_to_response("course_modes/unfbe.html", context)
+
+        # If error or enterprise_customer, failover to old choose.html page
         return render_to_response("course_modes/choose.html", context)
 
     @method_decorator(transaction.non_atomic_requests)
     @method_decorator(login_required)
-    @method_decorator(outer_atomic(read_committed=True))
+    @method_decorator(outer_atomic())
     def post(self, request, course_id):
         """Takes the form submission from the page and parses it.
 
@@ -275,17 +309,11 @@ class ChooseModeView(View):
             # system, such as third-party discovery.  These workflows result in learners arriving
             # directly at this screen, and they will not necessarily be pre-enrolled in the audit mode.
             CourseEnrollment.enroll(request.user, course_key, CourseMode.AUDIT)
-            # If the course has started redirect to course home instead
-            if course.has_started():
-                return redirect(reverse('openedx.course_experience.course_home', kwargs={'course_id': course_key}))
-            return redirect(reverse('dashboard'))
+            return self._redirect_to_course_or_dashboard(course, course_key, user)
 
         if requested_mode == 'honor':
             CourseEnrollment.enroll(user, course_key, mode=requested_mode)
-            # If the course has started redirect to course home instead
-            if course.has_started():
-                return redirect(reverse('openedx.course_experience.course_home', kwargs={'course_id': course_key}))
-            return redirect(reverse('dashboard'))
+            return self._redirect_to_course_or_dashboard(course, course_key, user)
 
         mode_info = allowed_modes[requested_mode]
 
@@ -331,6 +359,24 @@ class ChooseModeView(View):
             return 'audit'
         else:
             return None
+
+    def _redirect_to_course_or_dashboard(self, course, course_key, user):
+        """Perform a redirect to the course if the user is able to access the course.
+
+        If the user is not able to access the course, redirect the user to the dashboard.
+
+        Args:
+            course: modulestore object for course
+            course_key: course_id converted to a course_key
+            user: request.user, the current user for the request
+
+        Returns:
+            302 to the course if possible or the dashboard if not.
+        """
+        if course.has_started() or user.is_staff:
+            return redirect(reverse('openedx.course_experience.course_home', kwargs={'course_id': course_key}))
+        else:
+            return redirect(reverse('dashboard'))
 
 
 def create_mode(request, course_id):
