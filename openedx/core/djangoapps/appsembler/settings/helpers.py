@@ -53,9 +53,8 @@ def get_tahoe_multitenant_auth_backends(settings):
                           and there will be either silently missing features such as hidden Instructor
                           Dashboard (RED-1924) or silently breaking Tahoe security.
     """
-
     upstream_user_model_backend = \
-        'openedx.core.djangoapps.oauth_dispatch.dot_overrides.backends.EdxRateLimitedAllowAllUsersModelBackend'
+        'django.contrib.auth.backends.AllowAllUsersModelBackend'
 
     if upstream_user_model_backend not in settings.AUTHENTICATION_BACKENDS:
         # EdxRateLimitedAllowAllUsersModelBackend is missing from the settings.
