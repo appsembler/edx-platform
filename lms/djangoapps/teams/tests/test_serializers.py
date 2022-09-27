@@ -11,8 +11,8 @@ from common.djangoapps.student.tests.factories import CourseEnrollmentFactory, U
 from lms.djangoapps.teams.serializers import BulkTeamCountTopicSerializer, MembershipSerializer, TopicSerializer
 from lms.djangoapps.teams.tests.factories import CourseTeamFactory, CourseTeamMembershipFactory
 from openedx.core.lib.teams_config import TeamsConfig
-from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
-from xmodule.modulestore.tests.factories import CourseFactory
+from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.tests.factories import CourseFactory  # lint-amnesty, pylint: disable=wrong-import-order
 
 
 class SerializerTestCase(SharedModuleStoreTestCase):
@@ -75,7 +75,7 @@ class TopicSerializerTestCase(SerializerTestCase):
         Verifies that the `TopicSerializer` correctly displays a topic with a
         team count of 0, and that it takes a known number of SQL queries.
         """
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(3):  # 2 split modulestore MySQL queries, 1 for Teams
             serializer = TopicSerializer(
                 self.course.teamsets[0].cleaned_data,
                 context={'course_id': self.course.id},
@@ -91,7 +91,7 @@ class TopicSerializerTestCase(SerializerTestCase):
         CourseTeamFactory.create(
             course_id=self.course.id, topic_id=self.course.teamsets[0].teamset_id
         )
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(3):  # 2 split modulestore MySQL queries, 1 for Teams
             serializer = TopicSerializer(
                 self.course.teamsets[0].cleaned_data,
                 context={'course_id': self.course.id},
@@ -110,7 +110,7 @@ class TopicSerializerTestCase(SerializerTestCase):
         )
         CourseTeamFactory.create(course_id=self.course.id, topic_id=duplicate_topic['id'])
         CourseTeamFactory.create(course_id=second_course.id, topic_id=duplicate_topic['id'])
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(3):  # 2 split modulestore MySQL queries, 1 for Teams
             serializer = TopicSerializer(
                 self.course.teamsets[0].cleaned_data,
                 context={'course_id': self.course.id},
@@ -251,7 +251,7 @@ class BulkTeamCountTopicSerializerTestCase(BaseTopicSerializerTestCase):
         request = RequestFactory().get('/api/team/v0/topics')
         request.user = self.user
 
-        with self.assertNumQueries(num_queries):
+        with self.assertNumQueries(num_queries + 2):  # num_queries on teams tables, plus 2 split modulestore queries
             serializer = self.serializer(
                 topics,
                 context={

@@ -35,15 +35,15 @@ from common.djangoapps.util.milestones_helpers import (
     add_milestone,
     get_milestone_relationship_types
 )
-from xmodule import tabs as xmodule_tabs
-from xmodule.modulestore.tests.django_utils import (
+from xmodule import tabs as xmodule_tabs  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.tests.django_utils import (  # lint-amnesty, pylint: disable=wrong-import-order
     TEST_DATA_MIXED_MODULESTORE,
     ModuleStoreTestCase,
     SharedModuleStoreTestCase
 )
-from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
-from xmodule.modulestore.tests.utils import TEST_DATA_DIR
-from xmodule.modulestore.xml_importer import import_course_from_xml
+from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.tests.utils import TEST_DATA_DIR  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.xml_importer import import_course_from_xml  # lint-amnesty, pylint: disable=wrong-import-order
 
 
 class TabTestCase(SharedModuleStoreTestCase):
@@ -237,8 +237,6 @@ class TextbooksTestCase(TabTestCase):
 class StaticTabDateTestCase(LoginEnrollmentTestCase, SharedModuleStoreTestCase):
     """Test cases for Static Tab Dates."""
 
-    MODULESTORE = TEST_DATA_MIXED_MODULESTORE
-
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -294,8 +292,6 @@ class StaticTabDateTestCaseXML(LoginEnrollmentTestCase, ModuleStoreTestCase):
     Tests for the static tab dates of an XML course
     """
 
-    MODULESTORE = TEST_DATA_MIXED_MODULESTORE
-
     def setUp(self):
         """
         Set up the tests
@@ -308,7 +304,7 @@ class StaticTabDateTestCaseXML(LoginEnrollmentTestCase, ModuleStoreTestCase):
         self.xml_course_key = self.store.make_course_key('edX', 'detached_pages', '2014')
         import_course_from_xml(
             self.store,
-            'test_user',
+            self.user.id,
             TEST_DATA_DIR,
             source_dirs=['2014'],
             static_content_store=None,
@@ -341,8 +337,6 @@ class EntranceExamsTabsTestCase(LoginEnrollmentTestCase, ModuleStoreTestCase, Mi
     """
     Validate tab behavior when dealing with Entrance Exams
     """
-    MODULESTORE = TEST_DATA_MIXED_MODULESTORE
-
     @patch.dict('django.conf.settings.FEATURES', {'ENTRANCE_EXAMS': True})
     def setUp(self):
         """
@@ -351,10 +345,6 @@ class EntranceExamsTabsTestCase(LoginEnrollmentTestCase, ModuleStoreTestCase, Mi
         super().setUp()
 
         self.course = CourseFactory.create()
-        self.instructor_tab = ItemFactory.create(
-            category="instructor", parent_location=self.course.location,
-            data="Instructor Tab", display_name="Instructor"
-        )
         self.extra_tab_2 = ItemFactory.create(
             category="static_tab", parent_location=self.course.location,
             data="Extra Tab", display_name="Extra Tab 2"
@@ -376,7 +366,6 @@ class EntranceExamsTabsTestCase(LoginEnrollmentTestCase, ModuleStoreTestCase, Mi
         entrance_exam = ItemFactory.create(
             category="chapter",
             parent_location=self.course.location,
-            data="Exam Data",
             display_name="Entrance Exam",
             is_entrance_exam=True
         )
@@ -401,7 +390,7 @@ class EntranceExamsTabsTestCase(LoginEnrollmentTestCase, ModuleStoreTestCase, Mi
             milestone
         )
         course_tab_list = get_course_tab_list(self.user, self.course)
-        assert len(course_tab_list) == 2
+        assert len(course_tab_list) == 1
         assert course_tab_list[0]['tab_id'] == 'courseware'
         assert course_tab_list[0]['name'] == 'Entrance Exam'
 
@@ -767,12 +756,7 @@ class CourseInfoTabTestCase(TabTestCase):
     def test_default_tab(self):
         # Verify that the course info tab is the first tab
         tabs = get_course_tab_list(self.user, self.course)
-        # So I know this means course_info is not the first tab, but it is going to be
-        # retired soon (https://openedx.atlassian.net/browse/TNL-7061) and also it has
-        # a lower priority than courseware so seems odd that it would ever be first.
-        # As such, I feel comfortable updating this test so it passes until it is removed
-        # as part of the linked ticket
-        assert tabs[1].type == 'course_info'
+        assert tabs[0].type == 'course_info'
 
     @override_waffle_flag(DISABLE_UNIFIED_COURSE_TAB_FLAG, active=False)
     def test_default_tab_for_new_course_experience(self):

@@ -27,6 +27,7 @@ from lms.djangoapps.courseware.access_response import (
     MilestoneAccessError,
     MobileAvailabilityError,
     NoAllowedPartitionGroupsError,
+    OldMongoAccessError,
     VisibilityError
 )
 from lms.djangoapps.courseware.access_utils import (
@@ -43,7 +44,7 @@ from lms.djangoapps.ccx.custom_exception import CCXLocatorValidationException
 from lms.djangoapps.ccx.models import CustomCourseForEdX
 from lms.djangoapps.courseware.access_control_backends import access_control_backends
 from lms.djangoapps.mobile_api.models import IgnoreMobileAvailableFlagConfig
-from lms.djangoapps.courseware.toggles import is_courses_default_invite_only_enabled
+from lms.djangoapps.courseware.toggles import course_is_invitation_only
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.features.course_duration_limits.access import check_course_expired
 from common.djangoapps.student import auth
@@ -64,10 +65,10 @@ from common.djangoapps.util.milestones_helpers import (
     get_pre_requisite_courses_not_completed,
     is_prerequisite_courses_enabled
 )
-from xmodule.course_module import CATALOG_VISIBILITY_ABOUT, CATALOG_VISIBILITY_CATALOG_AND_ABOUT, CourseBlock
-from xmodule.error_module import ErrorBlock
-from xmodule.partitions.partitions import NoSuchUserPartitionError, NoSuchUserPartitionGroupError
-from xmodule.x_module import XModule
+from xmodule.course_module import CATALOG_VISIBILITY_ABOUT, CATALOG_VISIBILITY_CATALOG_AND_ABOUT, CourseBlock  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.error_module import ErrorBlock  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.partitions.partitions import NoSuchUserPartitionError, NoSuchUserPartitionGroupError  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.x_module import XModule  # lint-amnesty, pylint: disable=wrong-import-order
 
 log = logging.getLogger(__name__)
 
@@ -273,8 +274,8 @@ def _can_enroll_courselike(user, courselike):
     if _has_staff_access_to_descriptor(user, courselike, course_key):
         return ACCESS_GRANTED
 
-    # Access denied when default value of COURSES_INVITE_ONLY set to True
-    if is_courses_default_invite_only_enabled() or courselike.invitation_only:
+    # Access denied when the course requires an invitation
+    if course_is_invitation_only(courselike):
         debug("Deny: invitation only")
         return ACCESS_DENIED
 
@@ -330,6 +331,9 @@ def _has_access_course(user, action, courselike):
         # ).or(
         #     _has_staff_access_to_descriptor, user, courselike, courselike.id
         # )
+        if courselike.id.deprecated:  # we no longer support accessing Old Mongo courses
+            return OldMongoAccessError(courselike)
+
         visible_to_nonstaff = _visible_to_nonstaff_users(courselike)
         if not visible_to_nonstaff:
             staff_access = _has_staff_access_to_descriptor(user, courselike, courselike.id)

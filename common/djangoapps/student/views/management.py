@@ -22,18 +22,22 @@ from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpRespo
 from django.shortcuts import redirect
 from django.template.context_processors import csrf
 from django.urls import reverse
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie  # lint-amnesty, pylint: disable=unused-import
 from django.views.decorators.http import require_GET, require_http_methods, require_POST  # lint-amnesty, pylint: disable=unused-import
 from edx_ace import ace
 from edx_ace.recipient import Recipient
 from edx_django_utils import monitoring as monitoring_utils
+from edx_rest_framework_extensions.auth.jwt.authentication import JwtAuthentication
+from edx_rest_framework_extensions.auth.session.authentication import SessionAuthenticationAllowInactiveUser  # lint-amnesty, pylint: disable=wrong-import-order
 from eventtracking import tracker
 from ipware.ip import get_client_ip
 # Note that this lives in LMS, so this dependency should be refactored.
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
 from pytz import UTC
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
 from tahoe_sites.api import is_exist_organization_user_by_email
 
@@ -56,6 +60,7 @@ from openedx.core.djangoapps.user_api.preferences import api as preferences_api
 from openedx.core.djangoapps.user_authn.tasks import send_activation_email
 from openedx.core.djangoapps.user_authn.toggles import should_redirect_to_authn_microfrontend
 from openedx.core.djangolib.markup import HTML, Text
+from openedx.core.lib.api.authentication import BearerAuthenticationAllowInactiveUser
 from openedx.features.enterprise_support.utils import is_enterprise_learner
 from common.djangoapps.student.email_helpers import generate_activation_email_context
 from common.djangoapps.student.helpers import DISABLE_UNENROLL_CERT_STATES, cert_info
@@ -67,6 +72,7 @@ from common.djangoapps.student.models import (  # lint-amnesty, pylint: disable=
     PendingSecondaryEmailChange,
     Registration,
     RegistrationCookieConfiguration,
+    UnenrollmentNotAllowed,
     UserAttribute,
     UserProfile,
     UserSignupSource,
@@ -77,7 +83,7 @@ from common.djangoapps.student.models import (  # lint-amnesty, pylint: disable=
 from common.djangoapps.student.signals import REFUND_ORDER
 from common.djangoapps.util.db import outer_atomic
 from common.djangoapps.util.json_request import JsonResponse
-from xmodule.modulestore.django import modulestore
+from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
 
 from openedx.core.djangoapps.appsembler.tahoe_idp import helpers as tahoe_idp_helpers
 
@@ -414,7 +420,11 @@ def change_enrollment(request, check_access=True):
         if certificate_info.get('status') in DISABLE_UNENROLL_CERT_STATES:
             return HttpResponseBadRequest(_("Your certificate prevents you from unenrolling from this course"))
 
-        CourseEnrollment.unenroll(user, course_id)
+        try:
+            CourseEnrollment.unenroll(user, course_id)
+        except UnenrollmentNotAllowed as exc:
+            return HttpResponseBadRequest(str(exc))
+
         REFUND_ORDER.send(sender=None, course_enrollment=enrollment)
         return HttpResponse()
     else:
@@ -525,10 +535,15 @@ def activate_account(request, key):
     monitoring_utils.set_custom_attribute('student_activate_account', 'lms')
     activation_message_type = None
 
+    activated_or_confirmed = 'confirmed' if settings.MARKETING_EMAILS_OPT_IN else 'activated'
+    account_or_email = 'email' if settings.MARKETING_EMAILS_OPT_IN else 'account'
+
     invalid_message = HTML(_(
-        '{html_start}Your account could not be activated{html_end}'
+        '{html_start}Your {account_or_email} could not be {activated_or_confirmed}{html_end}'
         'Something went wrong, please <a href="{support_url}">contact support</a> to resolve this issue.'
     )).format(
+        account_or_email=account_or_email,
+        activated_or_confirmed=activated_or_confirmed,
         support_url=configuration_helpers.get_value(
             'ACTIVATION_EMAIL_SUPPORT_LINK', settings.ACTIVATION_EMAIL_SUPPORT_LINK
         ) or settings.SUPPORT_SITE_LINK,
@@ -558,7 +573,11 @@ def activate_account(request, key):
             activation_message_type = 'info'
             messages.info(
                 request,
-                HTML(_('{html_start}This account has already been activated.{html_end}')).format(
+                HTML(_(
+                    '{html_start}This {account_or_email} has already been {activated_or_confirmed}.{html_end}'
+                )).format(
+                    account_or_email=account_or_email,
+                    activated_or_confirmed=activated_or_confirmed,
                     html_start=HTML('<p class="message-title">'),
                     html_end=HTML('</p>'),
                 ),
@@ -567,7 +586,7 @@ def activate_account(request, key):
         else:
             registration.activate()
             # Success message for logged in users.
-            message = _('{html_start}Success{html_end} You have activated your account.')
+            message = _('{html_start}Success{html_end} You have {activated_or_confirmed} your {account_or_email}.')
 
             tracker.emit(
                 USER_ACCOUNT_ACTIVATED,
@@ -580,7 +599,7 @@ def activate_account(request, key):
             if not request.user.is_authenticated:
                 # Success message for logged out users
                 message = _(
-                    '{html_start}Success! You have activated your account.{html_end}'
+                    '{html_start}Success! You have {activated_or_confirmed} your {account_or_email}.{html_end}'
                     'You will now receive email updates and alerts from us related to'
                     ' the courses you are enrolled in. Sign In to continue.'
                 )
@@ -590,6 +609,8 @@ def activate_account(request, key):
             messages.success(
                 request,
                 HTML(message).format(
+                    account_or_email=account_or_email,
+                    activated_or_confirmed=activated_or_confirmed,
                     html_start=HTML('<p class="message-title">'),
                     html_end=HTML('</p>'),
                 ),
@@ -900,18 +921,23 @@ def confirm_email_change(request, key):
         return response
 
 
-@require_POST
-@login_required
-@ensure_csrf_cookie
+@api_view(['POST'])
+@authentication_classes((
+    JwtAuthentication,
+    BearerAuthenticationAllowInactiveUser,
+    SessionAuthenticationAllowInactiveUser,
+))
+@permission_classes((IsAuthenticated,))
 def change_email_settings(request):
     """
     Modify logged-in user's setting for receiving emails from a course.
     """
     user = request.user
 
-    course_id = request.POST.get("course_id")
+    course_id = request.data.get("course_id")
+    receive_emails = request.data.get("receive_emails")
     course_key = CourseKey.from_string(course_id)
-    receive_emails = request.POST.get("receive_emails")
+
     if receive_emails:
         optout_object = Optout.objects.filter(user=user, course_id=course_key)
         if optout_object:

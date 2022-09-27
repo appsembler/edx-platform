@@ -18,7 +18,7 @@ import json  # lint-amnesty, pylint: disable=wrong-import-order
 import logging  # lint-amnesty, pylint: disable=wrong-import-order
 import uuid  # lint-amnesty, pylint: disable=wrong-import-order
 from collections import defaultdict, namedtuple  # lint-amnesty, pylint: disable=wrong-import-order
-from datetime import datetime, timedelta  # lint-amnesty, pylint: disable=wrong-import-order
+from datetime import date, datetime, timedelta  # lint-amnesty, pylint: disable=wrong-import-order
 from functools import total_ordering  # lint-amnesty, pylint: disable=wrong-import-order
 from importlib import import_module  # lint-amnesty, pylint: disable=wrong-import-order
 from urllib.parse import urlencode  # lint-amnesty, pylint: disable=wrong-import-order
@@ -40,8 +40,8 @@ from django.db.utils import ProgrammingError
 from django.dispatch import receiver
 
 from django.utils.functional import cached_property
-from django.utils.translation import ugettext_lazy as _
-from django.utils.translation import ugettext_noop
+from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext_noop
 from django_countries.fields import CountryField
 from edx_django_utils.cache import RequestCache, TieredCache, get_cache_key
 from edx_django_utils import monitoring
@@ -79,6 +79,7 @@ from openedx_events.learning.signals import (
     COURSE_ENROLLMENT_CREATED,
     COURSE_UNENROLLMENT_COMPLETED,
 )
+from openedx_filters.learning.filters import CourseEnrollmentStarted, CourseUnenrollmentStarted
 import openedx.core.djangoapps.django_comment_common.comment_client as cc
 from common.djangoapps.course_modes.models import CourseMode, get_cosmetic_verified_display_price
 from common.djangoapps.student.emails import send_proctoring_requirements_email
@@ -598,10 +599,10 @@ class UserProfile(models.Model):
     VALID_YEARS = list(range(this_year, this_year - 120, -1))
     year_of_birth = models.IntegerField(blank=True, null=True, db_index=True)
     GENDER_CHOICES = (
-        ('m', ugettext_noop('Male')),
-        ('f', ugettext_noop('Female')),
+        ('m', gettext_noop('Male')),
+        ('f', gettext_noop('Female')),
         # Translators: 'Other' refers to the student's gender
-        ('o', ugettext_noop('Other/Prefer Not to Say'))
+        ('o', gettext_noop('Other/Prefer Not to Say'))
     )
     gender = models.CharField(
         blank=True, null=True, max_length=6, db_index=True, choices=GENDER_CHOICES
@@ -612,17 +613,17 @@ class UserProfile(models.Model):
     # ('p_se', 'Doctorate in science or engineering'),
     # ('p_oth', 'Doctorate in another field'),
     LEVEL_OF_EDUCATION_CHOICES = (
-        ('p', ugettext_noop('Doctorate')),
-        ('m', ugettext_noop("Master's or professional degree")),
-        ('b', ugettext_noop("Bachelor's degree")),
-        ('a', ugettext_noop("Associate degree")),
-        ('hs', ugettext_noop("Secondary/high school")),
-        ('jhs', ugettext_noop("Junior secondary/junior high/middle school")),
-        ('el', ugettext_noop("Elementary/primary school")),
+        ('p', gettext_noop('Doctorate')),
+        ('m', gettext_noop("Master's or professional degree")),
+        ('b', gettext_noop("Bachelor's degree")),
+        ('a', gettext_noop("Associate degree")),
+        ('hs', gettext_noop("Secondary/high school")),
+        ('jhs', gettext_noop("Junior secondary/junior high/middle school")),
+        ('el', gettext_noop("Elementary/primary school")),
         # Translators: 'None' refers to the student's level of education
-        ('none', ugettext_noop("No formal education")),
+        ('none', gettext_noop("No formal education")),
         # Translators: 'Other' refers to the student's level of education
-        ('other', ugettext_noop("Other education"))
+        ('other', gettext_noop("Other education"))
     )
     level_of_education = models.CharField(
         blank=True, null=True, max_length=6, db_index=True,
@@ -749,11 +750,11 @@ class UserProfile(models.Model):
         self.set_meta(meta)
         self.save()
 
-    def requires_parental_consent(self, date=None, age_limit=None, default_requires_consent=True):
+    def requires_parental_consent(self, year=None, age_limit=None, default_requires_consent=True):
         """Returns true if this user requires parental consent.
 
         Args:
-            date (Date): The date for which consent needs to be tested (defaults to now).
+            year (int): The year for which consent needs to be tested (defaults to now).
             age_limit (int): The age limit at which parental consent is no longer required.
                 This defaults to the value of the setting 'PARENTAL_CONTROL_AGE_LIMIT'.
             default_requires_consent (bool): True if users require parental consent if they
@@ -778,10 +779,10 @@ class UserProfile(models.Model):
         if year_of_birth is None:
             return default_requires_consent
 
-        if date is None:
+        if year is None:
             age = self.age
         else:
-            age = self._calculate_age(date.year, year_of_birth)
+            age = self._calculate_age(year, year_of_birth)
 
         return age < age_limit
 
@@ -1180,6 +1181,14 @@ class CourseFullError(CourseEnrollmentException):
 
 
 class AlreadyEnrolledError(CourseEnrollmentException):
+    pass
+
+
+class EnrollmentNotAllowed(CourseEnrollmentException):
+    pass
+
+
+class UnenrollmentNotAllowed(CourseEnrollmentException):
     pass
 
 
@@ -1693,6 +1702,13 @@ class CourseEnrollment(models.Model):
 
         Also emits relevant events for analytics purposes.
         """
+        try:
+            user, course_key, mode = CourseEnrollmentStarted.run_filter(
+                user=user, course_key=course_key, mode=mode,
+            )
+        except CourseEnrollmentStarted.PreventEnrollment as exc:
+            raise EnrollmentNotAllowed(str(exc)) from exc
+
         if mode is None:
             mode = _default_course_mode(str(course_key))
         # All the server-side checks for whether a user is allowed to enroll.
@@ -1841,6 +1857,14 @@ class CourseEnrollment(models.Model):
 
         try:
             record = cls.objects.get(user=user, course_id=course_id)
+
+            try:
+                # .. filter_implemented_name: CourseUnenrollmentStarted
+                # .. filter_type: org.openedx.learning.course.unenrollment.started.v1
+                record = CourseUnenrollmentStarted.run_filter(enrollment=record)
+            except CourseUnenrollmentStarted.PreventUnenrollment as exc:
+                raise UnenrollmentNotAllowed(str(exc)) from exc
+
             record.update_enrollment(is_active=False, skip_refund=skip_refund)
 
         except cls.DoesNotExist:
@@ -2949,7 +2973,7 @@ class LinkedInAddToProfileConfiguration(ConfigurationModel):
         ),
     )
 
-    def is_enabled(self, *key_fields):
+    def is_enabled(self, *key_fields):  # pylint: disable=arguments-differ
         """
         Checks both the model itself and share_settings to see if LinkedIn Add to Profile is enabled
         """
@@ -3578,20 +3602,57 @@ class CourseEnrollmentCelebration(TimeStampedModel):
     """
     enrollment = models.OneToOneField(CourseEnrollment, models.CASCADE, related_name='celebration')
     celebrate_first_section = models.BooleanField(default=False)
+    celebrate_weekly_goal = models.BooleanField(default=False)
 
     def __str__(self):
         return (
-            '[CourseEnrollmentCelebration] course: {}; user: {}; first_section: {};'
-        ).format(self.enrollment.course.id, self.enrollment.user.username, self.celebrate_first_section)
+            '[CourseEnrollmentCelebration] course: {}; user: {}'
+        ).format(self.enrollment.course.id, self.enrollment.user.username)
 
     @staticmethod
     def should_celebrate_first_section(enrollment):
-        """ Returns the celebration value for first_section with appropriate fallback if it doesn't exist """
+        """
+        Returns the celebration value for first_section with appropriate fallback if it doesn't exist.
+
+        The frontend will use this result and additional information calculated to actually determine
+        if the first section celebration will render. In other words, the value returned here is
+        NOT the final value used.
+        """
         if not enrollment:
             return False
         try:
             return enrollment.celebration.celebrate_first_section
         except CourseEnrollmentCelebration.DoesNotExist:
+            return False
+
+    @staticmethod
+    def should_celebrate_weekly_goal(enrollment):
+        """
+        Returns the celebration value for weekly_goal with appropriate fallback if it doesn't exist.
+
+        The frontend will use this result directly to determine if the weekly goal celebration
+        should be rendered. The value returned here IS the final value used.
+        """
+        # Avoiding circular import
+        from lms.djangoapps.course_goals.models import CourseGoal, UserActivity
+        try:
+            if not enrollment or not enrollment.celebration.celebrate_weekly_goal:
+                return False
+        except CourseEnrollmentCelebration.DoesNotExist:
+            return False
+
+        try:
+            goal = CourseGoal.objects.get(user=enrollment.user, course_key=enrollment.course.id)
+            if not goal.days_per_week:
+                return False
+
+            today = date.today()
+            monday_date = today - timedelta(days=today.weekday())
+            week_activity_count = UserActivity.objects.filter(
+                user=enrollment.user, course_key=enrollment.course.id, date__gte=monday_date,
+            ).count()
+            return week_activity_count == goal.days_per_week
+        except CourseGoal.DoesNotExist:
             return False
 
 

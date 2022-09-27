@@ -19,7 +19,7 @@ from django.http.request import QueryDict
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import ngettext
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
 from organizations.models import Organization
@@ -49,7 +49,7 @@ from common.djangoapps.student.models import (
     UserTestGroup
 )
 from common.djangoapps.student.roles import REGISTERED_ACCESS_ROLES
-from xmodule.modulestore.django import modulestore
+from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
 
 User = get_user_model()  # pylint:disable=invalid-name
 
@@ -578,7 +578,7 @@ class RegistrationAdmin(admin.ModelAdmin):
 class CourseEnrollmentCelebrationAdmin(DisableEnrollmentAdminMixin, admin.ModelAdmin):
     """Admin interface for the CourseEnrollmentCelebration model. """
     raw_id_fields = ('enrollment',)
-    list_display = ('id', 'course', 'user', 'celebrate_first_section')
+    list_display = ('id', 'course', 'user', 'celebrate_first_section', 'celebrate_weekly_goal',)
     search_fields = ('enrollment__course__id', 'enrollment__user__username')
 
     class Meta:

@@ -157,14 +157,14 @@ class SiteConfigurationTests(TestCase):
 
     def test_get_css_url_in_live_mode(self):
         site_config = SiteConfigurationFactory.create(site=self.site)
-        assert site_config.get_css_url() == '/static/uploads/example-site.tahoe.appsembler.com.css'
+        assert site_config.get_css_url() == '/uploads/example-site.tahoe.appsembler.com.css'
 
     def test_get_css_url_in_preview_mode_missing_file(self):
         """
         Because the preview file isn't compiled, calling get_css_url(preview=True) should return the `live` file.
         """
         site_config = SiteConfigurationFactory.create(site=self.site)
-        assert site_config.get_css_url(preview=True) == '/static/uploads/example-site.tahoe.appsembler.com.css'
+        assert site_config.get_css_url(preview=True) == '/uploads/example-site.tahoe.appsembler.com.css'
 
     @patch('openedx.core.djangoapps.site_configuration.models.get_customer_themes_storage')
     def test_get_css_url_in_preview_existing_file(self, mock_get_storage):

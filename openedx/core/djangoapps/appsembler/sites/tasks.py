@@ -9,7 +9,7 @@ import datetime
 
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
-from celery.task import task
+from celery import shared_task
 from celery.utils.log import get_task_logger
 
 from django.db import transaction
@@ -75,7 +75,7 @@ def import_course_on_site_creation_apply_async(organization, enrollment_emails=N
     )
 
 
-@task()
+@shared_task()
 def import_course_on_site_creation(organization_id, enrollment_emails=None):
     """
     Celery task to copy the template course for new sites.
@@ -184,7 +184,7 @@ def import_course_on_site_creation(organization_id, enrollment_emails=None):
         return 'exception: ' + str(exc)
 
 
-@task()
+@shared_task()
 def emit_course_published_signal_in_cms(course_key):
     """
     An LMS-scheduled task to update CMS course search index and other tasks.

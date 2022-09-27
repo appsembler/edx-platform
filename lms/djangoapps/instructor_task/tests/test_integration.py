@@ -40,8 +40,8 @@ from lms.djangoapps.instructor_task.tests.test_base import (
 )
 from openedx.core.djangoapps.util.testing import TestConditionalContent
 from openedx.core.lib.url_utils import quote_slashes
-from xmodule.modulestore import ModuleStoreEnum
-from xmodule.modulestore.tests.factories import ItemFactory
+from xmodule.modulestore import ModuleStoreEnum  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.tests.factories import ItemFactory  # lint-amnesty, pylint: disable=wrong-import-order
 
 log = logging.getLogger(__name__)
 
@@ -134,8 +134,8 @@ class TestRescoringTask(TestIntegrationTask):
         expected_subsection_grade = expected_score
 
         course_grade = CourseGradeFactory().read(user, self.course)
-        assert course_grade.graded_subsections_by_format['Homework'][self.problem_section.location].graded_total.earned\
-               == expected_subsection_grade
+        grade = course_grade.graded_subsections_by_format()['Homework'][self.problem_section.location].graded_total
+        assert grade.earned == expected_subsection_grade
 
     def submit_rescore_all_student_answers(self, instructor, problem_url_name, only_if_higher=False):
         """Submits the particular problem for rescoring"""

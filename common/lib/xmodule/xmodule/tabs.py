@@ -302,6 +302,7 @@ class StaticTab(CourseTab):
     type = 'static_tab'
     is_default = False  # A static tab is never added to a course by default
     allow_multiple = True
+    priority = 100
 
     def __init__(self, tab_dict=None, name=None, url_slug=None):
         def link_func(course, reverse_func):
@@ -380,15 +381,14 @@ class CourseTabList(List):
         __init__ method.  This is because the default values are dependent on other information from
         within the course.
         """
-
-        course.tabs.extend([
+        course_tabs = [
             CourseTab.load('course_info'),
             CourseTab.load('courseware')
-        ])
+        ]
 
         # Presence of syllabus tab is indicated by a course attribute
         if hasattr(course, 'syllabus_present') and course.syllabus_present:
-            course.tabs.append(CourseTab.load('syllabus'))
+            course_tabs.append(CourseTab.load('syllabus'))
 
         # If the course has a discussion link specified, use that even if we feature
         # flag discussions off. Disabling that is mostly a server safety feature
@@ -400,12 +400,25 @@ class CourseTabList(List):
         else:
             discussion_tab = CourseTab.load('discussion')
 
-        course.tabs.extend([
+        course_tabs.extend([
             CourseTab.load('textbooks'),
             discussion_tab,
             CourseTab.load('wiki'),
             CourseTab.load('progress'),
+            CourseTab.load('dates'),
         ])
+
+        # Cross reference existing slugs with slugs this method would add to not add duplicates.
+        existing_tab_slugs = {tab.type for tab in course.tabs if course.tabs}
+        tabs_to_add = []
+        for tab in course_tabs:
+            if tab.type not in existing_tab_slugs:
+                tabs_to_add.append(tab)
+
+        if tabs_to_add:
+            tabs_to_add.extend(course.tabs)
+            tabs_to_add.sort(key=lambda tab: tab.priority or float('inf'))
+            course.tabs = tabs_to_add
 
     @staticmethod
     def get_discussion(course):
@@ -422,7 +435,7 @@ class CourseTabList(List):
 
         # find one of the discussion tab types in the course tabs
         for tab in course.tabs:
-            if tab.type == 'discussion' or tab.type == 'external_discussion':
+            if tab.type in ('discussion', 'external_discussion'):
                 return tab
         return None
 

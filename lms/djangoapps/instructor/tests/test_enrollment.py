@@ -19,6 +19,9 @@ from opaque_keys.edx.locator import CourseLocator
 from submissions import api as sub_api
 import unittest
 
+from xmodule.modulestore.tests.django_utils import TEST_DATA_MONGO_AMNESTY_MODULESTORE, SharedModuleStoreTestCase
+from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
+
 from capa.tests.response_xml_factory import MultipleChoiceResponseXMLFactory
 from common.djangoapps.student.models import CourseEnrollment, CourseEnrollmentAllowed, anonymous_id_for_user
 from common.djangoapps.student.roles import CourseCcxCoachRole
@@ -41,8 +44,6 @@ from lms.djangoapps.teams.models import CourseTeamMembership
 from lms.djangoapps.teams.tests.factories import CourseTeamFactory
 from openedx.core.djangoapps.ace_common.tests.mixins import EmailTemplateTagMixin
 from openedx.core.djangolib.testing.utils import CacheIsolationTestCase, get_mock_request
-from xmodule.modulestore.tests.django_utils import TEST_DATA_SPLIT_MODULESTORE, SharedModuleStoreTestCase
-from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
 
 
 class TestSettableEnrollmentState(CacheIsolationTestCase):
@@ -384,6 +385,8 @@ class TestInstructorUnenrollDB(TestEnrollmentChangeBase):
 
 class TestInstructorEnrollmentStudentModule(SharedModuleStoreTestCase):
     """ Test student module manipulations. """
+    MODULESTORE = TEST_DATA_MONGO_AMNESTY_MODULESTORE
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -812,7 +815,7 @@ class EnrollmentObjects:
         self.cea = cea
 
 
-class SettableEnrollmentState(EmailEnrollmentState):  # lint-amnesty, pylint: disable=eq-without-hash
+class SettableEnrollmentState(EmailEnrollmentState):
     """
     Settable enrollment state.
     Used for testing state changes.
@@ -885,9 +888,6 @@ class TestGetEmailParamsCCX(SharedModuleStoreTestCase):
     """
     Test what URLs the function get_email_params for CCX student enrollment.
     """
-
-    MODULESTORE = TEST_DATA_SPLIT_MODULESTORE
-
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -977,8 +977,6 @@ class TestRenderMessageToString(EmailTemplateTagMixin, SharedModuleStoreTestCase
     Test that email templates can be rendered in a language chosen manually.
     Test CCX enrollmet email.
     """
-    MODULESTORE = TEST_DATA_SPLIT_MODULESTORE
-
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

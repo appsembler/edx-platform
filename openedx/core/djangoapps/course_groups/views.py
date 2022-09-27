@@ -12,7 +12,7 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import EmptyPage, Paginator
 from django.http import Http404, HttpResponseBadRequest
 from django.urls import reverse
-from django.utils.translation import ugettext
+from django.utils.translation import gettext
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods, require_POST
 from edx_rest_framework_extensions.auth.jwt.authentication import JwtAuthentication
@@ -26,7 +26,11 @@ from rest_framework.serializers import Serializer
 
 from lms.djangoapps.courseware.courses import get_course, get_course_with_access
 from common.djangoapps.edxmako.shortcuts import render_to_response
-from openedx.core.djangoapps.course_groups.models import CohortMembership
+from openedx.core.djangoapps.course_groups.models import (
+    CohortAssignmentNotAllowed,
+    CohortChangeNotAllowed,
+    CohortMembership,
+)
 from openedx.core.lib.api.authentication import BearerAuthenticationAllowInactiveUser
 from openedx.core.lib.api.view_utils import DeveloperErrorViewMixin
 from common.djangoapps.student.auth import has_course_author_access
@@ -196,7 +200,7 @@ def cohort_handler(request, course_key_string, cohort_id=None):
             cohort = cohorts.get_cohort_by_id(course_key, cohort_id)
             if name != cohort.name:
                 if cohorts.is_cohort_exists(course_key, name):
-                    err_msg = ugettext("A cohort with the same name already exists.")
+                    err_msg = gettext("A cohort with the same name already exists.")
                     return JsonResponse({"error": str(err_msg)}, 400)
                 cohort.name = name
                 cohort.save()
@@ -320,6 +324,7 @@ def add_users_to_cohort(request, course_key_string, cohort_id):
     unknown = []
     preassigned = []
     invalid = []
+    not_allowed = []
     for username_or_email in split_by_comma_and_whitespace(users):
         if not username_or_email:
             continue
@@ -345,6 +350,8 @@ def add_users_to_cohort(request, course_key_string, cohort_id):
             invalid.append(username_or_email)
         except ValueError:
             present.append(username_or_email)
+        except (CohortAssignmentNotAllowed, CohortChangeNotAllowed):
+            not_allowed.append(username_or_email)
 
     return json_http_response({'success': True,
                                'added': added,
@@ -352,7 +359,8 @@ def add_users_to_cohort(request, course_key_string, cohort_id):
                                'present': present,
                                'unknown': unknown,
                                'preassigned': preassigned,
-                               'invalid': invalid})
+                               'invalid': invalid,
+                               'not_allowed': not_allowed})
 
 
 @ensure_csrf_cookie

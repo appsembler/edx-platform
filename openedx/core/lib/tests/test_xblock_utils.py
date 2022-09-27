@@ -12,24 +12,21 @@ from django.test.client import RequestFactory
 from opaque_keys.edx.asides import AsideUsageKeyV1, AsideUsageKeyV2
 from web_fragments.fragment import Fragment
 from xblock.core import XBlockAside
+from xmodule.modulestore import ModuleStoreEnum
+from xmodule.modulestore.tests.django_utils import TEST_DATA_MONGO_AMNESTY_MODULESTORE, SharedModuleStoreTestCase
+from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
+from xmodule.modulestore.tests.test_asides import AsideTestType
 
 from openedx.core.lib.url_utils import quote_slashes
 from openedx.core.lib.xblock_builtin import get_css_dependencies, get_js_dependencies
 from openedx.core.lib.xblock_utils import (
     get_aside_from_xblock,
     is_xblock_aside,
-    replace_course_urls,
-    replace_jump_to_id_urls,
-    replace_static_urls,
     request_token,
     sanitize_html_id,
     wrap_fragment,
     wrap_xblock
 )
-from xmodule.modulestore import ModuleStoreEnum
-from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
-from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
-from xmodule.modulestore.tests.test_asides import AsideTestType
 
 
 @ddt.ddt
@@ -119,64 +116,6 @@ class TestXblockUtils(SharedModuleStoreTestCase):
         assert test_wrap_output.resources[0].data == 'body {background-color:red;}'
         assert test_wrap_output.resources[1].data == 'alert("Hi!");'
 
-    @ddt.data('course_mongo', 'course_split')
-    def test_replace_jump_to_id_urls(self, course_id):
-        """
-        Verify that the jump-to URL has been replaced.
-        """
-        course = getattr(self, course_id)
-        test_replace = replace_jump_to_id_urls(
-            course_id=course.id,
-            jump_to_id_base_url='/base_url/',
-            block=course,
-            view='baseview',
-            frag=Fragment('<a href="/jump_to_id/id">'),
-            context=None
-        )
-        assert isinstance(test_replace, Fragment)
-        assert test_replace.content == '<a href="/base_url/id">'
-
-    @ddt.data(
-        ('course_mongo', '<a href="/courses/TestX/TS01/2015/id">'),
-        ('course_split', '<a href="/courses/course-v1:TestX+TS02+2015/id">')
-    )
-    @ddt.unpack
-    def test_replace_course_urls(self, course_id, anchor_tag):
-        """
-        Verify that the course URL has been replaced.
-        """
-        course = getattr(self, course_id)
-        test_replace = replace_course_urls(
-            course_id=course.id,
-            block=course,
-            view='baseview',
-            frag=Fragment('<a href="/course/id">'),
-            context=None
-        )
-        assert isinstance(test_replace, Fragment)
-        assert test_replace.content == anchor_tag
-
-    @ddt.data(
-        ('course_mongo', '<a href="/c4x/TestX/TS01/asset/id">'),
-        ('course_split', '<a href="/asset-v1:TestX+TS02+2015+type@asset+block/id">')
-    )
-    @ddt.unpack
-    def test_replace_static_urls(self, course_id, anchor_tag):
-        """
-        Verify that the static URL has been replaced.
-        """
-        course = getattr(self, course_id)
-        test_replace = replace_static_urls(
-            data_dir=None,
-            course_id=course.id,
-            block=course,
-            view='baseview',
-            frag=Fragment('<a href="/static/id">'),
-            context=None
-        )
-        assert isinstance(test_replace, Fragment)
-        assert test_replace.content == anchor_tag
-
     def test_sanitize_html_id(self):
         """
         Verify that colons and dashes are replaced.
@@ -231,6 +170,7 @@ class TestXblockUtils(SharedModuleStoreTestCase):
 
 class TestXBlockAside(SharedModuleStoreTestCase):
     """Test the xblock aside function."""
+    MODULESTORE = TEST_DATA_MONGO_AMNESTY_MODULESTORE
 
     @classmethod
     def setUpClass(cls):

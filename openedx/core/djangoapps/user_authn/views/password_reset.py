@@ -16,9 +16,9 @@ from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpRespo
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.decorators import method_decorator
-from django.utils.encoding import force_bytes, force_text
+from django.utils.encoding import force_bytes, force_str
 from django.utils.http import base36_to_int, int_to_base36, urlsafe_base64_encode
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 from edx_ace import ace
@@ -44,6 +44,7 @@ from openedx.core.djangoapps.user_api.helpers import FormDescription
 from openedx.core.djangoapps.user_api.models import UserRetirementRequest
 from openedx.core.djangoapps.user_api.preferences.api import get_user_preference
 from openedx.core.djangoapps.user_authn.message_types import PasswordReset, PasswordResetSuccess
+from openedx.core.djangoapps.user_authn.utils import check_pwned_password
 from openedx.core.djangolib.markup import HTML
 from common.djangoapps.student.forms import send_account_recovery_email_for_user
 from common.djangoapps.student.models import AccountRecovery, LoginFailures
@@ -55,7 +56,7 @@ from openedx.core.djangoapps.appsembler.tahoe_idp import helpers as tahoe_idp_he
 from tahoe_idp import api as tahoe_idp_api
 
 
-POST_EMAIL_KEY = 'post:email'
+POST_EMAIL_KEY = 'openedx.core.djangoapps.util.ratelimit.request_post_email'
 REAL_IP_KEY = 'openedx.core.djangoapps.util.ratelimit.real_ip'
 SETTING_CHANGE_INITIATED = 'edx.user.settings.change_initiated'
 
@@ -360,7 +361,7 @@ def _uidb36_to_uidb64(uidb36):
     Returns: base64-encoded user ID. Otherwise returns a dummy, invalid ID
     """
     try:
-        uidb64 = force_text(urlsafe_base64_encode(force_bytes(base36_to_int(uidb36))))
+        uidb64 = force_str(urlsafe_base64_encode(force_bytes(base36_to_int(uidb36))))
     except ValueError:
         uidb64 = '1'  # dummy invalid ID (incorrect padding for base64)
     return uidb64
@@ -629,14 +630,15 @@ def password_change_request_handler(request):
 
     """
     user = request.user
-    if (user.is_staff or user.is_superuser) and request.POST.get('email_from_support_tools'):
+    request_from_support_tools = (user.is_staff or user.is_superuser) and request.POST.get('email_from_support_tools')
+    if request_from_support_tools:
         email = request.POST.get('email_from_support_tools')
     else:
         # Prefer logged-in user's email
         email = user.email if user.is_authenticated else request.POST.get('email')
     AUDIT_LOG.info("Password reset initiated for email %s.", email)
 
-    if getattr(request, 'limited', False):
+    if getattr(request, 'limited', False) and not request_from_support_tools:
         AUDIT_LOG.warning("Password reset rate limit exceeded for email %s.", email)
         return HttpResponse(
             _("Your previous request is in progress, please try again in a few moments."),
@@ -774,6 +776,17 @@ class LogistrationPasswordResetView(APIView):  # lint-amnesty, pylint: disable=m
                 return Response({'reset_status': reset_status})
 
             validate_password(password, user=user)
+
+            if settings.ENABLE_AUTHN_RESET_PASSWORD_HIBP_POLICY:
+                # Checks the Pwned Databases for password vulnerability.
+                pwned_response = check_pwned_password(password)
+                if pwned_response.get('vulnerability', 'no') == 'yes':
+                    error_status = {
+                        'reset_status': reset_status,
+                        'err_msg': accounts.AUTHN_PASSWORD_COMPROMISED_MSG
+                    }
+                    return Response(error_status)
+
             form = SetPasswordForm(user, request.data)
             if form.is_valid():
                 form.save()

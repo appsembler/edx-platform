@@ -24,14 +24,15 @@ from common.djangoapps.student.roles import CourseStaffRole
 from common.djangoapps.student.tests.factories import CourseEnrollmentFactory, UserFactory
 from common.djangoapps.student.tests.factories import InstructorFactory
 from common.djangoapps.student.tests.factories import StaffFactory
+from lms.djangoapps.bulk_email.messages import ACEEmail
 from lms.djangoapps.bulk_email.tasks import _get_course_email_context, _get_source_address
 from lms.djangoapps.instructor_task.subtasks import update_subtask_status
 from openedx.core.djangoapps.course_groups.cohorts import add_user_to_cohort
 from openedx.core.djangoapps.course_groups.models import CourseCohort
 from openedx.core.djangoapps.enrollments.api import update_enrollment
-from xmodule.modulestore import ModuleStoreEnum
-from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
-from xmodule.modulestore.tests.factories import CourseFactory
+from xmodule.modulestore import ModuleStoreEnum  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.tests.factories import CourseFactory  # lint-amnesty, pylint: disable=wrong-import-order
 
 from ..models import BulkEmailFlag, Optout
 
@@ -176,25 +177,57 @@ class LocalizedFromAddressPlatformLangTestCase(SendEmailWithMockedUgettextMixin,
     """
     Tests to ensure that the bulk email has the "From" address localized according to LANGUAGE_CODE.
     """
-    @override_settings(LANGUAGE_CODE='en')
-    def test_english_platform(self):
+    @ddt.data(
+        ('en', True, False),
+        ('eo', True, False),
+        ('en', True, True),
+        ('eo', True, True),
+    )
+    @ddt.unpack
+    def test_english_platform(self, language_code, enable_use_corse_id_in_from, ace_enabled):
         """
         Ensures that the source-code language (English) works well.
         """
         assert self.course.language is None
         # Sanity check
-        message = self.send_email()
-        self.assertRegex(message.from_email, '.*Course Staff.*')
+        with override_settings(
+            LANGUAGE_CODE=language_code,
+            EMAIL_USE_COURSE_ID_FROM_FOR_BULK=enable_use_corse_id_in_from,
+            BULK_EMAIL_SEND_USING_EDX_ACE=ace_enabled
+        ):
+            message = self.send_email()
+            self.assertRegex(message.from_email, f'{language_code.upper()} .* Course Staff')
 
-    @override_settings(LANGUAGE_CODE='eo')
-    def test_esperanto_platform(self):
+
+@patch.dict(settings.FEATURES, {'ENABLE_INSTRUCTOR_EMAIL': True, 'REQUIRE_COURSE_EMAIL_AUTH': False})
+@ddt.ddt
+class AceEmailTestCase(SendEmailWithMockedUgettextMixin, EmailSendFromDashboardTestCase):
+    """
+    Tests to ensure that the bulk email is sent using edx-ace when BULK_EMAIL_SEND_USING_EDX_ACE toggle is enabled.
+    """
+    @ddt.data(
+        (True, True),
+        (False, False),
+    )
+    @ddt.unpack
+    @patch.object(ACEEmail, 'send')
+    def test_ace_eanbled_toggle(self, ace_enabled, email_sent_with_ace, mock_ace_email_send):
         """
-        Tests the fake Esperanto language to ensure proper gettext calls.
+        Ensures that the email message is sent via edx-ace when BULK_EMAIL_SEND_USING_EDX_ACE toggle is enabled.
         """
-        assert self.course.language is None
-        # Sanity check
-        message = self.send_email()
-        self.assertRegex(message.from_email, 'EO .* Course Staff')
+        mock_ace_email_send.return_value = None
+        test_email = {
+            'action': 'Send email',
+            'send_to': '["myself"]',
+            'subject': 'test subject for myself',
+            'message': 'test message for myself'
+        }
+
+        with override_settings(
+            BULK_EMAIL_SEND_USING_EDX_ACE=ace_enabled
+        ):
+            response = self.client.post(self.send_mail_url, test_email)
+            self.assertEqual(email_sent_with_ace, mock_ace_email_send.called)
 
 
 @patch.dict(settings.FEATURES, {'ENABLE_INSTRUCTOR_EMAIL': True, 'REQUIRE_COURSE_EMAIL_AUTH': False})
@@ -220,7 +253,7 @@ class LocalizedFromAddressCourseLangTestCase(SendEmailWithMockedUgettextMixin, E
             default_store=ModuleStoreEnum.Type.split
         )
 
-    @override_settings(LANGUAGE_CODE='eo')
+    @override_settings(LANGUAGE_CODE='eo', EMAIL_USE_COURSE_ID_FROM_FOR_BULK=True)
     def test_esperanto_platform_arabic_course(self):
         """
         The course language should override the platform's.
@@ -249,6 +282,7 @@ class TestEmailSendFromDashboardMockedHtmlToText(EmailSendFromDashboardTestCase)
         # We should get back a HttpResponseForbidden (status code 403)
         self.assertContains(response, "Email is not enabled for this course.", status_code=403)
 
+    @override_settings(EMAIL_USE_COURSE_ID_FROM_FOR_BULK=True)
     @patch('lms.djangoapps.bulk_email.models.html_to_text', Mock(return_value='Mocking CourseEmail.text_message', autospec=True))  # lint-amnesty, pylint: disable=line-too-long
     def test_send_to_self(self):
         """
@@ -288,7 +322,7 @@ class TestEmailSendFromDashboardMockedHtmlToText(EmailSendFromDashboardTestCase)
         assert len(mail.outbox) == (1 + len(self.staff))
         assert len([e.to[0] for e in mail.outbox]) == len([self.instructor.email] + [s.email for s in self.staff])
 
-    @override_settings(DEFAULT_FROM_EMAIL='test@example.com', EMAIL_USE_DEFAULT_FROM_FOR_BULK=True)
+    @override_settings(DEFAULT_FROM_EMAIL='test@example.com', BULK_EMAIL_DEFAULT_FROM_EMAIL=None, EMAIL_USE_COURSE_ID_FROM_FOR_BULK=False)  # lint-amnesty, pylint: disable=line-too-long
     def test_email_from_address(self):
         """
         Make sure the from_address should be the DEFAULT_FROM_EMAIL when corresponding flag is enabled.
@@ -498,7 +532,7 @@ class TestEmailSendFromDashboardMockedHtmlToText(EmailSendFromDashboardTestCase)
         assert len([e.to[0] for e in mail.outbox]) ==\
                len([self.instructor.email] + [s.email for s in self.staff] + [s.email for s in self.students])
 
-    @override_settings(BULK_EMAIL_DEFAULT_FROM_EMAIL="no-reply@courseupdates.edx.org")
+    @override_settings(BULK_EMAIL_DEFAULT_FROM_EMAIL="no-reply@courseupdates.edx.org", EMAIL_USE_COURSE_ID_FROM_FOR_BULK=True)  # lint-amnesty, pylint: disable=line-too-long
     def test_long_course_display_name(self):
         """
         This test tests that courses with exorbitantly large display names
@@ -674,12 +708,13 @@ class TestCourseEmailContext(SharedModuleStoreTestCase):
         """
         This test tests that the bulk email context uses http or https urls as appropriate.
         """
+        course_id_fragment = f'{self.course_org}+{self.course_number}+{self.course_run}'
         assert email_context['platform_name'] == settings.PLATFORM_NAME
         assert email_context['course_title'] == self.course_title
         assert email_context['course_url'] == \
-               f'{scheme}://edx.org/courses/{self.course_org}/{self.course_number}/{self.course_run}/'
+               f'{scheme}://edx.org/courses/course-v1:{course_id_fragment}/'
         assert email_context['course_image_url'] == \
-               f'{scheme}://edx.org/c4x/{self.course_org}/{self.course_number}/asset/images_course_image.jpg'
+               f'{scheme}://edx.org/asset-v1:{course_id_fragment}+type@asset+block@images_course_image.jpg'
         assert email_context['email_settings_url'] == f'{scheme}://edx.org/dashboard'
         assert email_context['account_settings_url'] == f'{scheme}://edx.org/account/settings'
 

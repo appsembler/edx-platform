@@ -162,6 +162,12 @@ LIBRARY_AUTHORING_MICROFRONTEND_URL = 'http://localhost:3001'
 ################### FRONTEND APPLICATION COURSE AUTHORING ###################
 COURSE_AUTHORING_MICROFRONTEND_URL = 'http://localhost:2001'
 
+################### FRONTEND APPLICATION DISCUSSIONS ###################
+DISCUSSIONS_MICROFRONTEND_URL = 'http://localhost:2002'
+
+################### FRONTEND APPLICATION DISCUSSIONS FEEDBACK URL###################
+DISCUSSIONS_MFE_FEEDBACK_URL = None
+
 ################################# DJANGO-REQUIRE ###############################
 
 # Whether to run django-require in debug mode.
@@ -223,6 +229,17 @@ add_plugins(__name__, ProjectType.CMS, SettingsType.DEVSTACK)
 OPENAPI_CACHE_TIMEOUT = 0
 
 #####################################################################
+# set replica set of contentstore to none as we haven't setup any for cms in devstack
+CONTENTSTORE['DOC_STORE_CONFIG']['replicaSet'] = None
+
+#####################################################################
+# set replica sets of moduelstore to none as we haven't setup any for cms in devstack
+for store in MODULESTORE['default']['OPTIONS']['stores']:
+    if 'DOC_STORE_CONFIG' in store and 'replicaSet' in store['DOC_STORE_CONFIG']:
+        store['DOC_STORE_CONFIG']['replicaSet'] = None
+
+
+#####################################################################
 # Lastly, run any migrations, if needed.
 MODULESTORE = convert_module_store_setting_if_needed(MODULESTORE)
 
@@ -250,6 +267,17 @@ FEATURES['ENABLE_PREREQUISITE_COURSES'] = True
 # (ref MST-637)
 PROCTORING_USER_OBFUSCATION_KEY = '85920908f28904ed733fe576320db18cabd7b6cd'
 
+############## CourseGraph devstack settings ############################
+
+COURSEGRAPH_CONNECTION: dict = {
+    "protocol": "bolt",
+    "secure": False,
+    "host": "edx.devstack.coursegraph",
+    "port": 7687,
+    "user": "neo4j",
+    "password": "edx",
+}
+
 #################### Webpack Configuration Settings ##############################
 WEBPACK_LOADER['DEFAULT']['TIMEOUT'] = 5
 
@@ -261,3 +289,7 @@ SOCIAL_AUTH_EDX_OAUTH2_PUBLIC_URL_ROOT = 'http://localhost:18000'  # used in bro
 
 # Don't form the return redirect URL with HTTPS on devstack
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = False
+
+#################### Network configuration ####################
+# Devstack is directly exposed to the caller
+CLOSEST_CLIENT_IP_FROM_HEADERS = []

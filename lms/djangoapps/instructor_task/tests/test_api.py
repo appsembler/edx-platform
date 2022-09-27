@@ -48,7 +48,7 @@ from lms.djangoapps.instructor_task.tests.test_base import (
     InstructorTaskTestCase,
     TestReportMixin
 )
-from xmodule.modulestore.exceptions import ItemNotFoundError
+from xmodule.modulestore.exceptions import ItemNotFoundError  # lint-amnesty, pylint: disable=wrong-import-order
 
 
 class InstructorTaskReportTest(InstructorTaskTestCase):
@@ -205,6 +205,8 @@ class InstructorTaskCourseSubmitTest(TestReportMixin, InstructorTaskCourseTestCa
 
     def _define_course_email(self):
         """Create CourseEmail object for testing."""
+        # TODO: convert to use bulk_email app's `create_course_email` API function and remove direct import and use of
+        # bulk_email model
         course_email = CourseEmail.create(
             self.course.id,
             self.instructor,

@@ -12,14 +12,13 @@ import logging
 
 from celery.result import AsyncResult
 from celery.states import FAILURE, READY_STATES, REVOKED, SUCCESS
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from opaque_keys.edx.keys import UsageKey
 
 from common.djangoapps.util.db import outer_atomic
 from lms.djangoapps.courseware.courses import get_problems_in_section
-from lms.djangoapps.courseware.module_render import get_xqueue_callback_url_prefix
-from lms.djangoapps.instructor_task.models import PROGRESS, InstructorTask
-from xmodule.modulestore.django import modulestore
+from lms.djangoapps.instructor_task.models import PROGRESS, SCHEDULED, InstructorTask, InstructorTaskSchedule
+from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +31,7 @@ class AlreadyRunningError(Exception):
     def __init__(self, message=None):
 
         if not message:
-            message = self.message  # pylint: disable=exception-message-attribute
+            message = self.message
         super().__init__(message)
 
 
@@ -44,7 +43,7 @@ class QueueConnectionError(Exception):
 
     def __init__(self, message=None):
         if not message:
-            message = self.message  # pylint: disable=exception-message-attribute
+            message = self.message
         super().__init__(message)
 
 
@@ -89,7 +88,7 @@ def _reserve_task(course_id, task_type, task_key, task_input, requester):
             "No duplicate tasks found: task_type %s, task_key %s, and most recent task_id = %s",
             task_type,
             task_key,
-            most_recent_id
+            most_recent_id  # pylint: disable=used-before-assignment
         )
 
     # Create log entry now, so that future requests will know it's running.
@@ -131,8 +130,7 @@ def _get_xmodule_instance_args(request, task_id):
     Calculate parameters needed for instantiating xmodule instances.
 
     The `request_info` will be passed to a tracking log function, to provide information
-    about the source of the task request.   The `xqueue_callback_url_prefix` is used to
-    permit old-style xqueue callbacks directly to the appropriate module in the LMS.
+    about the source of the task request.
     The `task_id` is also passed to the tracking log function.
     """
     request_info = {'username': request.user.username,
@@ -142,8 +140,7 @@ def _get_xmodule_instance_args(request, task_id):
                     'host': request.META['SERVER_NAME'],
                     }
 
-    xmodule_instance_args = {'xqueue_callback_url_prefix': get_xqueue_callback_url_prefix(request),
-                             'request_info': request_info,
+    xmodule_instance_args = {'request_info': request_info,
                              'task_id': task_id,
                              }
     return xmodule_instance_args
@@ -451,3 +448,46 @@ def submit_task(request, task_type, task_class, course_key, task_input, task_key
         _handle_instructor_task_failure(instructor_task, error)
 
     return instructor_task
+
+
+def schedule_task(request, task_type, course_key, task_input, task_key, schedule):
+    """
+    Helper function to schedule a background task.
+
+    Reserves the requested task and stores it until the task is ready for execution. We also create an instance of a
+    InstructorTaskSchedule object responsible for maintaining the details of _when_ a task should be executed. Extracts
+    arguments important to the task from the originating server request and stores them as part of the schedule object.
+    Sets the `task_status` to SCHEDULED to indicate this task will be executed in the future.
+
+    Args:
+        request (WSGIRequest): The originating web request associated with this task request.
+        task_type (String): Text describing the type of task (e.g. 'bulk_course_email' or 'grade_course')
+        course_key (CourseKey): The CourseKey of the course-run the task belongs to.
+        task_input (dict): Task input arguments stores as JSON-serialized dictionary.
+        task_key (String): Encoded input arguments used during task execution.
+        schedule (DateTime): DateTime (in UTC) describing when the task should be executed.
+    """
+    instructor_task = None
+    try:
+        log.info(f"Creating a scheduled instructor task of type '{task_type}' for course '{course_key}' requested by "
+                 f"user with id '{request.user.id}'")
+        instructor_task = InstructorTask.create(course_key, task_type, task_key, task_input, request.user)
+
+        task_id = instructor_task.task_id
+        task_args = _get_xmodule_instance_args(request, task_id)
+        log.info(f"Creating a task schedule associated with instructor task '{instructor_task.id}' and due after "
+                 f"'{schedule}'")
+        InstructorTaskSchedule.objects.create(
+            task=instructor_task,
+            task_args=json.dumps(task_args),
+            task_due=schedule,
+        )
+
+        log.info(f"Updating task state of instructor task '{instructor_task.id}' to '{SCHEDULED}'")
+        instructor_task.task_state = SCHEDULED
+        instructor_task.save()
+    except Exception as error:  # pylint: disable=broad-except
+        log.error(f"Error occurred during task or schedule creation: {error}")
+        # Set any orphaned instructor tasks to the FAILURE state.
+        if instructor_task:
+            _handle_instructor_task_failure(instructor_task, error)

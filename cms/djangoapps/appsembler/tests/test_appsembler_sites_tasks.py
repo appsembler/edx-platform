@@ -54,23 +54,14 @@ class ImportCourseOnSiteCreationTestCase(ModuleStoreTestCase):
         self.m_store = modulestore()
         self.organization = OrganizationFactory.create(short_name=self.organization_name)
 
-    def get_course_id(self, use_new_format=False):
+    def get_course_id(self):
         """
-        Get the textual course ID in old `Org/Course/Run` format.
-
-        :param use_new_format: Use the new `course-v1:Org+Course+Run` format.
-
-        # TODO: (Nutmeg??) Fix this and ONLY use new course format once Open edX test modulestore fix it
+        Get the textual course ID in new `course-v1:Org+Course+Run` format.
         """
-        this_year = datetime.datetime.now().year
-        if use_new_format:
-            id_format = 'course-v1:{}+{}+{}'
-        else:
-            id_format = '{}/{}/{}'
-        return id_format.format(
+        return 'course-v1:{}+{}+{}'.format(
             self.organization_name,
             COURSE_NAME,
-            this_year,
+            datetime.datetime.now().year,
         )
 
     @property
@@ -107,7 +98,7 @@ class ImportCourseOnSiteCreationTestCase(ModuleStoreTestCase):
         )
 
         assert CourseEnrollmentAllowed.objects.filter(
-            course_id=self.get_course_id(use_new_format=True),
+            course_id=self.get_course_id(),
             email__in=['admin@example.com', 'my_staff@example.com'],
             auto_enroll=True,
         ), 'Should create enrollment records for {}. [debug: all courses enrollments found: {}]\n\n'.format(

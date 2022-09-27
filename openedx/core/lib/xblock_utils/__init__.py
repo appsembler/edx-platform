@@ -28,10 +28,10 @@ from xblock.scorable import ScorableXBlockMixin
 
 from common.djangoapps import static_replace
 from common.djangoapps.edxmako.shortcuts import render_to_string
-from xmodule.seq_module import SequenceBlock
-from xmodule.util.xmodule_django import add_webpack_to_fragment
-from xmodule.vertical_block import VerticalBlock
-from xmodule.x_module import (
+from xmodule.seq_module import SequenceBlock  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.util.xmodule_django import add_webpack_to_fragment  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.vertical_block import VerticalBlock  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.x_module import (  # lint-amnesty, pylint: disable=wrong-import-order
     PREVIEW_VIEWS, STUDENT_VIEW, STUDIO_VIEW,
     XModule, XModuleDescriptor, shim_xmodule_js,
 )
@@ -229,48 +229,6 @@ def wrap_xblock_aside(
         template_context['js_init_parameters'] = ""
 
     return wrap_fragment(frag, render_to_string('xblock_wrapper.html', template_context))
-
-
-def replace_jump_to_id_urls(course_id, jump_to_id_base_url, block, view, frag, context):  # pylint: disable=unused-argument
-    """
-    This will replace a link between courseware in the format
-    /jump_to_id/<id> with a URL for a page that will correctly redirect
-    This is similar to replace_course_urls, but much more flexible and
-    durable for Studio authored courses. See more comments in static_replace.replace_jump_to_urls
-
-    course_id: The course_id in which this rewrite happens
-    jump_to_id_base_url:
-        A app-tier (e.g. LMS) absolute path to the base of the handler that will perform the
-        redirect. e.g. /courses/<org>/<course>/<run>/jump_to_id. NOTE the <id> will be appended to
-        the end of this URL at re-write time
-
-    output: a new :class:`~web_fragments.fragment.Fragment` that modifies `frag` with
-        content that has been update with /jump_to_id links replaced
-    """
-    return wrap_fragment(frag, static_replace.replace_jump_to_id_urls(frag.content, course_id, jump_to_id_base_url))
-
-
-def replace_course_urls(course_id, block, view, frag, context):  # pylint: disable=unused-argument
-    """
-    Updates the supplied module with a new get_html function that wraps
-    the old get_html function and substitutes urls of the form /course/...
-    with urls that are /courses/<course_id>/...
-    """
-    return wrap_fragment(frag, static_replace.replace_course_urls(frag.content, course_id))
-
-
-def replace_static_urls(data_dir, block, view, frag, context, course_id=None, static_asset_path=''):  # pylint: disable=unused-argument
-    """
-    Updates the supplied module with a new get_html function that wraps
-    the old get_html function and substitutes urls of the form /static/...
-    with urls that are /static/<prefix>/...
-    """
-    return wrap_fragment(frag, static_replace.replace_static_urls(
-        frag.content,
-        data_dir,
-        course_id,
-        static_asset_path=static_asset_path
-    ))
 
 
 def grade_histogram(module_id):
@@ -558,6 +516,6 @@ def get_icon(block):
     """
     A function that returns the CSS class representing an icon to use for this particular
     XBlock (in the courseware navigation bar). Mostly used for Vertical/Unit XBlocks.
-    It can be overridden by setting `GET_UNIT_ICON_IMPL` to an alternative implementation.
+    It can be overridden by setting `OVERRIDE_GET_UNIT_ICON` to an alternative implementation.
     """
     return block.get_icon_class()

@@ -1,7 +1,6 @@
 """
 Views related to operations on course objects
 """
-# pylint: disable=filter-builtin-not-iterating
 
 
 import copy
@@ -22,7 +21,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 from edx_django_utils.monitoring import function_trace
@@ -76,14 +75,14 @@ from openedx.features.content_type_gating.models import ContentTypeGatingConfig
 from openedx.features.content_type_gating.partitions import CONTENT_TYPE_GATING_SCHEME
 from openedx.features.course_experience.waffle import ENABLE_COURSE_ABOUT_SIDEBAR_HTML
 from openedx.features.course_experience.waffle import waffle as course_experience_waffle
-from xmodule.contentstore.content import StaticContent
-from xmodule.course_module import CourseBlock, DEFAULT_START_DATE, CourseFields
-from xmodule.error_module import ErrorBlock
-from xmodule.modulestore import EdxJSONEncoder
-from xmodule.modulestore.django import modulestore
-from xmodule.modulestore.exceptions import DuplicateCourseError, ItemNotFoundError
-from xmodule.partitions.partitions import UserPartition
-from xmodule.tabs import CourseTab, CourseTabList, InvalidTabsException
+from xmodule.contentstore.content import StaticContent  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.course_module import CourseBlock, DEFAULT_START_DATE, CourseFields  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.error_module import ErrorBlock  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore import EdxJSONEncoder  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.exceptions import DuplicateCourseError, ItemNotFoundError  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.partitions.partitions import UserPartition  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.tabs import CourseTab, CourseTabList, InvalidTabsException  # lint-amnesty, pylint: disable=wrong-import-order
 
 from ..course_group_config import (
     COHORT_SCHEME,
@@ -467,7 +466,7 @@ def _accessible_courses_iter_for_tests(request):
 
         return has_studio_read_access(request.user, course.id)
 
-    courses = filter(course_filter, modulestore().get_course_summaries())
+    courses = filter(course_filter, CourseOverview.get_all_courses())
 
     in_process_course_actions = get_in_process_course_actions(request)
     return courses, in_process_course_actions
@@ -495,7 +494,7 @@ def _accessible_courses_list_from_groups(request):
     course_keys = list(course_keys.values())
 
     if course_keys:
-        courses_list = modulestore().get_course_summaries(course_keys=course_keys)
+        courses_list = CourseOverview.get_all_courses(filter_={'id__in': course_keys})
 
     return courses_list, []
 
@@ -921,7 +920,7 @@ def _create_or_rerun_course(request):
         return JsonResponse({
             "ErrMsg": _("Unable to create course '{name}'.\n\n{err}").format(name=display_name, err=str(error))}
         )
-    except PermissionDenied as error:
+    except PermissionDenied as error:  # pylint: disable=unused-variable
         log.info(
             "User does not have the permission to create course in this organization"
             "or course creation is disabled."

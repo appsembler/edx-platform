@@ -1,13 +1,14 @@
 
 
-(function(globals) {
-
-  var django = globals.django || (globals.django = {});
+'use strict';
+{
+  const globals = this;
+  const django = globals.django || (globals.django = {});
 
   
   django.pluralidx = function(n) {
-    var v=0;
-    if (typeof(v) == 'boolean') {
+    const v = 0;
+    if (typeof v === 'boolean') {
       return v ? 1 : 0;
     } else {
       return v;
@@ -19,7 +20,7 @@
 
   django.catalog = django.catalog || {};
   
-  var newcatalog = {
+  const newcatalog = {
     " and ": "v\u00e0",
     "%(cohort_name)s (%(user_count)s)": "%(cohort_name)s (%(user_count)s)",
     "%(errorCount)s error found in form.": [
@@ -214,7 +215,6 @@
     "Basic Account Information": "Th\u00f4ng tin t\u00e0i kho\u1ea3n c\u01a1 b\u1ea3n",
     "Be sure your entire face is inside the frame": "H\u00e3y ch\u1eafc ch\u1eafn to\u00e0n b\u1ed9 khu\u00f4n m\u1eb7t c\u1ee7a b\u1ea1n trong khung",
     "Before proceeding, please confirm that your details match": "Tr\u01b0\u1edbc khi ti\u1ebfp t\u1ee5c, h\u00e3y ki\u1ec3m tra l\u1ea1i th\u00f4ng tin c\u1ee7a b\u1ea1n",
-    "Before proceeding, please {htmlStart}activate your account{htmlEnd}.": "Tr\u01b0\u1edbc khi ti\u1ebfp t\u1ee5c, vui l\u00f2ng {htmlStart}k\u00edch ho\u1ea1t t\u00e0i kho\u1ea3n c\u1ee7a b\u1ea1n{htmlEnd}.",
     "Before proceeding, please {htmlStart}unlink all social media accounts{htmlEnd}.": "Tr\u01b0\u1edbc khi ti\u1ebfp t\u1ee5c, vui l\u00f2ng {htmlStart}h\u1ee7y li\u00ean k\u1ebft t\u1ea5t c\u1ea3 c\u00e1c t\u00e0i kho\u1ea3n m\u1ea1ng x\u00e3 h\u1ed9i{htmlEnd}.",
     "Biography": "Ti\u1ec3u s\u1eed",
     "Blockquote": "\u0110o\u1ea1n tr\u00edch d\u1eabn",
@@ -654,7 +654,6 @@
     "ID": "ID",
     "ID-Verification is not required for this Professional Education course.": "Kho\u00e1 h\u1ecdc cao c\u1ea5p n\u00e0y kh\u00f4ng y\u00eau c\u1ea7u x\u00e1c nh\u1eadn ID.",
     "Identity Verification In Progress": "Vi\u1ec7c x\u00e1c nh\u1eadn danh t\u00ednh \u0111ang \u0111\u01b0\u1ee3c ti\u1ebfn h\u00e0nh",
-    "If the course does not have an end date, learners always see their scores when they submit answers to assessments.": "N\u1ebfu kh\u00f3a h\u1ecdc kh\u00f4ng c\u00f3 ng\u00e0y k\u1ebft th\u00fac, ng\u01b0\u1eddi h\u1ecdc s\u1ebd lu\u00f4n th\u1ea5y \u0111i\u1ec3m c\u1ee7a h\u1ecd khi h\u1ecd g\u1eedi c\u00e2u tr\u1ea3 l\u1eddi cho c\u00e1c b\u00e0i \u0111\u00e1nh gi\u00e1.",
     "If the subsection does not have a due date, learners always see their scores when they submit answers to assessments.": "N\u1ebfu ph\u1ea7n con kh\u00f4ng c\u00f3 ng\u00e0y \u0111\u1ebfn h\u1ea1n, ng\u01b0\u1eddi h\u1ecdc s\u1ebd lu\u00f4n th\u1ea5y \u0111i\u1ec3m c\u1ee7a h\u1ecd khi h\u1ecd n\u1ed9p c\u00e2u tr\u1ea3 l\u1eddi cho c\u00e1c \u0111\u00e1nh gi\u00e1.",
     "If the unit was previously published and released to learners, any changes you made to the unit when it was hidden will now be visible to learners.": "N\u1ebfu \u0111\u01a1n v\u1ecb n\u00e0y \u0111\u00e3 \u0111\u01b0\u1ee3c xu\u1ea5t b\u1ea3n v\u00e0 ph\u00e1t h\u00e0nh cho ng\u01b0\u1eddi h\u1ecdc, b\u1ea5t k\u1ef3 thay \u0111\u1ed5i n\u00e0o b\u1ea1n th\u1ef1c hi\u1ec7n cho \u0111\u01a1n v\u1ecb khi n\u00f3 \u0111\u00e3 \u1ea9n s\u1ebd hi\u1ec3n th\u1ecb cho ng\u01b0\u1eddi h\u1ecdc.",
     "If the unit was previously published and released to students, any changes you made to the unit when it was hidden will now be visible to students. Do you want to proceed?": "N\u1ebfu \u0111\u01a1n v\u1ecb n\u00e0y \u0111\u00e3 \u0111\u01b0\u1ee3c xu\u1ea5t b\u1ea3n v\u00e0 ph\u00e1t h\u00e0nh cho h\u1ecdc vi\u00ean, c\u00e1c thay \u0111\u1ed5i m\u00e0 b\u1ea1n \u0111\u00e3 th\u1ef1c hi\u1ec7n tr\u00ean \u0111\u01a1n v\u1ecb khi n\u00f3 \u0111\u01b0\u1ee3c \u1ea9n s\u1ebd \u0111\u01b0\u1ee3c hi\u1ec7n l\u00ean \u0111\u1ed1i v\u1edbi h\u1ecdc vi\u00ean. B\u1ea1n c\u00f3 mu\u1ed1n ti\u1ebfp t\u1ee5c?",
@@ -732,7 +731,6 @@
     "Last updated": "C\u1eadp nh\u1eadt m\u1edbi nh\u1ea5t",
     "Learn more about {license_name}": "T\u00ecm hi\u1ec3u th\u00eam v\u1ec1 {license_name}",
     "Learners do not see the subsection in the course outline. The subsection is not included in grade calculations.": "Ng\u01b0\u1eddi h\u1ecdc kh\u00f4ng nh\u00ecn th\u1ea5y ph\u1ea7n con trong \u0111\u1ec1 c\u01b0\u01a1ng kho\u00e1 h\u1ecdc. C\u00e1c ph\u1ea7n con kh\u00f4ng \u0111\u01b0\u1ee3c bao g\u1ed3m trong t\u00ednh \u0111i\u1ec3m.",
-    "Learners do not see whether their answers to assessments were correct or incorrect, nor the score received, until after the course end date has passed.": "Ng\u01b0\u1eddi h\u1ecdc kh\u00f4ng nh\u00ecn th\u1ea5y c\u00e2u tr\u1ea3 l\u1eddi c\u1ee7a h\u1ecd cho c\u00e1c \u0111\u00e1nh gi\u00e1 l\u00e0 \u0111\u00fang hay sai, c\u0169ng nh\u01b0 \u0111i\u1ec3m s\u1ed1 nh\u1eadn \u0111\u01b0\u1ee3c, cho \u0111\u1ebfn sau ng\u00e0y k\u1ebft th\u00fac kh\u00f3a h\u1ecdc.",
     "Learners do not see whether their answers to assessments were correct or incorrect, nor the score received, until after the due date for the subsection has passed.": "Ng\u01b0\u1eddi h\u1ecdc kh\u00f4ng nh\u00ecn th\u1ea5y c\u00e2u tr\u1ea3 l\u1eddi c\u1ee7a h\u1ecd \u0111\u1ed1i v\u1edbi c\u00e1c \u0111\u00e1nh gi\u00e1 l\u00e0 \u0111\u00fang hay sai, c\u0169ng nh\u01b0 s\u1ed1 \u0111i\u1ec3m nh\u1eadn \u0111\u01b0\u1ee3c, cho \u0111\u1ebfn khi ng\u00e0y h\u1ebft h\u1ea1n c\u1ee7a ph\u1ea7n con \u0111\u00e3 tr\u00f4i qua.",
     "Learners never see whether their answers to assessments are correct or incorrect, nor the score received.": "Ng\u01b0\u1eddi h\u1ecdc kh\u00f4ng bao gi\u1edd nh\u00ecn th\u1ea5y c\u00e2u tr\u1ea3 l\u1eddi c\u1ee7a h\u1ecd cho c\u00e1c \u0111\u00e1nh gi\u00e1 l\u00e0 \u0111\u00fang hay sai, c\u0169ng nh\u01b0 \u0111i\u1ec3m s\u1ed1 nh\u1eadn \u0111\u01b0\u1ee3c.",
     "Learners see the published subsection and can access its content.": "H\u1ecdc vi\u00ean nh\u00ecn th\u1ea5y ph\u1ea7n con \u0111\u00e3 xu\u1ea5t b\u1ea3n v\u00e0 c\u00f3 th\u1ec3 truy c\u1eadp n\u1ed9i dung c\u1ee7a n\u00f3.",
@@ -975,7 +973,6 @@
     "Processing Re-run Request": "\u0110ang x\u1eed l\u00ed Y\u00eau c\u1ea7u Re-run ",
     "Proctored": "C\u00f3 gi\u00e1m s\u00e1t",
     "Proctored Exam": "Thi c\u00f3 gi\u00e1m s\u00e1t",
-    "Proctored exams are timed and they record video of each learner taking the exam. The videos are then reviewed to ensure that learners follow all examination rules.": "B\u00e0i thi c\u00f3 gi\u00e1m s\u00e1t \u0111\u01b0\u1ee3c t\u00ednh gi\u1edd v\u00e0 ghi l\u1ea1i video m\u1ed7i h\u1ecdc vi\u00ean tham d\u1ef1 b\u00e0i thi. C\u00e1c video n\u00e0y sau \u0111\u00f3 \u0111\u01b0\u1ee3c xem x\u00e9t \u0111\u1ec3 \u0111\u1ea3m b\u1ea3o r\u1eb1ng c\u00e1c h\u1ecdc vi\u00ean tu\u00e2n th\u1ee7 t\u1ea5t c\u1ea3 c\u00e1c quy t\u1eafc ki\u1ec3m tra.",
     "Professional Education": "Gi\u00e1o D\u1ee5c Chuy\u00ean Nghi\u1ec7p",
     "Professional Education Verified Certificate": "Gi\u1ea5y ch\u1ee9ng nh\u1eadn x\u00e1c th\u1ef1c cho gi\u00e1o d\u1ee5c chuy\u00ean nghi\u1ec7p",
     "Profile": "H\u1ed3 s\u01a1",
@@ -1242,7 +1239,6 @@
     "Textbook Name": "T\u00ean gi\u00e1o tr\u00ecnh",
     "Textbook information": "Th\u00f4ng tin gi\u00e1o tr\u00ecnh",
     "Textbook name is required": "T\u00ean s\u00e1ch gi\u00e1o khoa l\u00e0 b\u1eaft bu\u1ed9c",
-    "Thank you for setting your course goal to {goal}!": "C\u1ea3m \u01a1n b\u1ea1n \u0111\u00e3 \u0111\u1eb7t m\u1ee5c ti\u00eau kh\u00f3a h\u1ecdc c\u1ee7a b\u1ea1n th\u00e0nh {goal}!",
     "Thank you for submitting your photos. We will review them shortly. You can now sign up for any %(platformName)s course that offers verified certificates. Verification is good for one year. After one year, you must submit photos for verification again.": "C\u1ea3m \u01a1n b\u1ea1n \u0111\u00e3 g\u1eedi h\u00ecnh \u1ea3nh c\u1ee7a b\u1ea1n. Ch\u00fang t\u00f4i s\u1ebd xem l\u1ea1i ch\u00fang. B\u00e2y gi\u1edd b\u1ea1n c\u00f3 th\u1ec3 \u0111\u0103ng k\u00fd kh\u00f3a h\u1ecdc b\u1ea5t k\u1ef3 %(platformName)s m\u00e0 cung c\u1ea5p ch\u1ee9ng ch\u1ec9 x\u00e1c nh\u1eadn. X\u00e1c minh l\u00e0 t\u1ed1t cho m\u1ed9t n\u0103m. Sau m\u1ed9t n\u0103m, b\u1ea1n ph\u1ea3i n\u1ed9p \u1ea3nh \u0111\u1ec3 x\u00e1c minh m\u1ed9t l\u1ea7n n\u1eefa.",
     "The URL you entered seems to be an email address. Do you want to add the required mailto: prefix?": "URL b\u1ea1n \u0111\u00e3 nh\u1eadp v\u00e0o d\u01b0\u1eddng nh\u01b0 l\u00e0 m\u1ed9t \u0111\u1ecba ch\u1ec9 email. B\u1ea1n c\u00f3 mu\u1ed1n th\u00eam li\u00ean k\u1ebft mailto:?",
     "The URL you entered seems to be an external link. Do you want to add the required http:// prefix?": "URL b\u1ea1n \u0111\u00e3 nh\u1eadp v\u00e0o d\u01b0\u1eddng nh\u01b0 l\u00e0 m\u1ed9t li\u00ean k\u1ebft ngo\u00e0i. B\u1ea1n c\u00f3 mu\u1ed1n th\u00eam v\u00e0o ti\u1ec1n t\u1ed1 c\u1ea7n thi\u1ebft http:// ?",
@@ -1309,7 +1305,6 @@
     "There was an error during the upload process.": "X\u1ea3y ra l\u1ed7i trong qu\u00e1 tr\u00ecnh t\u1ea3i l\u00ean.",
     "There was an error obtaining email content history for this course.": "X\u1ea3y ra l\u1ed7i khi xem l\u1ecbch s\u1eed t\u00e1c v\u1ee5 email c\u1ee7a kh\u00f3a h\u1ecdc n\u00e0y.",
     "There was an error obtaining email task history for this course.": "L\u1ed7i khi xem l\u1ecbch s\u1eed t\u00e1c v\u1ee5 email c\u1ee7a kh\u00f3a h\u1ecdc n\u00e0y.",
-    "There was an error updating your goal.": "\u0110\u00e3 x\u1ea3y ra l\u1ed7i khi c\u1eadp nh\u1eadt m\u1ee5c ti\u00eau c\u1ee7a b\u1ea1n.",
     "There was an error when trying to add learners:": [
       "{numErrors} nh\u1eefng h\u1ecdc vi\u00ean kh\u00f4ng th\u1ec3 th\u00eam v\u00e0o nh\u00f3m:"
     ],
@@ -1594,7 +1589,6 @@
     "You have selected an action, and you haven't made any changes on individual fields. You're probably looking for the Go button rather than the Save button.": "B\u1ea1n \u0111\u00e3 l\u1ef1a ch\u1ecdn m\u1ed9t h\u00e0nh \u0111\u1ed9ng, v\u00e0 b\u1ea1n \u0111\u00e3 kh\u00f4ng th\u1ef1c hi\u1ec7n b\u1ea5t k\u1ef3 thay \u0111\u1ed5i n\u00e0o tr\u00ean c\u00e1c tr\u01b0\u1eddng. C\u00f3 l\u1ebd b\u1ea1n \u0111ang t\u00ecm ki\u1ebfm n\u00fat b\u1ea5m Go thay v\u00ec n\u00fat b\u1ea5m Save.",
     "You have selected an action, but you haven't saved your changes to individual fields yet. Please click OK to save. You'll need to re-run the action.": "B\u1ea1n \u0111\u00e3 l\u1ef1a ch\u1ecdn m\u1ed9t h\u00e0nh \u0111\u1ed9ng, nh\u01b0ng b\u1ea1n kh\u00f4ng l\u01b0u thay \u0111\u1ed5i c\u1ee7a b\u1ea1n \u0111\u1ebfn c\u00e1c l\u0129nh v\u1ef1c c\u00e1 nh\u00e2n \u0111\u01b0\u1ee3c n\u00eau ra. Xin vui l\u00f2ng click OK \u0111\u1ec3 l\u01b0u l\u1ea1i. B\u1ea1n s\u1ebd c\u1ea7n ph\u1ea3i ch\u1ea1y l\u1ea1i c\u00e1c h\u00e0nh \u0111\u1ed9ng.",
     "You have successfully signed into %(currentProvider)s, but your %(currentProvider)s account does not have a linked %(platformName)s account. To link your accounts, sign in now using your %(platformName)s password.": "B\u1ea1n \u0111\u00e3 \u0111\u0103ng nh\u1eadp th\u00e0nh c\u00f4ng v\u00e0o %(currentProvider)s, nh\u01b0ng t\u00e0i kho\u1ea3n c\u1ee7a b\u1ea1n %(currentProvider)s kh\u00f4ng \u0111\u01b0\u1ee3c li\u00ean k\u1ebft v\u00e0o t\u00e0i kho\u1ea3n %(platformName)s. \u0110\u1ec3 li\u00ean k\u1ebft c\u00e1c t\u00e0i kho\u1ea3n c\u1ee7a b\u1ea1n, \u0111\u0103ng nh\u1eadp ngay b\u1eb1ng %(platformName)s m\u1eadt kh\u1ea9u.",
-    "You have successfully updated your goal.": "B\u1ea1n \u0111\u00e3 c\u1eadp nh\u1eadt th\u00e0nh c\u00f4ng m\u1ee5c ti\u00eau c\u1ee7a m\u00ecnh.",
     "You have unsaved changes are you sure you want to navigate away?": "B\u1ea1n c\u00f2n ch\u01b0a l\u01b0u m\u1ed9t v\u00e0i thay \u0111\u1ed5i, b\u1ea1n ch\u1eafc ch\u1eafn mu\u1ed1n \u0111i\u1ec1u h\u01b0\u1edbng?",
     "You have unsaved changes on individual editable fields. If you run an action, your unsaved changes will be lost.": "B\u1ea1n ch\u01b0a l\u01b0u nh\u1eefng tr\u01b0\u1eddng \u0111\u00e3 ch\u1ec9nh s\u1eeda. N\u1ebfu b\u1ea1n ch\u1ecdn h\u00e0nh \u0111\u1ed9ng n\u00e0y, nh\u1eefng ch\u1ec9nh s\u1eeda ch\u01b0a \u0111\u01b0\u1ee3c l\u01b0u s\u1ebd b\u1ecb m\u1ea5t.",
     "You have unsaved changes. Do you really want to leave this page?": "B\u1ea1n c\u00f3 nh\u1eefng thay \u0111\u1ed5i ch\u01b0a \u0111\u01b0\u1ee3c l\u01b0u. B\u1ea1n c\u00f3 th\u1ef1c s\u1ef1 mu\u1ed1n r\u1eddi kh\u1ecfi trang n\u00e0y?",
@@ -1770,24 +1764,24 @@
     "{type} Progress": "{type} Ti\u1ebfn \u0111\u1ed9",
     "\u2026": "..."
   };
-  for (var key in newcatalog) {
+  for (const key in newcatalog) {
     django.catalog[key] = newcatalog[key];
   }
   
 
   if (!django.jsi18n_initialized) {
     django.gettext = function(msgid) {
-      var value = django.catalog[msgid];
-      if (typeof(value) == 'undefined') {
+      const value = django.catalog[msgid];
+      if (typeof value === 'undefined') {
         return msgid;
       } else {
-        return (typeof(value) == 'string') ? value : value[0];
+        return (typeof value === 'string') ? value : value[0];
       }
     };
 
     django.ngettext = function(singular, plural, count) {
-      var value = django.catalog[singular];
-      if (typeof(value) == 'undefined') {
+      const value = django.catalog[singular];
+      if (typeof value === 'undefined') {
         return (count == 1) ? singular : plural;
       } else {
         return value.constructor === Array ? value[django.pluralidx(count)] : value;
@@ -1797,16 +1791,16 @@
     django.gettext_noop = function(msgid) { return msgid; };
 
     django.pgettext = function(context, msgid) {
-      var value = django.gettext(context + '\x04' + msgid);
-      if (value.indexOf('\x04') != -1) {
+      let value = django.gettext(context + '\x04' + msgid);
+      if (value.includes('\x04')) {
         value = msgid;
       }
       return value;
     };
 
     django.npgettext = function(context, singular, plural, count) {
-      var value = django.ngettext(context + '\x04' + singular, context + '\x04' + plural, count);
-      if (value.indexOf('\x04') != -1) {
+      let value = django.ngettext(context + '\x04' + singular, context + '\x04' + plural, count);
+      if (value.includes('\x04')) {
         value = django.ngettext(singular, plural, count);
       }
       return value;
@@ -1829,15 +1823,12 @@
       "%Y-%m-%d %H:%M:%S",
       "%Y-%m-%d %H:%M:%S.%f",
       "%Y-%m-%d %H:%M",
-      "%Y-%m-%d",
       "%m/%d/%Y %H:%M:%S",
       "%m/%d/%Y %H:%M:%S.%f",
       "%m/%d/%Y %H:%M",
-      "%m/%d/%Y",
       "%m/%d/%y %H:%M:%S",
       "%m/%d/%y %H:%M:%S.%f",
-      "%m/%d/%y %H:%M",
-      "%m/%d/%y"
+      "%m/%d/%y %H:%M"
     ],
     "DATE_FORMAT": "\\N\\g\u00e0\\y d \\t\\h\u00e1\\n\\g n \\n\u0103\\m Y",
     "DATE_INPUT_FORMATS": [
@@ -1870,8 +1861,8 @@
   };
 
     django.get_format = function(format_type) {
-      var value = django.formats[format_type];
-      if (typeof(value) == 'undefined') {
+      const value = django.formats[format_type];
+      if (typeof value === 'undefined') {
         return format_type;
       } else {
         return value;
@@ -1890,6 +1881,5 @@
 
     django.jsi18n_initialized = true;
   }
-
-}(this));
+};
 

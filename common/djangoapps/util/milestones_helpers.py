@@ -2,7 +2,7 @@
 Utility library for working with the edx-milestones app
 """
 from django.conf import settings
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from edx_toggles.toggles import SettingDictToggle
 from milestones import api as milestones_api
 from milestones.exceptions import InvalidMilestoneRelationshipTypeException, InvalidUserException
@@ -13,7 +13,7 @@ from opaque_keys.edx.keys import CourseKey
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.lib.cache_utils import get_cache
-from xmodule.modulestore.django import modulestore
+from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
 
 
 NAMESPACE_CHOICES = {

@@ -1,13 +1,14 @@
 
 
-(function(globals) {
-
-  var django = globals.django || (globals.django = {});
+'use strict';
+{
+  const globals = this;
+  const django = globals.django || (globals.django = {});
 
   
   django.pluralidx = function(n) {
-    var v=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);
-    if (typeof(v) == 'boolean') {
+    const v = (n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);
+    if (typeof v === 'boolean') {
       return v ? 1 : 0;
     } else {
       return v;
@@ -19,7 +20,7 @@
 
   django.catalog = django.catalog || {};
   
-  var newcatalog = {
+  const newcatalog = {
     " and ": " \u0456 ",
     "%(errorCount)s error found in form.": [
       "%(errorCount)s \u043f\u043e\u043c\u0438\u043b\u043a\u0430 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u0430.",
@@ -223,7 +224,6 @@
     "Background color": "\u041a\u043e\u043b\u0456\u0440 \u0444\u043e\u043d\u0443",
     "Basic": "\u041e\u0441\u043d\u043e\u0432\u043d\u0435",
     "Basic Account Information": "\u041e\u0441\u043d\u043e\u0432\u043d\u0430 \u0456\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0456\u044f \u043e\u0431\u043b\u0456\u043a\u043e\u0432\u043e\u0433\u043e \u0437\u0430\u043f\u0438\u0441\u0443",
-    "Before proceeding, please {htmlStart}activate your account{htmlEnd}.": "\u041f\u0435\u0440\u0448 \u043d\u0456\u0436 \u043f\u0440\u043e\u0434\u043e\u0432\u0436\u0438\u0442\u0438, \u0430\u043a\u0442\u0438\u0432\u0443\u0439\u0442\u0435 {htmlStart} \u0441\u0432\u0456\u0439 \u0430\u043a\u0430\u0443\u043d\u0442{htmlEnd}.",
     "Before proceeding, please {htmlStart}unlink all social media accounts{htmlEnd}.": "\u041f\u0435\u0440\u0448 \u043d\u0456\u0436 \u043f\u0440\u043e\u0434\u043e\u0432\u0436\u0438\u0442\u0438,\u0431\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430{htmlStart} \u0432\u0456\u0434\u2019\u0454\u0434\u043d\u0430\u0439\u0442\u0435 \u0432\u0441\u0456 \u043e\u0431\u043b\u0456\u043a\u043e\u0432\u0456 \u0437\u0430\u043f\u0438\u0441\u0438 \u0441\u043e\u0446\u0456\u0430\u043b\u044c\u043d\u0438\u0445 \u043c\u0435\u0434\u0456\u0430 {htmlEnd}.",
     "Biography": "\u0406\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0456\u044f",
     "Block view is unavailable": "\u0411\u043b\u043e\u0447\u043d\u0438\u0439 \u0432\u0438\u0434 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0438\u0439",
@@ -300,7 +300,6 @@
     "Cohorts": "\u041a\u043e\u0433\u043e\u0440\u0442\u0438",
     "Cohorts Disabled": "\u041a\u043e\u0433\u043e\u0440\u0442\u0438 \u0432\u0438\u043c\u043a\u043d\u0435\u043d\u0456",
     "Cohorts Enabled": "\u041a\u043e\u0433\u043e\u0440\u0442\u0438 \u0443\u0432\u0456\u043c\u043a\u043d\u0435\u043d\u0456",
-    "Collapse All": "\u0417\u0433\u043e\u0440\u043d\u0443\u0442\u0438 \u0412\u0441\u0456",
     "Collapse Instructions": "\u0421\u0445\u043e\u0432\u0430\u0442\u0438 \u0456\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0456\u0457",
     "Collapse/Expand this %(xblock_type)s": "\u0417\u0433\u043e\u0440\u043d\u0443\u0442\u0438 / \u0420\u043e\u0437\u0433\u043e\u0440\u043d\u0443\u0442\u0438 \u0446\u0435\u0439 %(xblock_type)s",
     "Color": "\u041a\u043e\u043b\u0456\u0440",
@@ -495,7 +494,6 @@
     "Errors": "\u041f\u043e\u043c\u0438\u043b\u043a\u0438",
     "Everyone who has staff privileges in this course": "\u0412\u0441\u0456 \u0445\u0442\u043e \u0454 \u043f\u0435\u0440\u0441\u043e\u043d\u0430\u043b\u043e\u043c \u0446\u044c\u043e\u0433\u043e \u043a\u0443\u0440\u0441\u0443",
     "Exit full browser": "\u0412\u0438\u0439\u0442\u0438 \u0437 \u043f\u043e\u0432\u043d\u043e\u0433\u043e \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443",
-    "Expand All": "\u0420\u043e\u0437\u0433\u043e\u0440\u043d\u0443\u0442\u0438 \u0412\u0441\u0456",
     "Expand Instructions": "\u0420\u043e\u0437\u043a\u0440\u0438\u0442\u0438 \u0456\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0456\u0457",
     "Explanation": "\u041f\u043e\u044f\u0441\u043d\u0435\u043d\u043d\u044f",
     "Explicitly Hiding from Students": "\u042f\u0432\u043d\u043e \u043f\u0440\u0438\u0445\u043e\u0432\u0430\u043d\u0438\u0439 \u0432\u0456\u0434 \u0441\u0442\u0443\u0434\u0435\u043d\u0442\u0456\u0432",
@@ -1071,7 +1069,6 @@
     "Text to display": "\u0422\u0435\u043a\u0441\u0442 \u0434\u043b\u044f \u0432\u0456\u0434\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u043d\u044f",
     "Textbook Name": "\u041d\u0430\u0437\u0432\u0430 \u043f\u0456\u0434\u0440\u0443\u0447\u043d\u0438\u043a\u0430",
     "Textbook name is required": "\u041d\u0430\u0437\u0432\u0430 \u043f\u0456\u0434\u0440\u0443\u0447\u043d\u0438\u043a\u0430 \u0454 \u043e\u0431\u043e\u0432'\u044f\u0437\u043a\u043e\u0432\u0430 \u0443\u043c\u043e\u0432\u0430",
-    "Thank you for setting your course goal to {goal}!": "\u0414\u044f\u043a\u0443\u0454\u043c\u043e \u0432\u0430\u043c \u0437\u0430 \u043d\u0430\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f \u043c\u0435\u0442\u0438 \u0432\u0430\u0448\u043e\u0433\u043e \u043a\u0443\u0440\u0441\u0443 \u0434\u043e {goal}!",
     "The URL you entered seems to be an email address. Do you want to add the required mailto: prefix?": "\u0412\u0430\u0448\u0435 \u043f\u043e\u0441\u0438\u043b\u0430\u043d\u043d\u044f \u0441\u0445\u043e\u0436\u0435 \u043d\u0430 \u0430\u0434\u0440\u0435\u0441\u0443 \u0435\u043b\u0435\u043a\u0442\u0440\u043e\u043d\u043d\u043e\u0457 \u043f\u043e\u0448\u0442\u0438. \u0427\u0438 \u0445\u043e\u0447\u0435\u0442\u0435 \u0432\u0438 \u0434\u043e\u0434\u0430\u0442\u0438 \u0434\u043e \u043d\u044c\u043e\u0433\u043e \u043f\u0440\u0435\u0444\u0456\u043a\u0441 mailto:?",
     "The URL you entered seems to be an external link. Do you want to add the required http:// prefix?": "\u0412\u0430\u0448\u0435 \u043f\u043e\u0441\u0438\u043b\u0430\u043d\u043d\u044f \u0441\u0445\u043e\u0436\u0435 \u043d\u0430 \u0437\u043e\u0432\u043d\u0456\u0448\u043d\u0454. \u0427\u0438 \u0445\u043e\u0447\u0435\u0442\u0435 \u0432\u0438 \u0434\u043e\u0434\u0430\u0442\u0438 \u0434\u043e \u043d\u044c\u043e\u0433\u043e \u043f\u0440\u0435\u0444\u0456\u043a\u0441 http://?",
     "The assignment type must have a name.": "\u0422\u0438\u043f \u0437\u0430\u0432\u0434\u0430\u043d\u043d\u044f \u043f\u043e\u0432\u0438\u043d\u0435\u043d \u043c\u0430\u0442\u0438 \u043d\u0430\u0437\u0432\u0443.",
@@ -1125,7 +1122,6 @@
     "There was an error during the upload process.": "\u0412\u0456\u0434\u0431\u0443\u043b\u0430\u0441\u044c \u043f\u043e\u043c\u0438\u043b\u043a\u0430 \u043f\u0456\u0434 \u0447\u0430\u0441 \u043f\u0440\u043e\u0446\u0435\u0441\u0443 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f.",
     "There was an error obtaining email content history for this course.": "\u0412\u0438\u043d\u0438\u043a\u043b\u0430 \u043f\u043e\u043c\u0438\u043b\u043a\u0430 \u043f\u0440\u0438 \u043e\u0442\u0440\u0438\u043c\u0430\u043d\u043d\u0456 \u0456\u0441\u0442\u043e\u0440\u0456\u0457 \u0430\u0434\u0440\u0435\u0441 \u0434\u043b\u044f \u0446\u044c\u043e\u0433\u043e \u043a\u0443\u0440\u0441\u0443.",
     "There was an error obtaining email task history for this course.": "\u041f\u0456\u0434 \u0447\u0430\u0441 \u043e\u0442\u0440\u0438\u043c\u0430\u043d\u043d\u044f \u0456\u0441\u0442\u043e\u0440\u0456\u0457 \u043b\u0438\u0441\u0442\u0443\u0432\u0430\u043d\u043d\u044f \u0434\u043b\u044f \u0446\u044c\u043e\u0433\u043e \u043a\u0443\u0440\u0441\u0443 \u0441\u0442\u0430\u043b\u0430\u0441\u044c \u043f\u043e\u043c\u0438\u043b\u043a\u0430.",
-    "There was an error updating your goal.": "\u041f\u0456\u0434 \u0447\u0430\u0441 \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0446\u0456\u043b\u0456 \u0441\u0442\u0430\u043b\u0430\u0441\u044f \u043f\u043e\u043c\u0438\u043b\u043a\u0430.",
     "There was an error when trying to add learners:": [
       "\u0421\u0442\u0430\u043b\u0430\u0441\u044f \u043f\u043e\u043c\u0438\u043b\u043a\u0430 \u043f\u0440\u0438 \u0434\u043e\u0434\u0430\u0432\u0430\u043d\u043d\u0456 \u0443\u0447\u043d\u0456\u0432:",
       "{numErrors} \u0443\u0447\u043d\u0456 \u043d\u0435 \u043c\u043e\u0436\u0443\u0442\u044c \u0431\u0443\u0442\u0438 \u0434\u043e\u0434\u0430\u043d\u0456 \u0434\u043e \u0446\u0456\u0454\u0457 \u043a\u043e\u0433\u043e\u0440\u0442\u0438:",
@@ -1364,7 +1360,6 @@
     "You have selected an action, but you haven't saved your changes to individual fields yet. Please click OK to save. You'll need to re-run the action.": "\u0412\u0438 \u043e\u0431\u0440\u0430\u043b\u0438 \u0434\u0456\u044e, \u0430\u043b\u0435 \u043d\u0435 \u0437\u0431\u0435\u0440\u0435\u0433\u043b\u0438 \u0437\u043c\u0456\u043d\u0438 \u0432 \u043e\u043a\u0440\u0435\u043c\u0438\u0445 \u043f\u043e\u043b\u044f\u0445. \u0411\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u043d\u0430\u0442\u0438\u0441\u043d\u0456\u0442\u044c \u041e\u041a, \u0449\u043e\u0431 \u0437\u0431\u0435\u0440\u0435\u0433\u0442\u0438. \u0412\u0430\u043c \u0434\u043e\u0432\u0435\u0434\u0435\u0442\u044c\u0441\u044f \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u0438 \u0434\u0456\u044e.",
     "You have set your language to {beta_language}, which is currently not fully translated. You can help us translate this language fully by joining the Transifex community and adding translations from English for learners that speak {beta_language}.": "\u0412\u0438 \u0437\u043c\u0456\u043d\u0438\u043b\u0438 \u0441\u0432\u043e\u044e \u043c\u043e\u0432\u0443 \u043d\u0430 {beta_language}, \u0449\u043e \u043d\u0430\u0440\u0430\u0437\u0456 \u043d\u0435 \u0454 \u043f\u043e\u0432\u043d\u0456\u0441\u0442\u044e \u043f\u0435\u0440\u0435\u043a\u043b\u0430\u0434\u0435\u043d\u043e\u044e. \u0412\u0438 \u043c\u043e\u0436\u0435\u0442\u0435 \u0434\u043e\u043f\u043e\u043c\u043e\u0433\u0442\u0438 \u0437 \u043f\u0435\u0440\u0435\u043a\u043b\u0430\u0434\u043e\u043c \u0434\u043b\u044f \u0446\u0456\u0454\u0457 \u043c\u043e\u0432\u0438 \u043f\u0440\u0438\u0454\u0434\u043d\u0430\u0432\u0448\u0438\u0441\u044c \u0434\u043e \u043d\u0430\u0448\u043e\u0457 \u0441\u043f\u0456\u043b\u044c\u043d\u043e\u0442\u0438 \u0443 Transifex, \u0442\u0430 \u0437\u0440\u043e\u0431\u0438\u0432\u0448\u0438 \u043f\u0435\u0440\u0435\u0434\u043a\u043b\u0430\u0434 \u0434\u043b\u044f \u0441\u0442\u0443\u0434\u0435\u043d\u0442\u0456\u0432 \u0437 \u0430\u043d\u0433\u043b\u0456\u0439\u0441\u044c\u043a\u043e\u0457 \u043d\u0430 {beta_language}.",
     "You have successfully signed into %(currentProvider)s, but your %(currentProvider)s account does not have a linked %(platformName)s account. To link your accounts, sign in now using your %(platformName)s password.": "\u0412\u0438 \u0443\u0441\u043f\u0456\u0448\u043d\u043e \u0443\u0432\u0456\u0439\u0448\u043b\u0438 \u0432 %(currentProvider)s, \u0430\u043b\u0435 \u0432\u0430\u0448 \u043e\u0431\u043b\u0456\u043a\u043e\u0432\u0438\u0439 \u0437\u0430\u043f\u0438\u0441 %(currentProvider)s \u043d\u0435 \u043c\u0430\u0454 \u043f\u0456\u0434'\u0454\u0434\u043d\u0430\u043d\u043e\u0433\u043e \u043e\u0431\u043b\u0456\u043a\u043e\u0432\u043e\u0433\u043e \u0437\u0430\u043f\u0438\u0441\u0443 %(platformName)s. \u0429\u043e\u0431 \u043f\u0456\u0434'\u0454\u0434\u043d\u0430\u0442\u0438 \u043e\u0431\u043b\u0456\u043a\u043e\u0432\u0456 \u0437\u0430\u043f\u0438\u0441\u0438, \u0443\u0432\u0456\u0439\u0434\u0456\u0442\u044c \u0437\u0430\u0440\u0430\u0437, \u0432\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u044e\u0447\u0438 \u0432\u0430\u0448 \u043f\u0430\u0440\u043e\u043b\u044c %(platformName)s.",
-    "You have successfully updated your goal.": "\u0412\u0438 \u0443\u0441\u043f\u0456\u0448\u043d\u043e \u043e\u043d\u043e\u0432\u0438\u043b\u0438 \u0441\u0432\u043e\u044e \u0446\u0456\u043b\u044c.",
     "You have unsaved changes are you sure you want to navigate away?": "\u0412\u0438 \u043d\u0435 \u0437\u0431\u0435\u0440\u0435\u0433\u043b\u0438 \u0437\u043c\u0456\u043d\u0438. \u0427\u0438 \u0432\u0438 \u0432\u043f\u0435\u0432\u043d\u0435\u043d\u0456, \u0449\u043e \u0445\u043e\u0447\u0435\u0442\u0435 \u0437\u0430\u043b\u0438\u0448\u0438\u0442\u0438 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043d\u043d\u044f?",
     "You have unsaved changes on individual editable fields. If you run an action, your unsaved changes will be lost.": "\u0412\u0438 \u0437\u0440\u043e\u0431\u0438\u043b\u0438 \u044f\u043a\u0456\u0441\u044c \u0437\u043c\u0456\u043d\u0438 \u0443 \u0434\u0435\u044f\u043a\u0438\u0445 \u043f\u043e\u043b\u044f\u0445. \u042f\u043a\u0449\u043e \u0412\u0438 \u0432\u0438\u043a\u043e\u043d\u0430\u0454\u0442\u0435 \u0446\u044e \u0434\u0456\u044e, \u0432\u0441\u0456 \u043d\u0435\u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u0456 \u0437\u043c\u0456\u043d\u0438 \u0431\u0443\u0434\u0435 \u0432\u0442\u0440\u0430\u0447\u0435\u043d\u043e.",
     "You have unsaved changes. Do you really want to leave this page?": "\u0423 \u0432\u0430\u0441 \u0454 \u043d\u0435\u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u0456 \u0437\u043c\u0456\u043d\u0438. \u0412\u0438 \u0434\u0456\u0439\u0441\u043d\u043e \u0445\u043e\u0447\u0435\u0442\u0435 \u043f\u043e\u043a\u0438\u043d\u0443\u0442\u0438 \u0441\u0442\u043e\u0440\u0456\u043d\u043a\u0443?",
@@ -1556,24 +1551,24 @@
     "{type} Progress": "{type} \u041f\u0440\u043e\u0433\u0440\u0435\u0441",
     "\u2026": "..."
   };
-  for (var key in newcatalog) {
+  for (const key in newcatalog) {
     django.catalog[key] = newcatalog[key];
   }
   
 
   if (!django.jsi18n_initialized) {
     django.gettext = function(msgid) {
-      var value = django.catalog[msgid];
-      if (typeof(value) == 'undefined') {
+      const value = django.catalog[msgid];
+      if (typeof value === 'undefined') {
         return msgid;
       } else {
-        return (typeof(value) == 'string') ? value : value[0];
+        return (typeof value === 'string') ? value : value[0];
       }
     };
 
     django.ngettext = function(singular, plural, count) {
-      var value = django.catalog[singular];
-      if (typeof(value) == 'undefined') {
+      const value = django.catalog[singular];
+      if (typeof value === 'undefined') {
         return (count == 1) ? singular : plural;
       } else {
         return value.constructor === Array ? value[django.pluralidx(count)] : value;
@@ -1583,16 +1578,16 @@
     django.gettext_noop = function(msgid) { return msgid; };
 
     django.pgettext = function(context, msgid) {
-      var value = django.gettext(context + '\x04' + msgid);
-      if (value.indexOf('\x04') != -1) {
+      let value = django.gettext(context + '\x04' + msgid);
+      if (value.includes('\x04')) {
         value = msgid;
       }
       return value;
     };
 
     django.npgettext = function(context, singular, plural, count) {
-      var value = django.ngettext(context + '\x04' + singular, context + '\x04' + plural, count);
-      if (value.indexOf('\x04') != -1) {
+      let value = django.ngettext(context + '\x04' + singular, context + '\x04' + plural, count);
+      if (value.includes('\x04')) {
         value = django.ngettext(singular, plural, count);
       }
       return value;
@@ -1615,11 +1610,9 @@
       "%d.%m.%Y %H:%M:%S",
       "%d.%m.%Y %H:%M:%S.%f",
       "%d.%m.%Y %H:%M",
-      "%d.%m.%Y",
       "%d %B %Y %H:%M:%S",
       "%d %B %Y %H:%M:%S.%f",
       "%d %B %Y %H:%M",
-      "%d %B %Y",
       "%Y-%m-%d %H:%M:%S",
       "%Y-%m-%d %H:%M:%S.%f",
       "%Y-%m-%d %H:%M",
@@ -1648,8 +1641,8 @@
   };
 
     django.get_format = function(format_type) {
-      var value = django.formats[format_type];
-      if (typeof(value) == 'undefined') {
+      const value = django.formats[format_type];
+      if (typeof value === 'undefined') {
         return format_type;
       } else {
         return value;
@@ -1668,6 +1661,5 @@
 
     django.jsi18n_initialized = true;
   }
-
-}(this));
+};
 

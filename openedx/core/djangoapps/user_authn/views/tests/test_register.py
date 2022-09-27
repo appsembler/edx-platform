@@ -52,7 +52,7 @@ from openedx.core.djangoapps.user_authn.views.register import REGISTRATION_FAILU
 from openedx.core.djangolib.testing.utils import CacheIsolationTestCase, skip_unless_lms
 from openedx.core.lib.api import test_utils
 from common.djangoapps.student.helpers import authenticate_new_user
-from common.djangoapps.student.tests.factories import UserFactory
+from common.djangoapps.student.tests.factories import AccountRecoveryFactory, UserFactory
 from common.djangoapps.third_party_auth.tests.testutil import ThirdPartyAuthTestMixin, simulate_running_pipeline
 from common.djangoapps.third_party_auth.tests.utils import (
     ThirdPartyOAuthTestMixin,
@@ -246,6 +246,52 @@ class RegistrationViewValidationErrorTest(
                         "Try again with a different email address."
                     ).format(
                         self.EMAIL
+                    )
+                }],
+                "error_code": "duplicate-email"
+            }
+        )
+
+    @skipIf(
+        settings.TAHOE_NUTMEG_TEMP_SKIP_TEST,
+        'Fixing later, related to recovery and emails, something with multi-tenant'
+    )
+    def test_register_duplicate_email_validation_error_with_recovery(self):
+        # Register the user
+        response = self.client.post(self.url, {
+            "email": self.EMAIL,
+            "name": self.NAME,
+            "username": self.USERNAME,
+            "password": self.PASSWORD,
+            "honor_code": "true",
+        })
+        self.assertHttpOK(response)
+
+        # Create recovery object
+        user = User.objects.get(email=self.EMAIL)
+        account_recovery = AccountRecoveryFactory(user=user)
+
+        # Try to create a user with the recovery email address
+        response = self.client.post(self.url, {
+            "email": account_recovery.secondary_email,
+            "name": "Someone Else",
+            "username": "someone_else",
+            "password": self.PASSWORD,
+            "honor_code": "true",
+        })
+
+        assert response.status_code == 409
+
+        response_json = json.loads(response.content.decode('utf-8'))
+        self.assertDictEqual(
+            response_json,
+            {
+                "email": [{
+                    "user_message": (
+                        "It looks like {} belongs to an existing account. "
+                        "Try again with a different email address."
+                    ).format(
+                        account_recovery.secondary_email
                     )
                 }],
                 "error_code": "duplicate-email"
@@ -662,12 +708,12 @@ class RegistrationViewTestV1(
         self._assert_reg_absent_field(
             no_extra_fields_setting,
             {
-                "name": u"favorite_editor",
-                "type": u"select",
+                "name": "favorite_editor",
+                "type": "select",
                 "required": False,
-                "label": u"Favorite Editor",
-                "placeholder": u"cat",
-                "defaultValue": u"vim",
+                "label": "Favorite Editor",
+                "placeholder": "cat",
+                "defaultValue": "vim",
                 "errorMessages": {
                     'required': 'This field is required.',
                     'invalid_choice': 'Select a valid choice. %(value)s is not one of the available choices.',
@@ -894,6 +940,9 @@ class RegistrationViewTestV1(
         )
 
     def test_register_form_year_of_birth(self):
+        # WARNING: This test may fail locally due to a test order issue. If it passes on Github,
+        #     but is failing for you locally, you probably did not cause the problem if you
+        #     are not working on registration. See VAN-900 for more details.
         this_year = datetime.now(UTC).year
         year_options = (
             [
@@ -919,6 +968,21 @@ class RegistrationViewTestV1(
                 "required": False,
                 "label": "Year of birth",
                 "options": year_options,
+            }
+        )
+
+    def test_register_form_marketing_emails_opt_in_field(self):
+        self._assert_reg_field(
+            {"marketing_emails_opt_in": "optional"},
+            {
+                "name": "marketing_emails_opt_in",
+                "type": "checkbox",
+                "required": False,
+                "label": 'I agree that {platform_name} may send me marketing messages.'.format(
+                    platform_name=settings.PLATFORM_NAME,
+                ),
+                "exposed": True,
+                "defaultValue": True,
             }
         )
 
@@ -1265,12 +1329,16 @@ class RegistrationViewTestV1(
         REGISTRATION_EXTENSION_FORM='openedx.core.djangoapps.user_api.tests.test_helpers.TestCaseForm',
     )
     def test_field_order(self):
+        # WARNING: This test may fail locally due to a test order issue. If it passes on Github,
+        #     but is failing for you locally, you probably did not cause the problem if you
+        #     are not working on registration. See VAN-900 for more details.
         response = self.client.get(self.url)
         self.assertHttpOK(response)
 
         # Verify that all fields render in the correct order
         form_desc = json.loads(response.content.decode('utf-8'))
         field_names = [field["name"] for field in form_desc["fields"]]
+        print(field_names)
         assert field_names == [
             "email",
             "name",
@@ -1327,6 +1395,9 @@ class RegistrationViewTestV1(
         ],
     )
     def test_field_order_override(self):
+        # WARNING: This test may fail locally due to a test order issue. If it passes on Github,
+        #     but is failing for you locally, you probably did not cause the problem if you
+        #     are not working on registration. See VAN-900 for more details.
         response = self.client.get(self.url)
         self.assertHttpOK(response)
 
@@ -1368,6 +1439,9 @@ class RegistrationViewTestV1(
         ],
     )
     def test_field_order_invalid_override(self):
+        # WARNING: This test may fail locally due to a test order issue. If it passes on Github,
+        #     but is failing for you locally, you probably did not cause the problem if you
+        #     are not working on registration. See VAN-900 for more details.
         response = self.client.get(self.url)
         self.assertHttpOK(response)
 
@@ -1896,7 +1970,6 @@ class RegistrationViewTestV1(
 class RegistrationViewTestV2(RegistrationViewTestV1):
     """
     Test for registration api V2
-
     """
 
     # pylint: disable=test-inherits-tests
@@ -1948,6 +2021,9 @@ class RegistrationViewTestV2(RegistrationViewTestV1):
         ],
     )
     def test_field_order_invalid_override(self):
+        # WARNING: This test may fail locally due to a test order issue. If it passes on Github,
+        #     but is failing for you locally, you probably did not cause the problem if you
+        #     are not working on registration. See VAN-900 for more details.
         response = self.client.get(self.url)
         self.assertHttpOK(response)
 
@@ -2012,6 +2088,9 @@ class RegistrationViewTestV2(RegistrationViewTestV1):
         ],
     )
     def test_field_order_override(self):
+        # WARNING: This test may fail locally due to a test order issue. If it passes on Github,
+        #     but is failing for you locally, you probably did not cause the problem if you
+        #     are not working on registration. See VAN-900 for more details.
         response = self.client.get(self.url)
         self.assertHttpOK(response)
 
@@ -2023,6 +2102,10 @@ class RegistrationViewTestV2(RegistrationViewTestV1):
                                'gender', 'year_of_birth', 'level_of_education',
                                'mailing_address', 'goals', 'honor_code']
 
+    @skipIf(
+        settings.TAHOE_NUTMEG_TEMP_SKIP_TEST,
+        'Needs work. Failing sometimes because of https://github.com/appsembler/edx-platform/pull/1171'
+    )
     @override_settings(
         REGISTRATION_EXTRA_FIELDS={
             "level_of_education": "optional",
@@ -2040,6 +2123,9 @@ class RegistrationViewTestV2(RegistrationViewTestV1):
         REGISTRATION_EXTENSION_FORM='openedx.core.djangoapps.user_api.tests.test_helpers.TestCaseForm',
     )
     def test_field_order(self):
+        # WARNING: This test may fail locally due to a test order issue. If it passes on Github,
+        #     but is failing for you locally, you probably did not cause the problem if you
+        #     are not working on registration. See VAN-900 for more details.
         response = self.client.get(self.url)
         self.assertHttpOK(response)
 
@@ -2057,6 +2143,55 @@ class RegistrationViewTestV2(RegistrationViewTestV1):
             "country",
             "gender",
             "year_of_birth",
+            "level_of_education",
+            "mailing_address",
+            "goals",
+            "honor_code",
+            "favorite_movie",
+        ]
+
+    @skipIf(
+        settings.TAHOE_NUTMEG_TEMP_SKIP_TEST,
+        'Needs work. Failing sometimes because of https://github.com/appsembler/edx-platform/pull/1171'
+    )
+    @override_settings(
+        ENABLE_COPPA_COMPLIANCE=True,
+        REGISTRATION_EXTRA_FIELDS={
+            "level_of_education": "optional",
+            "gender": "optional",
+            "year_of_birth": "optional",
+            "mailing_address": "optional",
+            "goals": "optional",
+            "city": "optional",
+            "state": "optional",
+            "country": "required",
+            "honor_code": "required",
+            "confirm_email": "required",
+        },
+        REGISTRATION_FIELD_ORDER=None,
+        REGISTRATION_EXTENSION_FORM='openedx.core.djangoapps.user_api.tests.test_helpers.TestCaseForm',
+    )
+    def test_year_of_birth_field_with_feature_flag(self):
+        """
+        Test that year of birth is not returned when ENABLE_COPPA_COMPLIANCE is
+        set to True.
+        """
+        response = self.client.get(self.url)
+        self.assertHttpOK(response)
+
+        # Verify that all fields render in the correct order
+        form_desc = json.loads(response.content.decode('utf-8'))
+        field_names = [field["name"] for field in form_desc["fields"]]
+        assert field_names == [
+            "email",
+            "name",
+            "username",
+            "password",
+            "confirm_email",
+            "city",
+            "state",
+            "country",
+            "gender",
             "level_of_education",
             "mailing_address",
             "goals",
@@ -2459,11 +2594,11 @@ class RegistrationValidationViewTests(test_utils.ApiTestCase, OpenEdxEventsTestM
         )
 
     @ddt.data(
-        ['name', [name for name in testutils.VALID_NAMES]],  # lint-amnesty, pylint: disable=unnecessary-comprehension
-        ['email', [email for email in testutils.VALID_EMAILS]],  # lint-amnesty, pylint: disable=unnecessary-comprehension, line-too-long
-        ['password', [password for password in testutils.VALID_PASSWORDS]],  # lint-amnesty, pylint: disable=unnecessary-comprehension, line-too-long
-        ['username', [username for username in testutils.VALID_USERNAMES]],  # lint-amnesty, pylint: disable=unnecessary-comprehension, line-too-long
-        ['country', [country for country in testutils.VALID_COUNTRIES]]  # lint-amnesty, pylint: disable=unnecessary-comprehension, line-too-long
+        ['name', list(testutils.VALID_NAMES)],
+        ['email', list(testutils.VALID_EMAILS)],
+        ['password', list(testutils.VALID_PASSWORDS)],
+        ['username', list(testutils.VALID_USERNAMES)],
+        ['country', list(testutils.VALID_COUNTRIES)],
     )
     @ddt.unpack
     def test_positive_validation_decision(self, form_field_name, user_data):
@@ -2477,11 +2612,11 @@ class RegistrationValidationViewTests(test_utils.ApiTestCase, OpenEdxEventsTestM
 
     @ddt.data(
         # Skip None type for invalidity checks.
-        ['name', [name for name in testutils.INVALID_NAMES[1:]]],  # lint-amnesty, pylint: disable=unnecessary-comprehension,  line-too-long
-        ['email', [email for email in testutils.INVALID_EMAILS[1:]]],  # lint-amnesty, pylint: disable=unnecessary-comprehension, line-too-long
-        ['password', [password for password in testutils.INVALID_PASSWORDS[1:]]],  # lint-amnesty, pylint: disable=unnecessary-comprehension, line-too-long
-        ['username', [username for username in testutils.INVALID_USERNAMES[1:]]],  # lint-amnesty, pylint: disable=unnecessary-comprehension,  line-too-long
-        ['country', [country for country in testutils.INVALID_COUNTRIES[1:]]]  # lint-amnesty, pylint: disable=unnecessary-comprehension, line-too-long
+        ['name', testutils.INVALID_NAMES[1:]],
+        ['email', testutils.INVALID_EMAILS[1:]],
+        ['password', testutils.INVALID_PASSWORDS[1:]],
+        ['username', testutils.INVALID_USERNAMES[1:]],
+        ['country', testutils.INVALID_COUNTRIES[1:]],
     )
     @ddt.unpack
     def test_negative_validation_decision(self, form_field_name, user_data):

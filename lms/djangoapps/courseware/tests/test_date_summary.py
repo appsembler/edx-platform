@@ -3,16 +3,21 @@
 
 
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 import crum
 import ddt
 import waffle  # lint-amnesty, pylint: disable=invalid-django-waffle-import
+from django.conf import settings
 from django.contrib.messages.middleware import MessageMiddleware
 from django.test import RequestFactory
 from django.urls import reverse
 from edx_toggles.toggles.testutils import override_waffle_flag
 from freezegun import freeze_time
 from pytz import utc
+from xmodule.modulestore import ModuleStoreEnum
+from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
+from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
 
 from common.djangoapps.course_modes.models import CourseMode
 from common.djangoapps.course_modes.tests.factories import CourseModeFactory
@@ -49,16 +54,11 @@ from openedx.features.course_experience import (
     CourseHomeMessages
 )
 from common.djangoapps.student.tests.factories import TEST_PASSWORD, CourseEnrollmentFactory, UserFactory
-from xmodule.modulestore import ModuleStoreEnum
-from xmodule.modulestore.tests.django_utils import TEST_DATA_SPLIT_MODULESTORE, SharedModuleStoreTestCase
-from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
 
 
 @ddt.ddt
 class CourseDateSummaryTest(SharedModuleStoreTestCase):
     """Tests for course date summary blocks."""
-    MODULESTORE = TEST_DATA_SPLIT_MODULESTORE
-
     def setUp(self):
         super().setUp()
         SelfPacedConfiguration.objects.create(enable_course_home_improvements=True)
@@ -241,7 +241,7 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
         blocks = get_course_date_blocks(course, user, request, num_assignments=2)
         assert len(blocks) == len(expected_blocks)
         assert {type(b) for b in blocks} == set(expected_blocks)
-        assignment_blocks = filter(  # pylint: disable=filter-builtin-not-iterating
+        assignment_blocks = filter(
             lambda b: isinstance(b, CourseAssignmentDate), blocks
         )
         for assignment in assignment_blocks:
@@ -267,7 +267,7 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
         blocks = get_course_date_blocks(course, user, request, include_past_dates=True)
         assert len(blocks) == len(expected_blocks)
         assert {type(b) for b in blocks} == set(expected_blocks)
-        assignment_blocks = filter(  # pylint: disable=filter-builtin-not-iterating
+        assignment_blocks = filter(
             lambda b: isinstance(b, CourseAssignmentDate), blocks
         )
         for assignment in assignment_blocks:
@@ -654,6 +654,14 @@ class CourseDateSummaryTest(SharedModuleStoreTestCase):
         course = create_course_run(days_till_start=-1)
         user = create_user()
         CourseEnrollmentFactory(course_id=course.id, user=user, mode=CourseMode.AUDIT)
+        block = VerificationDeadlineDate(course, user)
+        assert not block.is_allowed
+
+    @patch.dict(settings.FEATURES, {'ENABLE_INTEGRITY_SIGNATURE': True})
+    def test_verification_deadline_with_integrity_signature(self):
+        course = create_course_run(days_till_start=-1)
+        user = create_user()
+        CourseEnrollmentFactory(course_id=course.id, user=user, mode=CourseMode.VERIFIED)
         block = VerificationDeadlineDate(course, user)
         assert not block.is_allowed
 

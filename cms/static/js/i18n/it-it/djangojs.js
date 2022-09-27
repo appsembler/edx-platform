@@ -1,13 +1,14 @@
 
 
-(function(globals) {
-
-  var django = globals.django || (globals.django = {});
+'use strict';
+{
+  const globals = this;
+  const django = globals.django || (globals.django = {});
 
   
   django.pluralidx = function(n) {
-    var v=(n != 1);
-    if (typeof(v) == 'boolean') {
+    const v = (n != 1);
+    if (typeof v === 'boolean') {
       return v ? 1 : 0;
     } else {
       return v;
@@ -19,7 +20,7 @@
 
   django.catalog = django.catalog || {};
   
-  var newcatalog = {
+  const newcatalog = {
     "\n                    Make sure you are on a computer with a webcam, and that you have valid photo identification\n                    such as a driver's license or passport, before you continue.\n                ": "\n                    Prima di continuare, assicurati di essere su un computer con una webcam e di disporre di un documento d'identit\u00e0 valido con foto, come ad esempio la patente di guida o il passaporto. ",
     "\n                    Your verification attempt failed. Please read our guidelines to make\n                    sure you understand the requirements for successfully completing verification,\n                    then try again.\n                ": "\n                    Non hai superato la verifica. Leggi le nostre linee guida per assicurarti di aver compreso i requisiti per completare correttamente la verifica, quindi riprova. ",
     "\n                    Your verification has expired. You must successfully complete a new identity verification\n                    before you can start the proctored exam.\n                ": "\n                    La tua verifica \u00e8 scaduta. Dovrai superare una nuova verifica dell'identit\u00e0 prima di poter iniziare l'esame con supervisione. ",
@@ -416,7 +417,6 @@
     "Basic Account Information": "Informazioni di base",
     "Be sure your entire face is inside the frame": "Assicurati che l'intero volto rientri nell'inquadratura",
     "Before proceeding, please confirm that your details match": "Prima di continuare, confermare che i dettagli corrispondono ",
-    "Before proceeding, please {htmlStart}activate your account{htmlEnd}.": "Prima di procedere {htmlStart}attivare il tuo account{htmlEnd}.",
     "Before proceeding, please {htmlStart}unlink all social media accounts{htmlEnd}.": "Prima di procedere {htmlStart}scollegare tutti gli account social media{htmlEnd}.",
     "Before you upgrade to a certificate track, you must activate your account.": "Prima di eseguire l'aggiornamento ad una traccia del certificato, \u00e8 necessario attivare l'account.",
     "Billing/Payment Options": "Opzioni di pagamento/fatturazione",
@@ -541,7 +541,7 @@
     "Cohorts": "Coorti",
     "Cohorts Disabled": "Cohort disabilitati",
     "Cohorts Enabled": "Cohort abilitati",
-    "Collapse All": "Comprimi tutti",
+    "Collapse All": "Comprimi tutto ",
     "Collapse Instructions": "Nascondi le Istruzioni",
     "Collapse/Expand this %(xblock_type)s": "Comprimi/Espandi questo %(xblock_type)s",
     "Color": "Colore",
@@ -872,7 +872,7 @@
     "Exam timer and end exam button": "Pulsante timer esame e termina esame",
     "Exception Granted": "Eccezione concessa ",
     "Exit full browser": "Esci dal browser a schermo intero",
-    "Expand All": "Espandi tutti",
+    "Expand All": "Espandi tutto ",
     "Expand Instructions": "Espandi le Istruzioni",
     "Explain if other.": "Se altro, immettere una spiegazione. ",
     "Explanation": "Spiegazione",
@@ -1019,7 +1019,6 @@
     "ID": "ID",
     "ID-Verification is not required for this Professional Education course.": "La verifica tramite ID non \u00e8 richiesta per questo corso di Formazione professionale. ",
     "Identity Verification In Progress": "Verifica dell'identit\u00e0 in corso ",
-    "If the course does not have an end date, learners always see their scores when they submit answers to assessments.": "Se il corso non ha una data di fine, gli studenti vedono sempre i loro punteggi quando inviano le risposte alle valutazioni. ",
     "If the photos you submit are rejected, try moving the computer or camera orientation to change the lighting angle.  The most common reason for rejection is inability to read the text on the ID card.": "Se le foto inoltrate vengono rifiutate, provare a spostare il computer o l'orientamento della telecamera per modificare l'angolo di illuminazione. La causa di rifiuto pi\u00f9 comune \u00e8 l'impossibilit\u00e0 di leggere il testo sul documento. ",
     "If the proctoring software window is still open, close it now and confirm that you want to quit the application.": "Se la finestra del software di supervisione \u00e8 ancora aperta, chiuderla ora e confermare che si desidera uscire dall'applicazione. ",
     "If the subsection does not have a due date, learners always see their scores when they submit answers to assessments.": "Se la sottosezione non ha una data di scadenza, gli studenti vedono sempre i loro punteggi quando inviano le risposte alle valutazioni. ",
@@ -1124,7 +1123,6 @@
     "Learners are added to this cohort automatically.": "Gli studenti vengono aggiunti a questa coorte automaticamente ",
     "Learners are added to this cohort only when you provide their email addresses or usernames on this page.": "Gli studenti vengono aggiunti a questa coorte solo quando viene fornito il relativo indirizzo email o nome utente in questa pagina. ",
     "Learners do not see the subsection in the course outline. The subsection is not included in grade calculations.": "Gli studenti non vedono la sottosezione nella struttura del corso. La sottosezione non \u00e8 considerata nel calcolo del voto. ",
-    "Learners do not see whether their answers to assessments were correct or incorrect, nor the score received, until after the course end date has passed.": "Gli studenti non vedono se le loro risposte alle valutazioni erano corrette o errate, n\u00e9 il punteggio ottenuto, fino a quando la data di fine del corso non \u00e8 trascorsa. ",
     "Learners do not see whether their answers to assessments were correct or incorrect, nor the score received, until after the due date for the subsection has passed.": "Gli studenti non vedono se le loro risposte alle valutazioni erano corrette o errate, n\u00e9 il punteggio ottenuto, fino a quando non trascorre la data di scadenza della sottosezione.",
     "Learners never see whether their answers to assessments are correct or incorrect, nor the score received.": "Gli studenti non vedono mai se le loro risposte alle valutazioni sono corrette o errate, n\u00e9 il punteggio ottenuto. ",
     "Learners see the published subsection and can access its content.": "Gli studenti vedono la sottosezione pubblicata e possono accedere ai relativi contenuti. ",
@@ -1462,7 +1460,6 @@
     "Proctored Option Available": "Possibilit\u00e0 di supervisione disponibile",
     "Proctored Option No Longer Available": "Possibilit\u00e0 di supervisione non pi\u00f9 disponibile",
     "Proctored exam {exam_name} in {course_name} for user {username}": "Esame supervisionato {exam_name} in {course_name} per utente {username}",
-    "Proctored exams are timed and they record video of each learner taking the exam. The videos are then reviewed to ensure that learners follow all examination rules.": "Gli esami con supervisione sono a tempo e prevedono la registrazione di un video di ogni studente che sostiene l'esame. I video vengono quindi esaminati per garantire che gli studenti seguano tutte le regole dell'esame. ",
     "Proctoring": "Supervisione",
     "Proctoring Results For {course_name} {exam_name}": "Risultati supervisione del {course_name} {exam_name}",
     "Proctoring Review In Progress For {course_name} {exam_name}": "Verifica supervisione in corso per {course_name} {exam_name}",
@@ -1494,7 +1491,6 @@
     "Re-run Course": "Riesegui il corso",
     "Read More": "Per saperne di pi\u00f9",
     "Read more": "Per saperne di pi\u00f9",
-    "Ready To Resume": "Pronto a ripartire",
     "Ready To Start": "Pronto a partire",
     "Ready To Submit": "Pronto per l'invio",
     "Reason": "Motivo ",
@@ -1570,6 +1566,7 @@
     "Return to all posts": "Torna a tutti i post",
     "Return to my dashboard": "Torna alla mia dashboard",
     "Return to team listing": "Torna alla lista del gruppo",
+    "Review Policy Exception": "Verifica Eccezione Policy",
     "Review Rules": "Regole di controllo",
     "Review Your Photos": "Esamina le tue foto ",
     "Review your info": "Verifica le tue informazioni",
@@ -1658,8 +1655,8 @@
     ],
     "Show Deprecated Settings": "Mostra impostazioni deprecate",
     "Show Discussion": "Mostra Discussione",
-    "Show Less": "Mostra meno",
-    "Show More": "Mostra altro",
+    "Show Less": "Mostra meno ",
+    "Show More": "Mostra altro ",
     "Show Previews": "Mostra anteprime",
     "Show assessment results when subsection is past due": "Mostra i risultati della valutazione quando la sottosezione \u00e8 scaduta ",
     "Show blocks": "Mostra blocchi",
@@ -1827,7 +1824,6 @@
     "Textbook Name": "Nome libro di testo",
     "Textbook information": "Informazioni sul libro di testo",
     "Textbook name is required": "Il nome del libro di testo \u00e8 richiesto",
-    "Thank you for setting your course goal to {goal}!": "Grazie per aver impostato l'obiettivo del corso su {goal}! ",
     "Thank you for submitting a request! We appreciate your patience while we work to review your request.": "Grazie per averci inviato una richiesta. Apprezziamo la tua pazienza mentre ci adoperiamo per esaminare la tua richiesta. ",
     "Thank you for submitting your financial assistance application for {course_name}! You can expect a response in 2-4 business days.": "Grazie per aver inoltrato l'applicazione per l'assistenza finanziaria per {course_name}! Riceverai una risposta entro 2-4 giorni lavorativi.",
     "Thank you for submitting your photos. We will review them shortly. You can now sign up for any %(platformName)s course that offers verified certificates. Verification is good for one year. After one year, you must submit photos for verification again.": "Grazie per aver inoltrato le tue foto. Le esamineremo a breve. \u00c8 ora possibile registrarsi a qualsiasi corso %(platformName)s che offre certificati verificati. La verifica \u00e8 effettiva per un anno. Dopo un anno, \u00e8 necessario inoltrare le foto per una nuova verifica. ",
@@ -1912,7 +1908,6 @@
     "There was an error obtaining email content history for this course.": "C'\u00e8 stato un errore nell'ottenere la cronologia dei contenuti delle e-mail di questo corso.",
     "There was an error obtaining email task history for this course.": "C'\u00e8 stato un errore nell'ottenere la cronologia delle attivit\u00e0 e-mail di questo corso.",
     "There was an error retrieving preview results for this catalog. Please check that your query is correct and try again.": "Si \u00e8 verificato un errore durante il recupero dei risultati dell'anteprima per questo catalogo. Verificare che la query sia corretta e riprovare. ",
-    "There was an error updating your goal.": "Si \u00e8 verificato un errore durante l'aggiornamento del tuo obiettivo.",
     "There was an error when trying to add learners:": [
       "Si \u00e8 verificato un errore durante il tentativo di aggiungere studenti: ",
       "Non \u00e8 stato possibile aggiungere {numErrors} studenti a questa coorte:"
@@ -1994,8 +1989,6 @@
     "This role requires a divided discussions scheme.": "Questo ruolo richiede uno schema di discussione suddivisa.",
     "This section could not be loaded.": "Impossibile caricare questa sezione.",
     "This short name for the assignment type (for example, HW or Midterm) appears next to assignments on a learner's Progress page.": "Questo nome breve per il tipo di compito (ad esempio, Compiti a casa o Esame intermedio) viene visualizzato accanto ai compiti nella pagina Progressi dello studente. ",
-    "This special exam has been released to learners. You may not convert it to another type of special exam. You may revert this subsection back to being a basic exam by selecting 'None', but you will NOT be able to configure it as a special exam in the future.": "Questo esame speciale \u00e8 stato rilasciato agli studenti. Non puoi convertirlo in un altro tipo di esame speciale. Puoi ripristinare questa sottosezione come esame di base selezionando 'Nessuno', ma NON sarai in grado di configurarlo come esame speciale in futuro. ",
-    "This subsection was released to learners as a special exam, but was reverted back to a basic exam. You may not configure it as a special exam now. Contact edX Support for assistance.": "Questa sottosezione \u00e8 stata rilasciata agli studenti come esame speciale, ma \u00e8 stata ripristinata come esame di base. Adesso non puoi configurarla come esame speciale. Contatta il supporto edX per assistenza.",
     "This team does not have any members.": "Questo team non ha nessun membro",
     "This team is full.": "Questo gruppo \u00e8 completo.",
     "This thread is closed.": "Questo thread \u00e8 chiuso. ",
@@ -2023,7 +2016,6 @@
     "Titles more than 100 characters may prevent students from printing their certificate on a single page.": "Titoli con pi\u00f9 di 100 caratteri possono impedire agli studenti di stampare il proprio certificato su un'unica pagina. ",
     "To access the course, select a session.": "Per accedere al corso, selezionare una sessione. ",
     "To be sure all students can access the video, we recommend providing both an .mp4 and a .webm version of your video. Click below to add a URL for another version. These URLs cannot be YouTube URLs. The first listed video that's compatible with the student's computer will play.": "Per assicurarti che tutti gli studenti possano accedere al video, ti consigliamo di fornire una versione .mp4 e .webm del tuo video. Fare clic di seguito per aggiungere un URL per un'altra versione. Questi URL non possono essere URL di YouTube. Verr\u00e0 riprodotto il primo video elencato compatibile con il computer dello studente. ",
-    "To complete the program, you must earn a verified certificate for each course.": "Per completare il programma, \u00e8 necessario ottenere un certificato verificato per ciascun corso. ",
     "To continue learning with this account, sign in below.": "Per continuare l'apprendimento con questo account, accedere di seguito. ",
     "To invalidate a certificate for a particular learner, add the username or email address below.": "Per invalidare un certificato per un particolare studente, aggiungere il nome utente o l'indirizzo email di seguito. ",
     "To pass this exam, you must complete the problems in the time allowed.": "Per superare questo esame, dovrai completare i problemi nel tempo previsto.",
@@ -2321,12 +2313,11 @@
     "You have not created any certificates yet.": "Non hai ancora creato alcun certificato.",
     "You have not created any content groups yet.": "Non hai ancora creato alcun gruppo di contenuto.",
     "You have not created any group configurations yet.": "Non hai ancora creato nessuna configurazioni di gruppo.",
-    "You have selected an action, and you haven't made any changes on individual fields. You're probably looking for the Go button rather than the Save button.": "Hai selezionato un'azione, e non hai ancora apportato alcuna modifica a campi singoli. Probabilmente stai cercando il pulsante Go, invece di Save.",
-    "You have selected an action, but you haven't saved your changes to individual fields yet. Please click OK to save. You'll need to re-run the action.": "Hai selezionato un'azione, ma non hai ancora salvato le modifiche apportate a campi singoli. Fai clic su OK per salvare. Poi dovrai ri-eseguire l'azione.",
+    "You have selected an action, and you haven\u2019t made any changes on individual fields. You\u2019re probably looking for the Go button rather than the Save button.": "Hai selezionato un'azione e non hai ancora apportato alcuna modifica ai campi singoli. Probabilmente stai cercando il pulsante Vai, invece di Salva.",
+    "You have selected an action, but you haven\u2019t saved your changes to individual fields yet. Please click OK to save. You\u2019ll need to re-run the action.": "Hai selezionato un'azione, ma non hai ancora salvato le modifiche apportate a campi singoli. Fai clic su OK per salvare. Poi dovrai rieseguire l'azione.",
     "You have selected \u201cDelete my account.\u201d Deletion of your account and personal data is permanent and cannot be undone. {platformName} will not be able to recover your account or the data that is deleted.": "Hai selezionato \u201cElimina il mio account.\u201d L'eliminazione del tuo account e dei tuoi dati personali \u00e8 permanente e non pu\u00f2 essere annullata. {platformName} non sar\u00e0 in grado di recuperare il tuo account o i dati eliminati. ",
     "You have set your language to {beta_language}, which is currently not fully translated. You can help us translate this language fully by joining the Transifex community and adding translations from English for learners that speak {beta_language}.": "Hai impostato {beta_language} come lingua, che non \u00e8 attualmente completamente tradotta. Puoi aiutarci a tradurre completamente questa lingua unendoti alla comunit\u00e0 Transifex e aggiungendo traduzioni dall'inglese per studenti che parlano {beta_language}.",
     "You have successfully signed into %(currentProvider)s, but your %(currentProvider)s account does not have a linked %(platformName)s account. To link your accounts, sign in now using your %(platformName)s password.": "Hai correttamente effettuato l'accesso in %(currentProvider)s, ma il tuo account %(currentProvider)s non ha un account %(platformName)s ad esso abbinato. Per collegare i tuoi account accesi utilizzando la password %(platformName)s .",
-    "You have successfully updated your goal.": "Hai aggiornato con successo il tuo obiettivo. ",
     "You have unsaved changes are you sure you want to navigate away?": "Sono presenti modifiche non salvate. Si desidera abbandonare la pagina?",
     "You have unsaved changes on individual editable fields. If you run an action, your unsaved changes will be lost.": "Ci sono aggiornamenti non salvati su singoli campi modificabili. Se esegui un'azione, le modifiche non salvate andranno perse.",
     "You have unsaved changes. Do you really want to leave this page?": "Hai delle modifiche non salvate. Vuoi davvero lasciare questa pagina?",
@@ -2414,6 +2405,18 @@
     "a practice exam": "un esame di prova",
     "a proctored exam": "un esame con supervisione",
     "a timed exam": "un esame a tempo ",
+    "abbrev. month April\u0004Apr": "Apr",
+    "abbrev. month August\u0004Aug": "Ago",
+    "abbrev. month December\u0004Dec": "Dic",
+    "abbrev. month February\u0004Feb": "Feb",
+    "abbrev. month January\u0004Jan": "Gen",
+    "abbrev. month July\u0004Jul": "Lug",
+    "abbrev. month June\u0004Jun": "Giu",
+    "abbrev. month March\u0004Mar": "Mar",
+    "abbrev. month May\u0004May": "Mag",
+    "abbrev. month November\u0004Nov": "Nov",
+    "abbrev. month October\u0004Oct": "Ott",
+    "abbrev. month September\u0004Sep": "Set",
     "about %d hour": [
       "circa %d ora",
       "circa %d ore"
@@ -2487,7 +2490,6 @@
     "or create a new one here": "o crearne uno nuovo qui ",
     "or sign in with": "o accedi con ",
     "path/to/introductionToCookieBaking-CH{order}.pdf": "path/to/introductionToCookieBaking-CH{order}.pdf",
-    "post anonymously": "pubblica in modo anonimo ",
     "post anonymously to classmates": "pubblica in modo anonimo per i compagni di classe ",
     "posted %(time_ago)s by %(author)s": "pubblicato %(time_ago)s da %(author)s",
     "price": "prezzo",
@@ -2623,24 +2625,24 @@
     "{unread_comments_count} new": "{unread_comments_count} nuovo ",
     "\u2026": "..."
   };
-  for (var key in newcatalog) {
+  for (const key in newcatalog) {
     django.catalog[key] = newcatalog[key];
   }
   
 
   if (!django.jsi18n_initialized) {
     django.gettext = function(msgid) {
-      var value = django.catalog[msgid];
-      if (typeof(value) == 'undefined') {
+      const value = django.catalog[msgid];
+      if (typeof value === 'undefined') {
         return msgid;
       } else {
-        return (typeof(value) == 'string') ? value : value[0];
+        return (typeof value === 'string') ? value : value[0];
       }
     };
 
     django.ngettext = function(singular, plural, count) {
-      var value = django.catalog[singular];
-      if (typeof(value) == 'undefined') {
+      const value = django.catalog[singular];
+      if (typeof value === 'undefined') {
         return (count == 1) ? singular : plural;
       } else {
         return value.constructor === Array ? value[django.pluralidx(count)] : value;
@@ -2650,16 +2652,16 @@
     django.gettext_noop = function(msgid) { return msgid; };
 
     django.pgettext = function(context, msgid) {
-      var value = django.gettext(context + '\x04' + msgid);
-      if (value.indexOf('\x04') != -1) {
+      let value = django.gettext(context + '\x04' + msgid);
+      if (value.includes('\x04')) {
         value = msgid;
       }
       return value;
     };
 
     django.npgettext = function(context, singular, plural, count) {
-      var value = django.ngettext(context + '\x04' + singular, context + '\x04' + plural, count);
-      if (value.indexOf('\x04') != -1) {
+      let value = django.ngettext(context + '\x04' + singular, context + '\x04' + plural, count);
+      if (value.includes('\x04')) {
         value = django.ngettext(singular, plural, count);
       }
       return value;
@@ -2682,23 +2684,19 @@
       "%d/%m/%Y %H:%M:%S",
       "%d/%m/%Y %H:%M:%S.%f",
       "%d/%m/%Y %H:%M",
-      "%d/%m/%Y",
       "%d/%m/%y %H:%M:%S",
       "%d/%m/%y %H:%M:%S.%f",
       "%d/%m/%y %H:%M",
-      "%d/%m/%y",
       "%Y-%m-%d %H:%M:%S",
       "%Y-%m-%d %H:%M:%S.%f",
       "%Y-%m-%d %H:%M",
-      "%Y-%m-%d",
       "%d-%m-%Y %H:%M:%S",
       "%d-%m-%Y %H:%M:%S.%f",
       "%d-%m-%Y %H:%M",
-      "%d-%m-%Y",
       "%d-%m-%y %H:%M:%S",
       "%d-%m-%y %H:%M:%S.%f",
       "%d-%m-%y %H:%M",
-      "%d-%m-%y"
+      "%Y-%m-%d"
     ],
     "DATE_FORMAT": "d F Y",
     "DATE_INPUT_FORMATS": [
@@ -2726,8 +2724,8 @@
   };
 
     django.get_format = function(format_type) {
-      var value = django.formats[format_type];
-      if (typeof(value) == 'undefined') {
+      const value = django.formats[format_type];
+      if (typeof value === 'undefined') {
         return format_type;
       } else {
         return value;
@@ -2746,6 +2744,5 @@
 
     django.jsi18n_initialized = true;
   }
-
-}(this));
+};
 

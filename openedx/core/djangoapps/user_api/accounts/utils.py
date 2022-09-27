@@ -2,23 +2,24 @@
 Utility methods for the account settings.
 """
 
-
+import random
 import re
+import string
 from urllib.parse import urlparse  # pylint: disable=import-error
 
 import waffle  # lint-amnesty, pylint: disable=invalid-django-waffle-import
 from completion.waffle import ENABLE_COMPLETION_TRACKING_SWITCH
 from completion.models import BlockCompletion
 from django.conf import settings
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from social_django.models import UserSocialAuth
 
 from common.djangoapps.student.models import AccountRecovery, Registration, get_retired_email_by_email
 from openedx.core.djangolib.oauth2_retirement_utils import retire_dot_oauth2_models
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 from openedx.core.djangoapps.theming.helpers import get_config_value_from_site_or_settings, get_current_site
-from xmodule.modulestore.django import modulestore
-from xmodule.modulestore.exceptions import ItemNotFoundError
+from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.exceptions import ItemNotFoundError  # lint-amnesty, pylint: disable=wrong-import-order
 
 from ..models import UserRetirementStatus
 
@@ -213,3 +214,18 @@ def create_retirement_request_and_deactivate_account(user):
     # Delete OAuth tokens associated with the user.
     retire_dot_oauth2_models(user)
     AccountRecovery.retire_recovery_email(user.id)
+
+
+def username_suffix_generator(suffix_length=4):
+    """
+    Generates a random, alternating number and letter string for the purpose of
+    appending to non-unique usernames. Alternating is less likey to produce
+    a significant/meaningful substring like an offensive word.
+    """
+    output = ''
+    for i in range(suffix_length):
+        if (i % 2) == 0:
+            output += random.choice(string.ascii_lowercase)
+        else:
+            output += random.choice(string.digits)
+    return output

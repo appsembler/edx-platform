@@ -6,7 +6,7 @@ import logging
 from django.conf import settings
 from django.urls import reverse
 from django.utils.html import format_html
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from eventtracking import tracker
 
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -98,7 +98,7 @@ def reset_course_deadlines(request):
         if course_home_legacy_is_active(course_key):
             body_link = '{}{}'.format(settings.LMS_ROOT_URL, reverse('dates', args=[str(course_key)]))
         else:
-            body_link = get_learning_mfe_home_url(course_key=str(course_key), view_name='dates')
+            body_link = get_learning_mfe_home_url(course_key=str(course_key), url_fragment='dates')
 
         return Response({
             'body': format_html('<a href="{}">{}</a>', body_link, _('View all dates')),

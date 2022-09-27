@@ -5,22 +5,18 @@ For additional information and historical context, see:
 https://openedx.atlassian.net/wiki/display/TNL/User+API
 """
 
-
 import datetime
 import logging
-import uuid
 from functools import wraps
 
 import pytz
-from rest_framework.exceptions import UnsupportedMediaType
-
 from consent.models import DataSharingConsent
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model, logout
 from django.core.cache import cache
-from django.db import models, transaction
-from django.utils.translation import ugettext as _
+from django.db import transaction
+from django.utils.translation import gettext as _
 from edx_ace import ace
 from edx_ace.recipient import Recipient
 from edx_rest_framework_extensions.auth.jwt.authentication import JwtAuthentication
@@ -30,6 +26,7 @@ from integrated_channels.degreed.models import DegreedLearnerDataTransmissionAud
 from integrated_channels.sap_success_factors.models import SapSuccessFactorsLearnerDataTransmissionAudit
 from rest_framework import permissions, status
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.exceptions import UnsupportedMediaType
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.serializers import ValidationError
@@ -42,22 +39,26 @@ from wiki.models.pluginbase import RevisionPluginRevision
 
 from common.djangoapps.entitlements.models import CourseEntitlement
 from common.djangoapps.student.models import (  # lint-amnesty, pylint: disable=unused-import
-    AccountRecovery,
     CourseEnrollmentAllowed,
     LoginFailures,
     ManualEnrollmentAudit,
     PendingEmailChange,
     PendingNameChange,
-    Registration,
     User,
     UserProfile,
     get_potentially_retired_user_by_username,
     get_retired_email_by_email,
     get_retired_username_by_username,
     generate_retired_email_address,
-    is_username_retired
+    is_username_retired,
+    is_email_retired
 )
-from common.djangoapps.student.models_api import do_name_change_request
+from common.djangoapps.student.models_api import (
+    confirm_name_change,
+    do_name_change_request,
+    get_pending_name_change
+)
+from openedx.core.djangoapps.user_api.accounts import RETIRED_EMAIL_MSG
 from openedx.core.djangoapps.ace_common.template_context import get_base_template_context
 from openedx.core.djangoapps.api_admin.models import ApiAccessRequest
 from openedx.core.djangoapps.course_groups.models import UnregisteredLearnerCohortAssignments
@@ -80,7 +81,7 @@ from ..models import (
     UserRetirementStatus
 )
 from .api import get_account_settings, update_account_settings
-from .permissions import CanDeactivateUser, CanReplaceUsername, CanRetireUser
+from .permissions import CanDeactivateUser, CanGetAccountInfo, CanReplaceUsername, CanRetireUser
 from .serializers import (
     PendingNameChangeSerializer,
     UserRetirementPartnerReportSerializer,
@@ -88,7 +89,7 @@ from .serializers import (
     UserSearchEmailSerializer
 )
 from .signals import USER_RETIRE_LMS_CRITICAL, USER_RETIRE_LMS_MISC, USER_RETIRE_MAILINGS
-from .utils import create_retirement_request_and_deactivate_account
+from .utils import create_retirement_request_and_deactivate_account, username_suffix_generator
 
 from openedx.core.djangoapps.appsembler.tahoe_idp import helpers as tahoe_idp_helpers
 from openedx.core.djangoapps.theming.helpers import get_current_site
@@ -121,6 +122,7 @@ def request_requires_username(function):
     Requires that a ``username`` key containing a truthy value exists in
     the ``request.data`` attribute of the decorated function.
     """
+
     @wraps(function)
     def wrapper(self, request):  # pylint: disable=missing-docstring
         username = request.data.get('username', None)
@@ -130,6 +132,7 @@ def request_requires_username(function):
                 data={'message': 'The user was not specified.'}
             )
         return function(self, request)
+
     return wrapper
 
 
@@ -192,6 +195,7 @@ class AccountViewSet(ViewSet):
             * secondary_email: A secondary email address for the user. Unlike
               the email field, GET will reflect the latest update to this field
               even if changes have yet to be confirmed.
+            * verified_name: Approved verified name of the learner present in name affirmation plugin
             * gender: One of the following values:
 
                 * null
@@ -258,9 +262,6 @@ class AccountViewSet(ViewSet):
             * pending_name_change: If the user has an active name change request, returns the
               requested name.
 
-            * is_verified_name_enabled: Temporary flag to control verified name field - see
-              https://github.com/edx/edx-name-affirmation/blob/main/edx_name_affirmation/toggles.py
-
             For all text fields, plain text instead of HTML is supported. The
             data is stored exactly as specified. Clients must HTML escape
             rendered values to avoid script injections.
@@ -303,7 +304,7 @@ class AccountViewSet(ViewSet):
     authentication_classes = (
         JwtAuthentication, BearerAuthenticationAllowInactiveUser, SessionAuthenticationAllowInactiveUser
     )
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticated, CanGetAccountInfo)
     parser_classes = (JSONParser, MergePatchParser,)
 
     def get(self, request):
@@ -315,24 +316,37 @@ class AccountViewSet(ViewSet):
     def list(self, request):
         """
         GET /api/user/v1/accounts?username={username1,username2}
-        GET /api/user/v1/accounts?email={user_email}
+        GET /api/user/v1/accounts?email={user_email} (Staff Only)
+        GET /api/user/v1/accounts?lms_user_id={lms_user_id} (Staff Only)
         """
         usernames = request.GET.get('username')
         user_email = request.GET.get('email')
+        lms_user_id = request.GET.get('lms_user_id')
         search_usernames = []
 
         if usernames:
             search_usernames = usernames.strip(',').split(',')
         elif user_email:
+            if is_email_retired(user_email):
+                return Response({'error_msg': RETIRED_EMAIL_MSG}, status=status.HTTP_404_NOT_FOUND)
             user_email = user_email.strip('')
             try:
                 user = User.objects.get(email=user_email)
             except (UserNotFound, User.DoesNotExist):
                 return Response(status=status.HTTP_404_NOT_FOUND)
             search_usernames = [user.username]
+        elif lms_user_id:
+            try:
+                user = User.objects.get(id=lms_user_id)
+            except (UserNotFound, User.DoesNotExist):
+                return Response(status=status.HTTP_404_NOT_FOUND)
+            except ValueError:
+                return Response(status=status.HTTP_400_BAD_REQUEST)
+            search_usernames = [user.username]
         try:
             account_settings = get_account_settings(
-                request, search_usernames, view=request.query_params.get('view'))
+                request, search_usernames, view=request.query_params.get('view')
+            )
         except UserNotFound:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
@@ -428,17 +442,19 @@ class AccountViewSet(ViewSet):
         return Response(account_settings)
 
 
-class NameChangeView(APIView):
+class NameChangeView(ViewSet):
     """
-    Request a profile name change. This creates a PendingNameChange to be verified later,
-    rather than updating the user's profile name directly.
+    Viewset to manage profile name change requests.
     """
     authentication_classes = (JwtAuthentication, SessionAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def post(self, request):
+    def create(self, request):
         """
         POST /api/user/v1/accounts/name_change/
+
+        Request a profile name change. This creates a PendingNameChange to be verified later,
+        rather than updating the user's profile name directly.
 
         Example request:
             {
@@ -463,13 +479,32 @@ class NameChangeView(APIView):
 
         return Response(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors)
 
+    def confirm(self, request, username):
+        """
+        POST /api/user/v1/account/name_change/{username}/confirm
+
+        Confirm a name change request for the specified user, and update their profile name.
+        """
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        user_model = get_user_model()
+        user = user_model.objects.get(username=username)
+        pending_name_change = get_pending_name_change(user)
+
+        if pending_name_change:
+            confirm_name_change(user, pending_name_change)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
 
 class AccountDeactivationView(APIView):
     """
     Account deactivation viewset. Currently only supports POST requests.
     Only admins can deactivate accounts.
     """
-    authentication_classes = (JwtAuthentication, )
+    authentication_classes = (JwtAuthentication,)
     permission_classes = (permissions.IsAuthenticated, CanDeactivateUser)
 
     def post(self, request, username):
@@ -519,8 +554,8 @@ class DeactivateLogoutView(APIView):
     # Dictionary key name to store unsuffixed email within user.profile.meta
     APPSEMBLER_RETIREMENT_EMAIL_META_KEY = 'APPSEMBLER_RETIREMENT_EMAIL'
 
-    authentication_classes = (JwtAuthentication, SessionAuthentication, )
-    permission_classes = (permissions.IsAuthenticated, )
+    authentication_classes = (JwtAuthentication, SessionAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
         """
@@ -567,7 +602,7 @@ class DeactivateLogoutView(APIView):
                     ace.send(notification)
                 except Exception as exc:
                     log.exception('Error sending out deletion notification email')
-                    raise
+                    raise exc
 
                 if idp_user_id:
                     # If all goes well, deactivate the Tahoe IdP user.
@@ -706,16 +741,6 @@ class AccountRetirementPartnerReportView(ViewSet):
             # Org can conceivably be blank or this bogus default value
             if org and org != 'outdated_entry':
                 orgs.add(org)
-        try:
-            # if the user has ever launched a managed Zoom xblock,
-            # we'll notify Zoom to delete their records.
-            # We use models.Value(1) to make use of the indexing on the field. MySQL does not
-            # support boolean types natively, and checking for False will cause a table scan.
-            if user.launchlog_set.filter(managed=models.Value(1)).count():
-                orgs.add('zoom')
-        except AttributeError:
-            # Zoom XBlock not installed
-            pass
         return orgs
 
     def retirement_partner_report(self, request):  # pylint: disable=unused-argument
@@ -1271,7 +1296,7 @@ class UsernameReplacementView(APIView):
     This API will be called first, before calling the APIs in other services as this
     one handles the checks on the usernames provided.
     """
-    authentication_classes = (JwtAuthentication, )
+    authentication_classes = (JwtAuthentication,)
     permission_classes = (permissions.IsAuthenticated, CanReplaceUsername)
 
     def post(self, request):
@@ -1381,8 +1406,8 @@ class UsernameReplacementView(APIView):
         # Keep checking usernames in case desired_username + random suffix is already taken
         while True:
             if User.objects.filter(username=new_username).exists():
-                unique_suffix = uuid.uuid4().hex[:suffix_length]
-                new_username = desired_username + unique_suffix
+                # adding a dash between user-supplied and system-generated values to avoid weird combinations
+                new_username = desired_username + '-' + username_suffix_generator(suffix_length)
             else:
                 break
         return new_username

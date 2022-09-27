@@ -1,13 +1,14 @@
 
 
-(function(globals) {
-
-  var django = globals.django || (globals.django = {});
+'use strict';
+{
+  const globals = this;
+  const django = globals.django || (globals.django = {});
 
   
   django.pluralidx = function(n) {
-    var v=(n > 1);
-    if (typeof(v) == 'boolean') {
+    const v = (n > 1);
+    if (typeof v === 'boolean') {
       return v ? 1 : 0;
     } else {
       return v;
@@ -19,7 +20,7 @@
 
   django.catalog = django.catalog || {};
   
-  var newcatalog = {
+  const newcatalog = {
     "\n                    Your verification attempt failed. Please read our guidelines to make\n                    sure you understand the requirements for successfully completing verification,\n                    then try again.\n                ": "\n                    Do\u011frulama denemeniz ba\u015far\u0131s\u0131z oldu. L\u00fctfen ba\u015far\u0131l\u0131 bir do\u011frulama i\u015flemi i\u00e7in\n                    yerine getirilmesi gerekenleri do\u011frulamak i\u00e7in k\u0131lavuz metinlerimizi yeniden okuyun,\n                    ve ard\u0131ndan tekrar deneyin.\n                ",
     "\n                    Your verification has expired. You must successfully complete a new identity verification\n                    before you can start the proctored exam.\n                ": "\n                    Do\u011frulaman\u0131z ge\u00e7erlili\u011fini kaybetti. G\u00f6zetmenli s\u0131nava ba\u015flamadan \u00f6nce\n                    yeni bir kimlik do\u011frulamas\u0131 yapmal\u0131s\u0131n\u0131z.\n                ",
     "\n                    Your verification is pending. Results should be available 2-3 days after you\n                    submit your verification.\n                ": "\n                    Do\u011frulanman\u0131z beklemede. Do\u011frulaman\u0131z\u0131 g\u00f6nderdikten 2-3 g\u00fcn sonra\n                    sonu\u00e7lar a\u00e7\u0131klanacakt\u0131r.\n                ",
@@ -337,7 +338,6 @@
     "Basic Account Information": "Temel Hesap Bilgileri",
     "Be sure your entire face is inside the frame": "Y\u00fcz\u00fcn\u00fcz\u00fcn tamam\u0131n\u0131n \u00e7er\u00e7eve i\u00e7inde oldu\u011funa emin olun",
     "Before proceeding, please confirm that your details match": "\u0130lerlemeden \u00f6nce, ayr\u0131nt\u0131lar\u0131n\u0131z\u0131n e\u015fle\u015fti\u011fini onaylay\u0131n\u0131z",
-    "Before proceeding, please {htmlStart}activate your account{htmlEnd}.": "\u0130lerlemeden \u00f6nce, l\u00fctfen {htmlStart}hesab\u0131n\u0131z\u0131 etkinle\u015ftirin{htmlEnd}.",
     "Before proceeding, please {htmlStart}unlink all social media accounts{htmlEnd}.": "Devam etmeden \u00f6nce, l\u00fctfen {htmlStart}t\u00fcm sosyal medya hesaplar\u0131n\u0131z\u0131 kald\u0131r\u0131n{htmlEnd}.",
     "Before you upgrade to a certificate track, you must activate your account.": "Sertifika yoluna y\u00fckseltmeden \u00f6nce, hesab\u0131n\u0131z\u0131 etkinle\u015ftirmelisiniz.",
     "Billing/Payment Options": "Faturaland\u0131rma/\u00d6deme Se\u00e7enekleri",
@@ -505,6 +505,7 @@
     "Could not find users associated with the following identifiers:": "Bu \u00f6zelliklere uygun kullan\u0131c\u0131 bulunamad\u0131: ",
     "Could not grade your answer. The submission was aborted.": "Cevab\u0131n\u0131z notland\u0131r\u0131lamad\u0131. G\u00f6nderim iptal edildi.",
     "Could not load teams information.": "Tak\u0131m bilgileri y\u00fcklenemedi.",
+    "Could not override problem score for {user}.": "{user} kullan\u0131c\u0131s\u0131n\u0131n problem puan\u0131 ge\u00e7ersizle\u015ftirilemedi.",
     "Could not retrieve download url.": "\u0130ndirme ba\u011flant\u0131s\u0131na eri\u015filemedi.",
     "Could not retrieve upload url.": "Y\u00fckleme URL'ine eri\u015filemedi.",
     "Could not submit order": "Sipari\u015f teslim edilemedi",
@@ -839,7 +840,7 @@
     "Fully Supported": "Tamamen Destekleniyor",
     "Gender": "Cinsiyet",
     "General": "Genel",
-    "General Proctored Exam Rules": "Genel G\u00f6zetmenli S\u0131nav Kurallar\u0131",
+    "General Proctored Exam Rules": "Genel G\u00f6zetimli S\u0131nav Kurallar\u0131",
     "Generate": "Olu\u015ftur",
     "Generate Exception Certificates": "\u0130stisna Sertifikalar\u0131 Olu\u015ftur",
     "Generate the user's certificate": "Kullan\u0131c\u0131n\u0131n sertifikas\u0131n\u0131 olu\u015ftur",
@@ -923,7 +924,6 @@
     "ID": "ID",
     "ID-Verification is not required for this Professional Education course.": "Kimlik Do\u011frulama bu Mesleki E\u011fitim dersi i\u00e7in gerekli de\u011fildir.",
     "Identity Verification In Progress": "S\u00fcre\u00e7 \u0130\u00e7inde Kimlik Do\u011frulama",
-    "If the course does not have an end date, learners always see their scores when they submit answers to assessments.": "Bir dersin son tarihi yoksa, \u00f6\u011frenciler cevaplar\u0131n\u0131 de\u011ferlendirmeye g\u00f6nderdi\u011finde notlar\u0131n\u0131 g\u00f6r\u00fcrler.",
     "If the photos you submit are rejected, try moving the computer or camera orientation to change the lighting angle.  The most common reason for rejection is inability to read the text on the ID card.": "G\u00f6nderdi\u011finiz foto\u011fraflar reddedilirse, ayd\u0131nlatma a\u00e7\u0131s\u0131n\u0131 de\u011fi\u015ftirmek i\u00e7in bilgisayar\u0131 veya kamera y\u00f6n\u00fcn\u00fc hareket ettirmeyi deneyin. En yayg\u0131n reddetme nedeni, kimlik kart\u0131ndaki metnin okunamamas\u0131d\u0131r.",
     "If the subsection does not have a due date, learners always see their scores when they submit answers to assessments.": "Bir alt b\u00f6l\u00fcm\u00fcn son tarihi yoksa, \u00f6\u011frenciler cevaplar\u0131n\u0131 de\u011ferlendirmeye g\u00f6nderdi\u011finde notlar\u0131n\u0131 g\u00f6r\u00fcrler.",
     "If the unit was previously published and released to learners, any changes you made to the unit when it was hidden will now be visible to learners.": "E\u011fer \u00fcnite \u00f6\u011frencilere daha \u00f6nce a\u00e7\u0131ld\u0131 ve yay\u0131nland\u0131ysa, gizliyken \u00fcnitede yapt\u0131\u011f\u0131n\u0131z t\u00fcm de\u011fi\u015fiklikler \u015fimdi \u00f6\u011frencilere g\u00f6r\u00fcn\u00fcr olacak.",
@@ -1026,7 +1026,6 @@
     "Learners are added to this cohort automatically.": "\u00d6\u011frenciler toplulu\u011fa otomatik olarak eklendiler.",
     "Learners are added to this cohort only when you provide their email addresses or usernames on this page.": "\u00d6\u011frenciler bu toplulu\u011fa sadece siz onlar\u0131n e-postalar\u0131n\u0131 veya kullan\u0131c\u0131 adlar\u0131n\u0131 sa\u011flad\u0131\u011f\u0131n\u0131z zaman eklenecektir.",
     "Learners do not see the subsection in the course outline. The subsection is not included in grade calculations.": "\u00d6\u011frenciler ders plan\u0131nda altb\u00f6l\u00fcm\u00fc g\u00f6rm\u00fcyor. Altb\u00f6l\u00fcm not hesaplamalar\u0131nda yer alm\u0131yor.",
-    "Learners do not see whether their answers to assessments were correct or incorrect, nor the score received, until after the course end date has passed.": "\u00d6\u011frenciler de\u011ferlendirmedeki cevaplar\u0131n\u0131n do\u011fru ya da yanl\u0131\u015f olup olmad\u0131\u011f\u0131n\u0131, hatta ald\u0131klar\u0131 notu dersin biti\u015f tarihine dek g\u00f6remezler.",
     "Learners do not see whether their answers to assessments were correct or incorrect, nor the score received, until after the due date for the subsection has passed.": "\u00d6\u011frenciler de\u011ferlendirmedeki cevaplar\u0131n\u0131n do\u011fru ya da yanl\u0131\u015f olup olmad\u0131\u011f\u0131n\u0131, hatta ald\u0131klar\u0131 notu altb\u00f6l\u00fcm\u00fcn biti\u015f tarihi ge\u00e7inceye dek g\u00f6remezler.",
     "Learners never see whether their answers to assessments are correct or incorrect, nor the score received.": "\u00d6\u011frenciler de\u011ferlendirmedeki cevaplar\u0131n\u0131n do\u011fru ya da yanl\u0131\u015f olup olmad\u0131\u011f\u0131n\u0131 ya da not al\u0131p almad\u0131klar\u0131n\u0131 g\u00f6remezler.",
     "Learners see the published subsection and can access its content.": "\u00d6\u011frenciler yay\u0131nlanm\u0131\u015f altb\u00f6l\u00fcm\u00fc g\u00f6rebilir ve i\u00e7eri\u011fine eri\u015febilir.",
@@ -1322,8 +1321,8 @@
     "Poster": "Poster",
     "Practice Exam Completed": "Al\u0131\u015ft\u0131rma S\u0131nav\u0131 Tamamland\u0131",
     "Practice Exam Failed": "Al\u0131\u015ft\u0131rma S\u0131nav\u0131 Ba\u015far\u0131s\u0131z",
-    "Practice Proctored": "G\u00f6zetmenli Uygula",
-    "Practice proctored Exam": "G\u00f6zetmenli S\u0131nav\u0131 Uygula",
+    "Practice Proctored": "G\u00f6zetimli Al\u0131\u015ft\u0131rma",
+    "Practice proctored Exam": "G\u00f6zetimli S\u0131nav Al\u0131\u015ft\u0131rmas\u0131",
     "Pre": "\u00d6n",
     "Preferred Language": "Tercih Edilen Dil",
     "Preformatted": "\u00d6nceden bi\u00e7imlendirilmi\u015f",
@@ -1351,16 +1350,15 @@
     "Previously published": "Daha \u00f6nce yay\u0131nlanan",
     "Print": "Yazd\u0131r",
     "Processing Re-run Request": "Yeniden \u00c7al\u0131\u015ft\u0131rma \u0130ste\u011fi \u0130\u015fleniyor",
-    "Proctored": "G\u00f6zetmenli",
-    "Proctored Exam": "G\u00f6zetmenli S\u0131nav",
+    "Proctored": "G\u00f6zetimli",
+    "Proctored Exam": "G\u00f6zetimli S\u0131nav",
     "Proctored Option Available": "G\u00f6zetmenli Se\u00e7enek Mevcut",
     "Proctored Option No Longer Available": "G\u00f6zetmenli Se\u00e7enek Art\u0131k Mevcut De\u011fil",
     "Proctored exam {exam_name} in {course_name} for user {username}": "{username} i\u00e7in {course_name} dersi {exam_name} g\u00f6zetmenli s\u0131nav\u0131",
-    "Proctored exams are timed and they record video of each learner taking the exam. The videos are then reviewed to ensure that learners follow all examination rules.": "G\u00f6zetmenli s\u0131navlar zaman s\u0131n\u0131rl\u0131d\u0131r ve s\u0131nav s\u00fcresince \u00f6\u011frencileri videoya kaydeder. Bu videolar \u00f6\u011frencilerin s\u0131nav kurallar\u0131na uymalar\u0131n\u0131 belgeler.",
     "Proctoring": "G\u00f6zetmenli",
     "Proctoring Results For {course_name} {exam_name}": "{course_name} dersi {exam_name} s\u0131nav\u0131 i\u00e7in G\u00f6zetmen Sonu\u00e7lar\u0131",
     "Proctoring Review In Progress For {course_name} {exam_name}": "{course_name} dersi {exam_name} s\u0131nav\u0131 i\u00e7in G\u00f6zetim \u0130ncelemesi devam ediyor",
-    "Proctoring Settings": "G\u00f6zetmen Ayarlar\u0131",
+    "Proctoring Settings": "G\u00f6zetim Ayarlar\u0131",
     "Product Name": "\u00dcr\u00fcn Ad\u0131",
     "Professional Certificate for {courseName}": "{courseName} i\u00e7in Profesyonel Sertifika",
     "Professional Education": "Profesyonel E\u011fitim",
@@ -1387,9 +1385,9 @@
     "Re-run Course": "Dersi Yeniden \u00c7al\u0131\u015ft\u0131r",
     "Read More": "Daha Fazlas\u0131 \u0130\u00e7in",
     "Read more": "Daha fazlas\u0131",
-    "Ready To Resume": "Devam Etmeye Haz\u0131r",
     "Ready To Start": "Ba\u015flamaya Haz\u0131r",
     "Ready To Submit": "G\u00f6ndermeye Haz\u0131r",
+    "Ready to Resume": "Devam Etmeye Haz\u0131r",
     "Reason": "Neden",
     "Reason field should not be left blank.": "Sebep alan\u0131 bo\u015f b\u0131rak\u0131lmamal\u0131d\u0131r.",
     "Reason for change:": "De\u011fi\u015fim nedeni:",
@@ -1455,6 +1453,7 @@
     "Retake Your Photos": "Fotolar\u0131n\u0131z\u0131 Tekrar \u00c7ekiniz",
     "Retrieving enrollment status...": "Kay\u0131tlanma durumu \u00e7ekiliyor...",
     "Retry Verification": "Yeniden Do\u011frulama",
+    "Retry my exam": "S\u0131nav\u0131m\u0131 tekrar et",
     "Return and add email address": "Geri d\u00f6n ve e-posta adresi ekle",
     "Return to Export": "D\u0131\u015fa Aktarmaya Geri D\u00f6n",
     "Return to Your Dashboard": "Panele Geri D\u00f6n",
@@ -1596,8 +1595,8 @@
     "Source code": "Kaynak kod",
     "Special character": "\u00d6zel karakter",
     "Specify an alternative to the official course title to display on certificates. Leave blank to use the official course title.": "Sertifikada g\u00f6r\u00fcnt\u00fclemek i\u00e7in alternatif resmi ders ba\u015fl\u0131\u011f\u0131 belirleyin. Resmi ders ba\u015fl\u0131\u011f\u0131n\u0131 kullanmak i\u00e7in bo\u015f b\u0131rak\u0131n.",
-    "Specify any rules or rule exceptions that the proctoring review team should enforce when reviewing the videos. For example, you could specify that calculators are allowed. These specified rules are visible to learners before the learners start the exam, along with the {linkStart}general proctored exam rules{linkEnd}.": "T\u00fcm kural ya da kural istisnalar\u0131n\u0131 detayland\u0131r ki, g\u00f6zetmen inceleme kurulu videolara g\u00f6z atarken \u015f\u00fcphe b\u0131rakmayacak \u015fekilde uygulayabilsin. \u00d6rne\u011fin, hesap makinesine izin verildi\u011fini belirtebilirsiniz. Belirlenen bu kurallar {linkStart}genel g\u00f6zetmenli s\u0131nav kurallar\u0131{linkEnd} ile birlikte \u00f6\u011frencilere s\u0131nav ba\u015flamadan \u00f6nce g\u00f6r\u00fcn\u00fcr olacak.",
-    "Specify any rules or rule exceptions that the proctoring review team should enforce when reviewing the videos. For example, you could specify that calculators are allowed. These specified rules are visible to learners before the learners start the exam.": "T\u00fcm kural ya da kural istisnalar\u0131n\u0131 detayland\u0131r ki, g\u00f6zetmen inceleme kurulu videolara g\u00f6z atarken \u015f\u00fcphe b\u0131rakmayacak \u015fekilde uygulayabilsin. \u00d6rne\u011fin, hesap makinesine izin verildi\u011fini belirtebilirsiniz. Belirlenen kurallar \u00f6\u011frencilere s\u0131nav ba\u015flamadan \u00f6nce g\u00f6r\u00fcn\u00fcr olacak.",
+    "Specify any rules or rule exceptions that the proctoring review team should enforce when reviewing the videos. For example, you could specify that calculators are allowed. These specified rules are visible to learners before the learners start the exam, along with the {linkStart}general proctored exam rules{linkEnd}.": "T\u00fcm kural ya da kural istisnalar\u0131n\u0131 detayland\u0131r ki, g\u00f6zetim inceleme kurulu videolara g\u00f6z atarken \u015f\u00fcphe b\u0131rakmayacak \u015fekilde uygulayabilsin. \u00d6rne\u011fin, hesap makinesine izin verildi\u011fini belirtebilirsiniz. Belirlenen bu kurallar {linkStart}genel g\u00f6zetimli s\u0131nav kurallar\u0131{linkEnd} ile birlikte \u00f6\u011frencilere s\u0131nav ba\u015flamadan \u00f6nce g\u00f6r\u00fcn\u00fcr olacak.",
+    "Specify any rules or rule exceptions that the proctoring review team should enforce when reviewing the videos. For example, you could specify that calculators are allowed. These specified rules are visible to learners before the learners start the exam.": "T\u00fcm kural ya da kural istisnalar\u0131n\u0131 detayland\u0131r ki, g\u00f6zetim inceleme kurulu videolara g\u00f6z atarken \u015f\u00fcphe b\u0131rakmayacak \u015fekilde uygulayabilsin. \u00d6rne\u011fin, hesap makinesine izin verildi\u011fini belirtebilirsiniz. Belirlenen kurallar \u00f6\u011frencilere s\u0131nav ba\u015flamadan \u00f6nce g\u00f6r\u00fcn\u00fcr olacak.",
     "Specify whether content-specific discussion topics are divided.": "\u0130\u00e7erik odakl\u0131 konular\u0131n ne ko\u015fullarda b\u00f6l\u00fcnece\u011fini belirtin.",
     "Specify whether discussion topics are divided": "E\u011fer tart\u0131\u015fma konular\u0131 b\u00f6l\u00fcnd\u00fcyse belirtin",
     "Speed": "H\u0131z",
@@ -1711,7 +1710,6 @@
     "Textbook Name": "Ders Kitab\u0131 Ad\u0131",
     "Textbook information": "Ders Kitab\u0131 bilgisi",
     "Textbook name is required": "Ders kitab\u0131 ad\u0131 gerekli",
-    "Thank you for setting your course goal to {goal}!": "Ders hedefinizi {goal} olarak belirledi\u011finiz i\u00e7in te\u015fekk\u00fcr ederiz!",
     "Thank you for submitting a request! We appreciate your patience while we work to review your request.": "Bize talebinizi iletti\u011finiz i\u00e7in te\u015fekk\u00fcr ederiz! Talebinizi incelemeye \u00e7al\u0131\u015f\u0131rken ge\u00e7en s\u00fcrede sabr\u0131n\u0131z i\u00e7in te\u015fekk\u00fcr ederiz.",
     "Thank you for submitting your financial assistance application for {course_name}! You can expect a response in 2-4 business days.": "{course_name} i\u00e7in mali yard\u0131m ba\u015fvurunuzu g\u00f6nderdi\u011finiz i\u00e7in te\u015fekk\u00fcrler! 2-4 i\u015f g\u00fcn\u00fc i\u00e7erisinde size geri d\u00f6nece\u011fiz. ",
     "Thank you for submitting your photos. We will review them shortly. You can now sign up for any %(platformName)s course that offers verified certificates. Verification is good for one year. After one year, you must submit photos for verification again.": "Foto\u011fraflar\u0131n\u0131z\u0131 g\u00f6nderdi\u011finiz i\u00e7in te\u015fekk\u00fcr ederiz. K\u0131sa s\u00fcre i\u00e7inde de\u011ferlendirece\u011fiz. \u015eimdi onayl\u0131 sertifika sunan herhangi bir %(platformName)s derse kay\u0131t olabilirsiniz. Do\u011frulama bir y\u0131l i\u00e7indir. Bir y\u0131ldan sonra yeniden do\u011frulama i\u00e7in foto\u011fraflar\u0131n\u0131z\u0131 tekrar g\u00f6ndermelisiniz.",
@@ -1793,7 +1791,6 @@
     "There was an error obtaining email content history for this course.": "Bu ders i\u00e7in e-posta i\u00e7erik ge\u00e7mi\u015fini al\u0131rken hata olu\u015ftu.",
     "There was an error obtaining email task history for this course.": "Bu ders i\u00e7in e-posta g\u00f6rev ge\u00e7mi\u015fini elde edilmesinde hata olmu\u015f.",
     "There was an error retrieving preview results for this catalog. Please check that your query is correct and try again.": "Bu katalog i\u00e7in sonu\u00e7 \u00f6nizlemesini getirirken bir hata ger\u00e7ekle\u015fti. L\u00fctfen sorgunuzun do\u011fru oldu\u011funu kontrol edip tekrar deneyin.",
-    "There was an error updating your goal.": "Hedefinizi g\u00fcncellerken bir hata ger\u00e7ekle\u015fti.",
     "There was an error when trying to add learners:": [
       "\u00d6\u011frencileri eklemeye \u00e7al\u0131\u015f\u0131rken bir hata ger\u00e7ekle\u015fti:",
       "{numErrors} \u00f6\u011frenci bu toplulu\u011fa eklenemedi:"
@@ -1875,8 +1872,6 @@
     "This role requires a divided discussions scheme.": "Bu rol b\u00f6l\u00fcnm\u00fc\u015f bir tart\u0131\u015fma yap\u0131s\u0131 gerektiriyor.",
     "This section could not be loaded.": "Bu b\u00f6l\u00fcm y\u00fcklenemedi.",
     "This short name for the assignment type (for example, HW or Midterm) appears next to assignments on a learner's Progress page.": "Bu g\u00f6rev t\u00fcr\u00fc i\u00e7in belirlenen k\u0131saisim (\u00f6rne\u011fin, \u00d6dev veya ARSNV gibi) \u00f6\u011frencinin \u0130lerleme sayfas\u0131nda, g\u00f6revin hemen yan\u0131nda g\u00f6z\u00fck\u00fcr.",
-    "This special exam has been released to learners. You may not convert it to another type of special exam. You may revert this subsection back to being a basic exam by selecting 'None', but you will NOT be able to configure it as a special exam in the future.": "Bu \u00f6zel s\u0131nav \u00f6\u011frencilere sunulmu\u015ftur. Ba\u015fka bir t\u00fcr \u00f6zel s\u0131nava d\u00f6n\u00fc\u015ft\u00fcremezsiniz. \"None\" ayar\u0131n\u0131 se\u00e7erek bu alt b\u00f6l\u00fcm\u00fc basit s\u0131nav haline geri d\u00f6nd\u00fcrebilirsiniz, ancak ileride bunu \u00f6zel bir s\u0131nav olarak yap\u0131land\u0131ramazs\u0131n\u0131z. ",
-    "This subsection was released to learners as a special exam, but was reverted back to a basic exam. You may not configure it as a special exam now. Contact edX Support for assistance.": "Bu alt b\u00f6l\u00fcm \u00f6\u011frencilere \u00f6zel bir s\u0131nav olarak yay\u0131nland\u0131, ancak basit s\u0131nav ayarlar\u0131na geri d\u00f6nd\u00fcr\u00fcld\u00fc. Art\u0131k bunu \u00f6zel bir s\u0131nav olarak yap\u0131land\u0131ramazs\u0131n\u0131z. Yard\u0131m i\u00e7in edX Destek ile ileti\u015fime ge\u00e7in. ",
     "This team does not have any members.": "Bu tak\u0131mda hi\u00e7 \u00fcye yok.",
     "This team is full.": "Bu tak\u0131m dolu.",
     "This thread is closed.": "Bu ileti dizisi kapand\u0131.",
@@ -1905,7 +1900,6 @@
     "Titles more than 100 characters may prevent students from printing their certificate on a single page.": "100 karakterden fazla ba\u015fl\u0131klar \u00f6\u011frencilerin sertifikalar\u0131n\u0131 tek sayfaya \u00e7\u0131karmalar\u0131n\u0131 engelleyebilir.",
     "To access the course, select a session.": "Bu derse eri\u015fmek i\u00e7in oturum se\u00e7.",
     "To be sure all students can access the video, we recommend providing both an .mp4 and a .webm version of your video. Click below to add a URL for another version. These URLs cannot be YouTube URLs. The first listed video that's compatible with the student's computer will play.": "T\u00fcm \u00f6\u011frencilerin videoya eri\u015febildi\u011finden emin olmak i\u00e7in, videonuzun .mp4 ve .webm s\u00fcr\u00fcmlerini sa\u011flaman\u0131z\u0131 \u00f6neririz. Ba\u015fka bir s\u00fcr\u00fcm i\u00e7in URL eklemek \u00fczere a\u015fa\u011f\u0131ya t\u0131klay\u0131n. Bu URL'ler YouTube URL'si olamaz. \u00d6\u011frencilerin bilgisayarlar\u0131yla uyumlu olan ilk listelenen video oynayacakt\u0131r.",
-    "To complete the program, you must earn a verified certificate for each course.": "Program\u0131 tamamlamak i\u00e7in, t\u00fcm derslerde onayl\u0131 sertifikaya hak kazanmal\u0131s\u0131n\u0131z.",
     "To continue learning with this account, sign in below.": "Bu hesap ile \u00f6\u011frenmeye devam etmek i\u00e7in, a\u015fa\u011f\u0131dan giri\u015f yap.",
     "To invalidate a certificate for a particular learner, add the username or email address below.": "Belli bir \u00f6\u011frencinin sertifikas\u0131n\u0131 ge\u00e7ersizle\u015ftirmek i\u00e7in, kullan\u0131c\u0131 ad\u0131 veya e-posta adresini a\u015fa\u011f\u0131ya girin.",
     "To pass this exam, you must complete the problems in the time allowed.": "Bu s\u0131navdan ge\u00e7mek i\u00e7in, problemleri size tan\u0131nan s\u00fcrede \u00e7\u00f6zmelisiniz.",
@@ -2027,8 +2021,8 @@
     "Upset Learner": "Mutsuz \u00d6\u011frenci",
     "Url": "Url",
     "Use Current Transcript": "Mevcut Altyaz\u0131y\u0131 Kullan",
-    "Use Onboarding to introduce learners to proctoring, verify their identity, and create an onboarding profile. Learners must complete the onboarding profile step prior to taking a proctored exam. Profile reviews take 2+ business days.": "\u00d6\u011frencileri g\u00f6zetmenli s\u0131navlarla tan\u0131\u015ft\u0131rmak, kimliklerini do\u011frulamak ve bir oryantasyon profili olu\u015fturmak i\u00e7in Oryantasyon'u kullan\u0131n. \u00d6\u011frenciler, g\u00f6zetmenli bir s\u0131nava girmeden \u00f6nce, ilk oryantasyon profili ad\u0131m\u0131n\u0131 tamamlamal\u0131d\u0131r. Profil incelemeleri 2+ i\u015f g\u00fcn\u00fc s\u00fcrer. ",
-    "Use a practice proctored exam to introduce learners to the proctoring tools and processes. Results of a practice exam do not affect a learner's grade.": "\u00d6\u011frencilere g\u00f6zetmenlik ara\u00e7lar\u0131n\u0131 ve i\u015fleyi\u015fini tan\u0131tmak i\u00e7in g\u00f6zetmenli al\u0131\u015ft\u0131rma s\u0131nav\u0131n\u0131 kullan\u0131n. Al\u0131\u015ft\u0131rma s\u0131nav\u0131n\u0131n sonu\u00e7lar\u0131 \u00f6\u011frencinin notuna etki etmez.",
+    "Use Onboarding to introduce learners to proctoring, verify their identity, and create an onboarding profile. Learners must complete the onboarding profile step prior to taking a proctored exam. Profile reviews take 2+ business days.": "\u00d6\u011frencileri g\u00f6zetimli s\u0131navlarla tan\u0131\u015ft\u0131rmak, kimliklerini do\u011frulamak ve bir oryantasyon profili olu\u015fturmak i\u00e7in Oryantasyon'u kullan\u0131n. \u00d6\u011frenciler, g\u00f6zetimli bir s\u0131nava girmeden \u00f6nce, ilk oryantasyon profili ad\u0131m\u0131n\u0131 tamamlamal\u0131d\u0131r. Profil incelemeleri 2+ i\u015f g\u00fcn\u00fc s\u00fcrer. ",
+    "Use a practice proctored exam to introduce learners to the proctoring tools and processes. Results of a practice exam do not affect a learner's grade.": "\u00d6\u011frencilere g\u00f6zetim ara\u00e7lar\u0131n\u0131 ve i\u015fleyi\u015fini tan\u0131tmak i\u00e7in g\u00f6zetimli al\u0131\u015ft\u0131rma s\u0131nav\u0131n\u0131 kullan\u0131n. Al\u0131\u015ft\u0131rma s\u0131nav\u0131n\u0131n sonu\u00e7lar\u0131 \u00f6\u011frencinin notuna etki etmez.",
     "Use a timed exam to limit the time learners can spend on problems in this subsection. Learners must submit answers before the time expires. You can allow additional time for individual learners through the Instructor Dashboard.": "\u00d6\u011frencilerin bu alt b\u00f6l\u00fcmdeki problemler i\u00e7in harcayabilecekleri zaman\u0131 s\u0131n\u0131rland\u0131rmak i\u00e7in s\u00fcreli bir s\u0131nav kullan\u0131n. \u00d6\u011frenciler cevaplar\u0131n\u0131 s\u00fcre dolmadan g\u00f6ndermelidir. E\u011fitmen Paneli arac\u0131l\u0131\u011f\u0131yla bireysel \u00f6\u011frencilere ek s\u00fcre tan\u0131yabilirsiniz.",
     "Use as a Prerequisite": "Bir \u00f6nko\u015ful olarak kullan",
     "Use bookmarks to help you easily return to courseware pages. To bookmark a page, click \"Bookmark this page\" under the page title.": "Ders yaz\u0131l\u0131m\u0131 sayfalar\u0131na d\u00f6nmenizi kolayla\u015ft\u0131rmak i\u00e7in yer imlerini kullan\u0131n. Bir sayfaya yer imi koymak i\u00e7in sayfa ba\u015fl\u0131\u011f\u0131n\u0131n alt\u0131ndan \"Bu sayfay\u0131 yer imle\"ye t\u0131klay\u0131n.",
@@ -2191,12 +2185,11 @@
     "You have not created any certificates yet.": "Hen\u00fcz bir sertifika olu\u015fturmad\u0131n\u0131z.",
     "You have not created any content groups yet.": "Hen\u00fcz bir i\u00e7erik grubu olu\u015fturmad\u0131n\u0131z.",
     "You have not created any group configurations yet.": "Hen\u00fcz hi\u00e7bir grup ayar\u0131 olu\u015fturmad\u0131n\u0131z.",
-    "You have selected an action, and you haven't made any changes on individual fields. You're probably looking for the Go button rather than the Save button.": "Bir eylem se\u00e7tiniz, fakat bireysel alanlar \u00fczerinde hi\u00e7bir de\u011fi\u015fiklik yapmad\u0131n\u0131z. Muhtemelen Kaydet d\u00fc\u011fmesi yerine Git d\u00fc\u011fmesini ar\u0131yorsunuz.",
-    "You have selected an action, but you haven't saved your changes to individual fields yet. Please click OK to save. You'll need to re-run the action.": "Bir eylem se\u00e7tiniz, fakat hen\u00fcz bireysel alanlara de\u011fi\u015fikliklerinizi kaydetmediniz. Kaydetmek i\u00e7in l\u00fctfen TAMAM d\u00fc\u011fmesine t\u0131klay\u0131n. Eylemi yeniden \u00e7al\u0131\u015ft\u0131rman\u0131z gerekecek.",
+    "You have selected an action, and you haven\u2019t made any changes on individual fields. You\u2019re probably looking for the Go button rather than the Save button.": "Bir eylem se\u00e7tiniz, ancak tek tek alanlarda herhangi bir de\u011fi\u015fiklik yapmad\u0131n\u0131z. Muhtemelen Kaydet d\u00fc\u011fmesi yerine Git d\u00fc\u011fmesini ar\u0131yorsunuz.",
+    "You have selected an action, but you haven\u2019t saved your changes to individual fields yet. Please click OK to save. You\u2019ll need to re-run the action.": "Bir eylem se\u00e7tiniz, ancak de\u011fi\u015fikliklerinizi tek tek alanlara kaydetmediniz. Kaydetmek i\u00e7in l\u00fctfen TAMAM d\u00fc\u011fmesine t\u0131klay\u0131n. Eylemi yeniden \u00e7al\u0131\u015ft\u0131rman\u0131z gerekecek.",
     "You have selected \u201cDelete my account.\u201d Deletion of your account and personal data is permanent and cannot be undone. {platformName} will not be able to recover your account or the data that is deleted.": "\"Hesab\u0131m\u0131 sil\"i se\u00e7tiniz. Hesab\u0131n\u0131z\u0131n ve ki\u015fisel verilerinizin silinmesi kal\u0131c\u0131 olup, sonradan geri d\u00f6nd\u00fcr\u00fclemez. {platformName} platformu silinen hesap ya da verilerinizi hi\u00e7bir \u015fekilde geri getiremez.",
     "You have set your language to {beta_language}, which is currently not fully translated. You can help us translate this language fully by joining the Transifex community and adding translations from English for learners that speak {beta_language}.": "Dilinizi hen\u00fcz tam anlam\u0131yla desteklenmeyen {beta_language} olarak ayarlad\u0131n\u0131z. Transifex toplulu\u011funa kat\u0131larak {beta_language} aray\u00fcz\u00fcn\u00fcn \u0130ngilizce'den \u00e7evrilmesine yard\u0131mc\u0131 olabilirsin.",
     "You have successfully signed into %(currentProvider)s, but your %(currentProvider)s account does not have a linked %(platformName)s account. To link your accounts, sign in now using your %(platformName)s password.": "%(currentProvider)s'a ba\u015far\u0131yla kay\u0131t oldunuz ancak %(currentProvider)s hesab\u0131n\u0131z ba\u011fl\u0131 bir %(platformName)s hesab\u0131na sahip de\u011fil. Hesaplar\u0131n\u0131z\u0131 ba\u011flamak i\u00e7in %(platformName)s parolan\u0131z\u0131 kullanarak giri\u015f yap\u0131n.",
-    "You have successfully updated your goal.": "Hedefinizi ba\u015far\u0131yla g\u00fcncellediniz.",
     "You have unsaved changes are you sure you want to navigate away?": "Kaydedilmemi\u015f de\u011fi\u015fiklikler var, sayfadan ayr\u0131lmak istedi\u011finizden emin misiniz?",
     "You have unsaved changes on individual editable fields. If you run an action, your unsaved changes will be lost.": "Bireysel d\u00fczenlenebilir alanlarda kaydedilmemi\u015f de\u011fi\u015fiklikleriniz var. E\u011fer bir eylem \u00e7al\u0131\u015ft\u0131r\u0131rsan\u0131z, kaydedilmemi\u015f de\u011fi\u015fiklikleriniz kaybolacakt\u0131r.",
     "You have unsaved changes. Do you really want to leave this page?": "Kaydedilmemi\u015f de\u011fi\u015fiklikleriniz var. Bu sayfay\u0131 ger\u00e7ekten terk etmek mi istiyorsunuz?",
@@ -2282,6 +2275,18 @@
     "a day": "bir g\u00fcn",
     "a proctored exam": "bir g\u00f6zetmenli s\u0131nav",
     "a timed exam": "bir s\u00fcreli s\u0131nav",
+    "abbrev. month April\u0004Apr": "Nis",
+    "abbrev. month August\u0004Aug": "A\u011fu",
+    "abbrev. month December\u0004Dec": "Ara",
+    "abbrev. month February\u0004Feb": "\u015eub",
+    "abbrev. month January\u0004Jan": "Oca",
+    "abbrev. month July\u0004Jul": "Tem",
+    "abbrev. month June\u0004Jun": "Haz",
+    "abbrev. month March\u0004Mar": "Mar",
+    "abbrev. month May\u0004May": "May",
+    "abbrev. month November\u0004Nov": "Kas",
+    "abbrev. month October\u0004Oct": "Eki",
+    "abbrev. month September\u0004Sep": "Eyl",
     "about %d hour": [
       "yakla\u015f\u0131k %d saat",
       "yakla\u015f\u0131k %d saat"
@@ -2343,17 +2348,16 @@
     "off": "kapal\u0131",
     "on": "a\u00e7\u0131k",
     "one letter Friday\u0004F": "C",
-    "one letter Monday\u0004M": "P",
-    "one letter Saturday\u0004S": "C",
+    "one letter Monday\u0004M": "Pt",
+    "one letter Saturday\u0004S": "Ct",
     "one letter Sunday\u0004S": "P",
-    "one letter Thursday\u0004T": "P",
+    "one letter Thursday\u0004T": "Pe",
     "one letter Tuesday\u0004T": "S",
     "one letter Wednesday\u0004W": "\u00c7",
     "open slots": "a\u00e7\u0131k yerler",
     "or": "veya",
     "or create a new one here": "ya da burada yeni bir tane olu\u015fturunuz",
     "or sign in with": "veya oturum a\u00e7\u0131n",
-    "post anonymously": "isimsiz olarak ileti yolla",
     "post anonymously to classmates": "s\u0131n\u0131f arkada\u015flar\u0131na anonim olarak ileti g\u00f6nder",
     "posted %(time_ago)s by %(author)s": "%(author)s taraf\u0131ndan %(time_ago)s \u00f6nce g\u00f6nderildi",
     "price": "\u00fccret",
@@ -2462,24 +2466,24 @@
     "{unread_comments_count} new": "{unread_comments_count} yeni",
     "\u2026": "..."
   };
-  for (var key in newcatalog) {
+  for (const key in newcatalog) {
     django.catalog[key] = newcatalog[key];
   }
   
 
   if (!django.jsi18n_initialized) {
     django.gettext = function(msgid) {
-      var value = django.catalog[msgid];
-      if (typeof(value) == 'undefined') {
+      const value = django.catalog[msgid];
+      if (typeof value === 'undefined') {
         return msgid;
       } else {
-        return (typeof(value) == 'string') ? value : value[0];
+        return (typeof value === 'string') ? value : value[0];
       }
     };
 
     django.ngettext = function(singular, plural, count) {
-      var value = django.catalog[singular];
-      if (typeof(value) == 'undefined') {
+      const value = django.catalog[singular];
+      if (typeof value === 'undefined') {
         return (count == 1) ? singular : plural;
       } else {
         return value.constructor === Array ? value[django.pluralidx(count)] : value;
@@ -2489,16 +2493,16 @@
     django.gettext_noop = function(msgid) { return msgid; };
 
     django.pgettext = function(context, msgid) {
-      var value = django.gettext(context + '\x04' + msgid);
-      if (value.indexOf('\x04') != -1) {
+      let value = django.gettext(context + '\x04' + msgid);
+      if (value.includes('\x04')) {
         value = msgid;
       }
       return value;
     };
 
     django.npgettext = function(context, singular, plural, count) {
-      var value = django.ngettext(context + '\x04' + singular, context + '\x04' + plural, count);
-      if (value.indexOf('\x04') != -1) {
+      let value = django.ngettext(context + '\x04' + singular, context + '\x04' + plural, count);
+      if (value.includes('\x04')) {
         value = django.ngettext(singular, plural, count);
       }
       return value;
@@ -2521,7 +2525,6 @@
       "%d/%m/%Y %H:%M:%S",
       "%d/%m/%Y %H:%M:%S.%f",
       "%d/%m/%Y %H:%M",
-      "%d/%m/%Y",
       "%Y-%m-%d %H:%M:%S",
       "%Y-%m-%d %H:%M:%S.%f",
       "%Y-%m-%d %H:%M",
@@ -2551,8 +2554,8 @@
   };
 
     django.get_format = function(format_type) {
-      var value = django.formats[format_type];
-      if (typeof(value) == 'undefined') {
+      const value = django.formats[format_type];
+      if (typeof value === 'undefined') {
         return format_type;
       } else {
         return value;
@@ -2571,6 +2574,5 @@
 
     django.jsi18n_initialized = true;
   }
-
-}(this));
+};
 

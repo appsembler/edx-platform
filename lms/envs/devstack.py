@@ -19,7 +19,6 @@ from .production import *  # pylint: disable=wildcard-import, unused-wildcard-im
 
 # Don't use S3 in devstack, fall back to filesystem
 del DEFAULT_FILE_STORAGE
-MEDIA_ROOT = "/edx/var/edxapp/uploads"
 ORA2_FILEUPLOAD_BACKEND = 'django'
 
 
@@ -177,7 +176,10 @@ FEATURES['CERTIFICATES_HTML_VIEW'] = True
 
 
 ########################## Course Discovery #######################
-LANGUAGE_MAP = {'terms': {lang: display for lang, display in ALL_LANGUAGES}, 'name': 'Language'}  # lint-amnesty, pylint: disable=unnecessary-comprehension
+LANGUAGE_MAP = {
+    'terms': dict(ALL_LANGUAGES),
+    'name': 'Language',
+}
 COURSE_DISCOVERY_MEANINGS = {
     'org': {
         'name': 'Organization',
@@ -274,6 +276,7 @@ LOGIN_REDIRECT_WHITELIST.extend([
     'localhost:2001',  # frontend-app-course-authoring
     'localhost:3001',  # frontend-app-library-authoring
     'localhost:18400',  # frontend-app-publisher
+    'localhost:1993',  # frontend-app-ora-grading
     ENTERPRISE_LEARNER_PORTAL_NETLOC,  # frontend-app-learner-portal-enterprise
     ENTERPRISE_ADMIN_PORTAL_NETLOC,  # frontend-app-admin-portal
 ])
@@ -321,8 +324,20 @@ REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] += (
 OPENAPI_CACHE_TIMEOUT = 0
 
 #####################################################################
+# set replica set of contentstore to none as we haven't setup any for lms in devstack
+CONTENTSTORE['DOC_STORE_CONFIG']['replicaSet'] = None
+
+#####################################################################
+# set replica sets of moduelstore to none as we haven't setup any for lms in devstack
+for store in MODULESTORE['default']['OPTIONS']['stores']:
+    if 'DOC_STORE_CONFIG' in store and 'replicaSet' in store['DOC_STORE_CONFIG']:
+        store['DOC_STORE_CONFIG']['replicaSet'] = None
+
+
+#####################################################################
 # Lastly, run any migrations, if needed.
 MODULESTORE = convert_module_store_setting_if_needed(MODULESTORE)
+
 
 SECRET_KEY = '85920908f28904ed733fe576320db18cabd7b6cd'
 
@@ -332,8 +347,15 @@ EDXNOTES_CLIENT_NAME = 'edx_notes_api-backend-service'
 ############## Settings for Microfrontends  #########################
 LEARNING_MICROFRONTEND_URL = 'http://localhost:2000'
 ACCOUNT_MICROFRONTEND_URL = 'http://localhost:1997'
+COMMUNICATIONS_MICROFRONTEND_URL = 'http://localhost:1984'
 AUTHN_MICROFRONTEND_URL = 'http://localhost:1999'
 AUTHN_MICROFRONTEND_DOMAIN = 'localhost:1999'
+
+################### FRONTEND APPLICATION DISCUSSIONS ###################
+DISCUSSIONS_MICROFRONTEND_URL = 'http://localhost:2002'
+
+################### FRONTEND APPLICATION DISCUSSIONS FEEDBACK URL###################
+DISCUSSIONS_MFE_FEEDBACK_URL = None
 
 ############## Docker based devstack settings #######################
 
@@ -401,11 +423,6 @@ if FEATURES.get('ENABLE_ENTERPRISE_INTEGRATION'):
 DCS_SESSION_COOKIE_SAMESITE = 'Lax'
 DCS_SESSION_COOKIE_SAMESITE_FORCE_ALL = True
 
-#####################################################################
-# See if the developer has any local overrides.
-if os.path.isfile(join(dirname(abspath(__file__)), 'private.py')):
-    from .private import *  # pylint: disable=import-error,wildcard-import
-
 ########################## THEMING  #######################
 # If you want to enable theming in devstack, uncomment this section and add any relevant
 # theme directories to COMPREHENSIVE_THEME_DIRS
@@ -439,3 +456,13 @@ PROCTORING_USER_OBFUSCATION_KEY = '85920908f28904ed733fe576320db18cabd7b6cd'
 
 #################### Webpack Configuration Settings ##############################
 WEBPACK_LOADER['DEFAULT']['TIMEOUT'] = 5
+
+#################### Network configuration ####################
+# Devstack is directly exposed to the caller
+CLOSEST_CLIENT_IP_FROM_HEADERS = []
+
+################# New settings must go ABOVE this line #################
+########################################################################
+# See if the developer has any local overrides.
+if os.path.isfile(join(dirname(abspath(__file__)), 'private.py')):
+    from .private import *  # pylint: disable=import-error,wildcard-import

@@ -12,6 +12,12 @@
         line-height: 1.8rem;
     }
 
+    .grid-single {
+        margin: auto;
+        width: 450px;
+        margin-bottom: 2rem;
+    }
+
     .track-selection-choice, .verified-note {
         margin: 0 1rem;
     }
@@ -219,6 +225,32 @@
         content: '';
     }
 
+    section.error-container {
+        height: 42rem;
+    }
+
+    .error-button {
+        margin-top: 2.8rem;
+        margin-bottom: 1.5rem;
+        padding: 10px 16px;
+        box-shadow: none;
+        border-radius: 0px;
+        position: relative;
+    }
+
+    .error-button span {
+        font-weight: 500;
+        font-size: 18px;
+        color: #fff;
+    }
+
+    .error-button:hover {
+        background: #2D494E;
+        border-color: transparent;
+        color: #fff;
+        text-decoration: none;
+    }
+
     @media (max-width: map-get($grid-breakpoints, 'sm')) {
         .collapsible {
             margin-bottom: 1.3rem;
@@ -243,10 +275,13 @@
         .choice-bullets {
             padding: 0 2rem 1rem 1rem;
         }
+        .grid-single {
+            width: 100%;
+        }
     }
 
     @media (min-width: map-get($grid-breakpoints, 'md')) {
-        .track-selection-options {
+        .grid-options {
             display: grid;
             grid-template-columns: 50% 50%;
         }

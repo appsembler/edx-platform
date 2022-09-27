@@ -13,17 +13,18 @@ import uuid
 from unittest import mock
 import ddt
 from django.urls import reverse
+from opaque_keys.edx.keys import CourseKey
 from web_fragments.fragment import Fragment
 from xblock.field_data import DictFieldData
+from xblock_discussion import DiscussionXBlock, loader
+from xmodule.modulestore import ModuleStoreEnum
+from xmodule.modulestore.tests.django_utils import TEST_DATA_MONGO_AMNESTY_MODULESTORE, SharedModuleStoreTestCase
+from xmodule.modulestore.tests.factories import ItemFactory, ToyCourseFactory
 
 from lms.djangoapps.course_api.blocks.tests.helpers import deserialize_usage_key
 from lms.djangoapps.courseware.module_render import get_module_for_descriptor_internal
 from lms.djangoapps.courseware.tests.helpers import XModuleRenderingTestBase
 from common.djangoapps.student.tests.factories import CourseEnrollmentFactory, UserFactory
-from xblock_discussion import DiscussionXBlock, loader
-from xmodule.modulestore import ModuleStoreEnum
-from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
-from xmodule.modulestore.tests.factories import ItemFactory, ToyCourseFactory
 
 
 @ddt.ddt
@@ -40,9 +41,8 @@ class TestDiscussionXBlock(XModuleRenderingTestBase):
         """
         super().setUp()
         self.patchers = []
-        self.course_id = "test_course"
+        self.course_id = CourseKey.from_string("course-v1:test+test+test_course")
         self.runtime = self.new_module_runtime()
-        self.runtime.modulestore = mock.Mock()
 
         self.discussion_id = str(uuid.uuid4())
         self.data = DictFieldData({
@@ -131,7 +131,8 @@ class TestViews(TestDiscussionXBlock):
         self.template_canary = 'canary'
         self.render_template = mock.Mock()
         self.render_template.return_value = self.template_canary
-        self.block.runtime.render_template = self.render_template
+        self.runtime = self.new_module_runtime(render_template=self.render_template)
+        self.block.runtime = self.runtime
         self.has_permission_mock = mock.Mock()
         self.has_permission_mock.return_value = False
         self.block.has_permission = self.has_permission_mock
@@ -220,7 +221,7 @@ class TestTemplates(TestDiscussionXBlock):
         ) as has_perm:
             actual_permission = self.block.has_permission("test_permission")
         assert actual_permission == permission_canary
-        has_perm.assert_called_once_with(self.django_user_canary, 'test_permission', 'test_course')
+        has_perm.assert_called_once_with(self.django_user_canary, 'test_permission', self.course_id)
 
     def test_studio_view(self):
         """Test for studio view."""
@@ -256,6 +257,7 @@ class TestXBlockInCourse(SharedModuleStoreTestCase):
     """
     Test the discussion xblock as rendered in the course and course API.
     """
+    MODULESTORE = TEST_DATA_MONGO_AMNESTY_MODULESTORE
 
     @classmethod
     def setUpClass(cls):
@@ -295,7 +297,6 @@ class TestXBlockInCourse(SharedModuleStoreTestCase):
             student_data=mock.Mock(name='student_data'),
             course_id=self.course.id,
             track_function=mock.Mock(name='track_function'),
-            xqueue_callback_url_prefix=mock.Mock(name='xqueue_callback_url_prefix'),
             request_token='request_token',
         )
 
@@ -341,7 +342,6 @@ class TestXBlockInCourse(SharedModuleStoreTestCase):
                 student_data=mock.Mock(name='student_data'),
                 course_id=self.course.id,
                 track_function=mock.Mock(name='track_function'),
-                xqueue_callback_url_prefix=mock.Mock(name='xqueue_callback_url_prefix'),
                 request_token='request_token',
             )
 
@@ -400,11 +400,13 @@ class TestXBlockQueryLoad(SharedModuleStoreTestCase):
                 discussion_target='Target Discussion',
             ))
 
-        # 3 queries are required to do first discussion xblock render:
+        # 4 queries are required to do first discussion xblock render:
+        # * split_modulestore_django_splitmodulestorecourseindex x2
+        # * waffle_utils_waffleorgoverridemodel
         # * django_comment_client_role
-        # * django_comment_client_permission
-        # * lms_xblock_xblockasidesconfig
-        num_queries = 2
+
+        num_queries = 4
+
         for discussion in discussions:
             discussion_xblock = get_module_for_descriptor_internal(
                 user=user,
@@ -412,13 +414,13 @@ class TestXBlockQueryLoad(SharedModuleStoreTestCase):
                 student_data=mock.Mock(name='student_data'),
                 course_id=course.id,
                 track_function=mock.Mock(name='track_function'),
-                xqueue_callback_url_prefix=mock.Mock(name='xqueue_callback_url_prefix'),
                 request_token='request_token',
             )
             with self.assertNumQueries(num_queries):
                 fragment = discussion_xblock.render('student_view')
 
             # Permissions are cached, so no queries required for subsequent renders
+
             num_queries = 0
 
             html = fragment.content

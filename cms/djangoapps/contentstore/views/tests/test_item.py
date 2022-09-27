@@ -28,18 +28,6 @@ from xblock.fields import Scope, ScopeIds, String
 from xblock.runtime import DictKeyValueStore, KvsFieldData
 from xblock.test.tools import TestRuntime
 from xblock.validation import ValidationMessage
-
-from cms.djangoapps.contentstore.tests.utils import CourseTestCase
-from cms.djangoapps.contentstore.utils import reverse_course_url, reverse_usage_url
-from cms.djangoapps.contentstore.views import item as item_module
-from common.djangoapps.student.tests.factories import UserFactory
-from common.djangoapps.xblock_django.models import (
-    XBlockConfiguration,
-    XBlockStudioConfiguration,
-    XBlockStudioConfigurationFlag
-)
-from common.djangoapps.xblock_django.user_service import DjangoXBlockUserService
-from lms.djangoapps.lms_xblock.mixin import NONSENSICAL_ACCESS_RESTRICTION
 from xmodule.capa_module import ProblemBlock
 from xmodule.course_module import DEFAULT_START_DATE
 from xmodule.modulestore import ModuleStoreEnum
@@ -55,6 +43,19 @@ from xmodule.partitions.partitions import (
 )
 from xmodule.partitions.tests.test_partitions import MockPartitionService
 from xmodule.x_module import STUDENT_VIEW, STUDIO_VIEW
+
+from cms.djangoapps.contentstore.tests.utils import CourseTestCase
+from cms.djangoapps.contentstore.utils import reverse_course_url, reverse_usage_url
+from cms.djangoapps.contentstore.views import item as item_module
+from common.djangoapps.student.tests.factories import UserFactory
+from common.djangoapps.xblock_django.models import (
+    XBlockConfiguration,
+    XBlockStudioConfiguration,
+    XBlockStudioConfigurationFlag
+)
+from common.djangoapps.xblock_django.user_service import DjangoXBlockUserService
+from lms.djangoapps.lms_xblock.mixin import NONSENSICAL_ACCESS_RESTRICTION
+from openedx.core.djangoapps.discussions.models import DiscussionsConfiguration
 
 from ..component import component_handler, get_component_templates
 from ..item import (
@@ -1334,7 +1335,6 @@ class TestDuplicateItemWithAsides(ItemTest, DuplicateHelper):
     """
     Test the duplicate method for blocks with asides.
     """
-
     MODULESTORE = TEST_DATA_SPLIT_MODULESTORE
 
     def setUp(self):
@@ -1903,8 +1903,6 @@ class TestEditItemSplitMongo(TestEditItemSetup):
     """
     Tests for EditItem running on top of the SplitMongoModuleStore.
     """
-    MODULESTORE = TEST_DATA_SPLIT_MODULESTORE
-
     def test_editing_view_wrappers(self):
         """
         Verify that the editing view only generates a single wrapper, no matter how many times it's loaded
@@ -2474,6 +2472,40 @@ class TestComponentTemplates(CourseTestCase):
         self.assertIsNone(get_xblock_problem('Staff Graded Points'))
         self.assertIsNone(get_xblock_problem('Drag and Drop'))
 
+    def test_discussion_button_present_no_provider(self):
+        """
+        Test the Discussion button present when no discussion provider configured for course
+        """
+        templates = get_component_templates(self.course)
+        button_names = [template['display_name'] for template in templates]
+        assert 'Discussion' in button_names
+
+    def test_discussion_button_present_legacy_provider(self):
+        """
+        Test the Discussion button present when legacy discussion provider configured for course
+        """
+        course_key = self.course.location.course_key
+
+        # Create a discussion configuration with discussion provider set as legacy
+        DiscussionsConfiguration.objects.create(context_key=course_key, enabled=True, provider_type='legacy')
+
+        templates = get_component_templates(self.course)
+        button_names = [template['display_name'] for template in templates]
+        assert 'Discussion' in button_names
+
+    def test_discussion_button_absent_non_legacy_provider(self):
+        """
+        Test the Discussion button not present when non-legacy discussion provider configured for course
+        """
+        course_key = self.course.location.course_key
+
+        # Create a discussion configuration with discussion provider set as legacy
+        DiscussionsConfiguration.objects.create(context_key=course_key, enabled=False, provider_type='ed-discuss')
+
+        templates = get_component_templates(self.course)
+        button_names = [template['display_name'] for template in templates]
+        assert 'Discussion' not in button_names
+
     def _verify_advanced_xblocks(self, expected_xblocks, expected_support_levels):
         """
         Verify the names of the advanced xblocks showing in the "new component" menu.
@@ -2533,7 +2565,7 @@ class TestXBlockInfo(ItemTest):
         self.validate_course_xblock_info(json_response, course_outline=True)
 
     @ddt.data(
-        (ModuleStoreEnum.Type.split, 4, 4),
+        (ModuleStoreEnum.Type.split, 3, 3),
         (ModuleStoreEnum.Type.mongo, 5, 7),
     )
     @ddt.unpack
@@ -2816,6 +2848,7 @@ class TestXBlockInfo(ItemTest):
 
 
 @patch.dict('django.conf.settings.FEATURES', {'ENABLE_SPECIAL_EXAMS': True})
+@ddt.ddt
 class TestSpecialExamXBlockInfo(ItemTest):
     """
     Unit tests for XBlock outline handling, specific to special exam XBlocks.
@@ -2827,7 +2860,7 @@ class TestSpecialExamXBlockInfo(ItemTest):
         item_module, 'does_backend_support_onboarding', return_value=True
     )
     patch_get_exam_by_content_id_success = patch.object(
-        item_module, 'get_exam_by_content_id'
+        item_module, 'get_exam_by_content_id', return_value={'external_id': 'test_external_id'}
     )
     patch_get_exam_by_content_id_not_found = patch.object(
         item_module, 'get_exam_by_content_id', side_effect=ProctoredExamNotFoundException
@@ -2881,20 +2914,26 @@ class TestSpecialExamXBlockInfo(ItemTest):
         )
         # exam proctoring should be enabled and time limited.
         assert xblock_info['is_proctored_exam'] is True
-        assert xblock_info['was_ever_special_exam'] is True
+        assert xblock_info['was_exam_ever_linked_with_external'] is True
         assert xblock_info['is_time_limited'] is True
         assert xblock_info['default_time_limit_minutes'] == 100
         assert xblock_info['proctoring_exam_configuration_link'] == 'test_url'
         assert xblock_info['supports_onboarding'] is True
         assert xblock_info['is_onboarding_exam'] is False
         mock_get_exam_configuration_dashboard_url.assert_called_with(self.course.id, xblock_info['id'])
-        assert mock_get_exam_by_content_id.call_count == 0
 
     @patch_get_exam_configuration_dashboard_url
     @patch_does_backend_support_onboarding
     @patch_get_exam_by_content_id_success
-    def test_xblock_was_ever_special_exam(
+    @ddt.data(
+        ('test_external_id', True),
+        (None, False),
+    )
+    @ddt.unpack
+    def test_xblock_was_ever_proctortrack_proctored_exam(
             self,
+            external_id,
+            expected_value,
             mock_get_exam_by_content_id,
             _mock_does_backend_support_onboarding_patch,
             _mock_get_exam_configuration_dashboard_url,
@@ -2908,19 +2947,20 @@ class TestSpecialExamXBlockInfo(ItemTest):
             is_time_limited=False,
             is_onboarding_exam=False,
         )
+        mock_get_exam_by_content_id.return_value = {'external_id': external_id}
         sequential = modulestore().get_item(sequential.location)
         xblock_info = create_xblock_info(
             sequential,
             include_child_info=True,
             include_children_predicate=ALWAYS,
         )
-        assert xblock_info['was_ever_special_exam'] is True
+        assert xblock_info['was_exam_ever_linked_with_external'] is expected_value
         assert mock_get_exam_by_content_id.call_count == 1
 
     @patch_get_exam_configuration_dashboard_url
     @patch_does_backend_support_onboarding
     @patch_get_exam_by_content_id_not_found
-    def test_xblock_was_never_proctored_exam(
+    def test_xblock_was_never_proctortrack_proctored_exam(
             self,
             mock_get_exam_by_content_id,
             _mock_does_backend_support_onboarding_patch,
@@ -2941,7 +2981,7 @@ class TestSpecialExamXBlockInfo(ItemTest):
             include_child_info=True,
             include_children_predicate=ALWAYS,
         )
-        assert xblock_info['was_ever_special_exam'] is False
+        assert xblock_info['was_exam_ever_linked_with_external'] is False
         assert mock_get_exam_by_content_id.call_count == 1
 
 

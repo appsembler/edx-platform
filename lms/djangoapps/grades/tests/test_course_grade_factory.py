@@ -2,18 +2,21 @@
 Tests for the CourseGradeFactory class.
 """
 import itertools
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 import ddt
 from django.conf import settings
 from edx_toggles.toggles.testutils import override_waffle_switch
+import pytest
 
 from common.djangoapps.student.tests.factories import UserFactory
+from lms.djangoapps.certificates.config import AUTO_CERTIFICATE_GENERATION
 from lms.djangoapps.courseware.access import has_access
 from lms.djangoapps.grades.config.tests.utils import persistent_grades_feature_flags
 from openedx.core.djangoapps.content.block_structure.factory import BlockStructureFactory
-from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
-from xmodule.modulestore.tests.factories import CourseFactory
+from openedx.core.djangoapps.signals.signals import COURSE_GRADE_NOW_PASSED
+from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.tests.factories import CourseFactory  # lint-amnesty, pylint: disable=wrong-import-order
 
 from ..config.waffle import ASSUME_ZERO_GRADE_IF_ABSENT, waffle_switch
 from ..course_grade import CourseGrade, ZeroCourseGrade
@@ -73,6 +76,35 @@ class TestCourseGradeFactory(GradeTestBase):
                 grade_factory.read(self.request.user, self.course)
         assert mock_read_grade.called == (feature_flag and course_setting)
 
+    @patch.dict(settings.FEATURES, {'PERSISTENT_GRADES_ENABLED_FOR_ALL_TESTS': False})
+    def test_no_recursion_without_persistent_grades(self):
+        """
+        Course grade signals should not be fired recursively when persistent grades are disabled.
+        """
+        self.mock_process_signal = Mock()  # pylint: disable=attribute-defined-outside-init
+
+        def handler(**kwargs):
+            """
+            Mock signal receiver.
+            """
+            self.mock_process_signal()
+
+        with persistent_grades_feature_flags(
+            global_flag=False,
+            enabled_for_all_courses=False,
+            course_id=self.course.id,
+            enabled_for_course=False
+        ):
+            with override_waffle_switch(AUTO_CERTIFICATE_GENERATION, active=True), mock_get_score(2, 2):
+                COURSE_GRADE_NOW_PASSED.connect(handler)
+                try:
+                    CourseGradeFactory().update(self.request.user, self.course)
+                except RecursionError:
+                    pytest.fail("The COURSE_GRADE_NOW_PASSED signal fired recursively.")
+
+        self.mock_process_signal.assert_called_once()
+        COURSE_GRADE_NOW_PASSED.disconnect(handler)
+
     def test_read_and_update(self):
         grade_factory = CourseGradeFactory()
 
@@ -95,10 +127,10 @@ class TestCourseGradeFactory(GradeTestBase):
                 self.sequence2.display_name
             ]
 
-        with self.assertNumQueries(3), mock_get_score(1, 2):
+        with self.assertNumQueries(4), mock_get_score(1, 2):
             _assert_read(expected_pass=False, expected_percent=0)  # start off with grade of 0
 
-        num_queries = 42
+        num_queries = 41
         with self.assertNumQueries(num_queries), mock_get_score(1, 2):
             grade_factory.update(self.request.user, self.course, force_update_subsections=True)
 
@@ -112,14 +144,14 @@ class TestCourseGradeFactory(GradeTestBase):
         with self.assertNumQueries(3):
             _assert_read(expected_pass=True, expected_percent=0.5)  # NOT updated to grade of .25
 
-        num_queries = 23
+        num_queries = 18
         with self.assertNumQueries(num_queries), mock_get_score(2, 2):
             grade_factory.update(self.request.user, self.course, force_update_subsections=True)
 
         with self.assertNumQueries(3):
             _assert_read(expected_pass=True, expected_percent=1.0)  # updated to grade of 1.0
 
-        num_queries = 30
+        num_queries = 29
         with self.assertNumQueries(num_queries), mock_get_score(0, 0):  # the subsection now is worth zero
             grade_factory.update(self.request.user, self.course, force_update_subsections=True)
 
@@ -279,7 +311,7 @@ class TestGradeIteration(SharedModuleStoreTestCase):
         iterator, but it shouldn't error.
         """
         grade_results = list(CourseGradeFactory().iter([], self.course))
-        assert grade_results == []
+        assert not grade_results
 
     def test_all_empty_grades(self):
         """
@@ -316,7 +348,7 @@ class TestGradeIteration(SharedModuleStoreTestCase):
             else mock_course_grade.return_value
             for student in self.students
         ]
-        with self.assertNumQueries(8):
+        with self.assertNumQueries(9):
             all_course_grades, all_errors = self._course_grades_and_errors_for(self.course, self.students)
         assert {student: str(all_errors[student]) for student in all_errors} == {
             student3: 'Error for student3.',

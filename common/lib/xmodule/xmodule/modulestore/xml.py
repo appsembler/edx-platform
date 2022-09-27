@@ -39,8 +39,7 @@ from xmodule.x_module import (  # lint-amnesty, pylint: disable=unused-import
 from .exceptions import ItemNotFoundError
 from .inheritance import InheritanceKeyValueStore, compute_inherited_metadata, inheriting_field_data
 
-edx_xml_parser = etree.XMLParser(dtd_validation=False, load_dtd=False,
-                                 remove_comments=True, remove_blank_text=True)
+edx_xml_parser = etree.XMLParser(dtd_validation=False, load_dtd=False, remove_blank_text=True)
 
 etree.set_default_parser(edx_xml_parser)
 
@@ -82,7 +81,7 @@ class ImportSystem(XMLParsingSystem, MakoDescriptorSystem):  # lint-amnesty, pyl
 
                 # tags that really need unique names--they store (or should store) state.
                 need_uniq_names = ('problem', 'sequential', 'video', 'course', 'chapter',
-                                   'videosequence', 'poll_question', 'vertical')
+                                   'poll_question', 'vertical')
 
                 attr = xml_data.attrib
                 tag = xml_data.tag
@@ -160,9 +159,7 @@ class ImportSystem(XMLParsingSystem, MakoDescriptorSystem):  # lint-amnesty, pyl
 
             try:
                 xml_data = etree.fromstring(xml)
-
                 make_name_unique(xml_data)
-
                 descriptor = self.xblock_from_node(
                     xml_data,
                     None,  # parent_id

@@ -7,7 +7,7 @@ from django.conf import settings
 from django.template.response import TemplateResponse
 from django.utils.html import format_html
 from hijack_admin.admin import HijackUserAdminMixin
-from ratelimitbackend import admin
+from django.contrib import admin
 from common.djangoapps.student.admin import UserAdmin
 from organizations.models import Organization
 from tahoe_sites.api import get_organization_for_user
@@ -86,9 +86,6 @@ class AlternativeDomainAdmin(admin.ModelAdmin):
         'site'
     )
 
-
-if not getattr(settings, 'TAHOE_NUTMEG_TEMP_SKIP_TEST'):
-    # Nutmeg Code Merge 1/6 - Note 09
-    admin.site.unregister(User)
-    admin.site.register(User, TahoeUserAdmin)
-    admin.site.register(AlternativeDomain, AlternativeDomainAdmin)
+admin.site.unregister(User)
+admin.site.register(User, TahoeUserAdmin)
+admin.site.register(AlternativeDomain, AlternativeDomainAdmin)

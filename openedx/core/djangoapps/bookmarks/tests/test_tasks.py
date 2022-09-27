@@ -18,7 +18,6 @@ class XBlockCacheTaskTests(BookmarksTestsBase):
     """
     Test the XBlockCache model.
     """
-
     def setUp(self):
         super().setUp()
 
@@ -102,21 +101,15 @@ class XBlockCacheTaskTests(BookmarksTestsBase):
         }
 
     @ddt.data(
-        (ModuleStoreEnum.Type.mongo, 2, 2, 4),
-        (ModuleStoreEnum.Type.mongo, 4, 2, 4),
-        (ModuleStoreEnum.Type.mongo, 2, 3, 5),
-        (ModuleStoreEnum.Type.mongo, 4, 3, 5),
-        (ModuleStoreEnum.Type.mongo, 2, 4, 6),
-        # (ModuleStoreEnum.Type.mongo, 4, 4, 6), Too slow.
-        (ModuleStoreEnum.Type.split, 2, 2, 3),
-        (ModuleStoreEnum.Type.split, 4, 2, 3),
-        (ModuleStoreEnum.Type.split, 2, 3, 3),
-        (ModuleStoreEnum.Type.split, 2, 4, 3),
+        (2, 2, 2),
+        (4, 2, 2),
+        (2, 3, 2),
+        (2, 4, 2),
     )
     @ddt.unpack
-    def test_calculate_course_xblocks_data_queries(self, store_type, children_per_block, depth, expected_mongo_calls):
+    def test_calculate_course_xblocks_data_queries(self, children_per_block, depth, expected_mongo_calls):
 
-        course = self.create_course_with_blocks(children_per_block, depth, store_type)
+        course = self.create_course_with_blocks(children_per_block, depth, ModuleStoreEnum.Type.split)
 
         # clear cache to get consistent query counts
         self.clear_caches()
@@ -144,8 +137,8 @@ class XBlockCacheTaskTests(BookmarksTestsBase):
                     assert path_item['usage_key'] == expected_cache_data[usage_key][path_index][path_item_index]
 
     @ddt.data(
-        ('course', 36),
-        ('other_course', 34)
+        ('course', 37),
+        ('other_course', 35)
     )
     @ddt.unpack
     def test_update_xblocks_cache(self, course_attr, expected_sql_queries):
@@ -172,7 +165,7 @@ class XBlockCacheTaskTests(BookmarksTestsBase):
         Test that the xblocks data is persisted correctly with display_name=None.
         """
         block_with_display_name_none = ItemFactory.create(
-            parent_location=self.sequential_2.location,
+            parent=self.sequential_2,
             category='vertical', display_name=None
         )
 
