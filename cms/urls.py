@@ -306,7 +306,6 @@ urlpatterns.append(
 # display error page templates, for testing purposes
 urlpatterns += [
     path('404', handler404),
-    path('500', handler500),
 ]
 
 if settings.TAHOE_ENABLE_CUSTOM_ERROR_VIEW:

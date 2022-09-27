@@ -4,7 +4,7 @@ Test the views served by third_party_auth.
 
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 import ddt
 import pytest
@@ -21,6 +21,8 @@ from common.djangoapps.third_party_auth import pipeline
 # Define some XML namespaces:
 from common.djangoapps.third_party_auth.utils import SAML_XML_NS
 from common.djangoapps.third_party_auth.views import inactive_user_view
+
+from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
 
 from .testutil import AUTH_FEATURE_ENABLED, AUTH_FEATURES_KEY, SAMLTestCase
 
@@ -205,12 +207,20 @@ class IdPRedirectViewTest(SAMLTestCase):
         )
 
 
+@patch('common.djangoapps.student.views.management.theming_helpers.get_current_site')
 @unittest.skipUnless(AUTH_FEATURE_ENABLED, AUTH_FEATURES_KEY + ' not enabled')
 class InactiveUserViewTests(TestCase):
     """Test inactive user view """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.site = SiteFactory()
+
     @patch('common.djangoapps.third_party_auth.views.redirect')
     @override_settings(LOGIN_REDIRECT_WHITELIST=['courses.edx.org'])
-    def test_inactive_user_view_allows_valid_redirect(self, mock_redirect):
+    def test_inactive_user_view_allows_valid_redirect(self, mock_redirect, mock_current_site):
+        mock_current_site.return_value = self.site
         inactive_user = UserFactory(is_active=False)
         Registration().register(inactive_user)
         request = RequestFactory().get(settings.SOCIAL_AUTH_INACTIVE_USER_URL, {'next': 'https://courses.edx.org'})
@@ -221,7 +231,8 @@ class InactiveUserViewTests(TestCase):
                 mock_redirect.assert_called_with('https://courses.edx.org')
 
     @patch('common.djangoapps.third_party_auth.views.redirect')
-    def test_inactive_user_view_prevents_invalid_redirect(self, mock_redirect):
+    def test_inactive_user_view_prevents_invalid_redirect(self, mock_redirect, mock_current_site):
+        mock_current_site.return_value = self.site
         inactive_user = UserFactory(is_active=False)
         Registration().register(inactive_user)
         request = RequestFactory().get(settings.SOCIAL_AUTH_INACTIVE_USER_URL, {'next': 'https://evil.com'})
@@ -232,7 +243,8 @@ class InactiveUserViewTests(TestCase):
                 mock_redirect.assert_called_with('dashboard')
 
     @patch('common.djangoapps.third_party_auth.views.redirect')
-    def test_inactive_user_view_redirects_back_to_host(self, mock_redirect):
+    def test_inactive_user_view_redirects_back_to_host(self, mock_redirect, mock_current_site):
+        mock_current_site.return_value = self.site
         inactive_user = UserFactory(is_active=False)
         Registration().register(inactive_user)
         request = RequestFactory().get(settings.SOCIAL_AUTH_INACTIVE_USER_URL, {'next': 'https://myedxhost.com'},
@@ -245,7 +257,8 @@ class InactiveUserViewTests(TestCase):
 
     @patch('common.djangoapps.third_party_auth.views.redirect')
     @override_settings(LOGIN_REDIRECT_WHITELIST=['courses.edx.org'])
-    def test_inactive_user_view_does_not_redirect_https_to_http(self, mock_redirect):
+    def test_inactive_user_view_does_not_redirect_https_to_http(self, mock_redirect, mock_current_site):
+        mock_current_site.return_value = self.site
         inactive_user = UserFactory(is_active=False)
         Registration().register(inactive_user)
         request = RequestFactory().get(settings.SOCIAL_AUTH_INACTIVE_USER_URL, {'next': 'http://courses.edx.org'},

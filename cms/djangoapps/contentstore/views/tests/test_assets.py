@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from ddt import data, ddt
 from django.conf import settings
+from django.http import JsonResponse
 from django.test.utils import override_settings
 from opaque_keys.edx.keys import AssetKey
 from opaque_keys.edx.locator import CourseLocator
