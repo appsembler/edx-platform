@@ -516,7 +516,8 @@ def delete_organization_courses(organization):
         objects_to_delete = model_class.objects.filter(**{
             '{field_name}__in'.format(field_name=field_name): course_keys,
         })
-        objects_to_delete.delete()
+        for obj_to_delete in objects_to_delete:
+            obj_to_delete.delete()
 
 
 @beeline.traced(name="delete_site")
@@ -525,14 +526,16 @@ def delete_site(site):
     site.configuration.delete()
 
     print('Deleting theme of', site)
-    site.themes.all().delete()
+    for theme in site.themes:
+        theme.delete()
 
     organization = tahoe_sites.api.get_organization_by_site(site)
 
     users = tahoe_sites.api.get_users_of_organization(organization, without_inactive_users=False)
 
     print('Deleting users of', site)
-    users.delete()
+    for user in users:
+        user.delete()
 
     print('Deleting courses of', site)
     delete_organization_courses(organization)
