@@ -89,7 +89,7 @@ edx-organizations
 edx-proctoring>=2.0.1
 edx-proctoring-proctortrack==1.0.5  # Intentionally and permanently pinned to ensure code changes are reviewed
 edx-rest-api-client
-https://github.com/appsembler/edx-search/archive/1.3.4-appsembler3.tar.gz  # edx-search
+edx-search
 edx-sga
 edx-submissions
 edx-toggles                         # Feature toggles management
@@ -164,7 +164,7 @@ super-csv                           # Generic CSV processor
 unicodecsv                          # Easier support for CSV files with unicode text
 user-util                           # Functionality for retiring users (GDPR compliance)
 web-fragments                       # Provides the ability to render fragments of web pages
-XBlock==1.2.2                              # Courseware component architecture
+XBlock                              # Courseware component architecture
 xblock-utils                        # Provides utilities used by the Discussion XBlock
 xss-utils                           # https://github.com/edx/edx-platform/pull/20633 Fix XSS via Translations
 enmerkar-underscore                 # Implements a underscore extractor for django-babel.
