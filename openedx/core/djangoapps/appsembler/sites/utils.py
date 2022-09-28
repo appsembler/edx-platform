@@ -520,6 +520,22 @@ def delete_organization_courses(organization):
             obj_to_delete.delete()
 
 
+def remove_course_creator_role(user):
+    """
+    Allow users registered from AMC to create courses.
+
+    This will fail in when running tests from within the AMC because the CMS migrations
+    don't run during tests. Patch this function to avoid such errors.
+
+    TODO: RED-2853 Remove this helper when AMC is removed
+          This helper is being replaced by `update_course_creator_role_for_cms` which has unit tests.
+    """
+    from cms.djangoapps.course_creators.models import CourseCreator  # Fix LMS->CMS imports.
+    from student.roles import CourseAccessRole, CourseCreatorRole  # Avoid circular import.
+    CourseCreator.objects.filter(user=user).delete()
+    CourseAccessRole.objects.create(user=user).delete()
+
+
 @beeline.traced(name="delete_site")
 def delete_site(site):
     print('Deleting SiteConfiguration of', site)
@@ -535,6 +551,7 @@ def delete_site(site):
 
     print('Deleting users of', site)
     for user in users:
+        remove_course_creator_role(user)
         user.delete()
 
     print('Deleting courses of', site)
