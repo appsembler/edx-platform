@@ -557,7 +557,7 @@ def delete_obj_recursive(obj, using=None, keep_parents=False):
         (obj._meta.object_name, obj._meta.pk.attname)  # noqa
     )
 
-    collector = SlowDeleteCollector(using=using)
+    collector = NestedObjects(using=using)
     collector.collect([obj], keep_parents=keep_parents)
     if obj.__class__.__name__ == 'User':
         print('DEBUG', 'collector.data', collector.data)
