@@ -539,7 +539,7 @@ def remove_course_creator_role(user):
     for cc_role in CourseCreator.objects.filter(user=user):
         delete_obj_recursive(cc_role)
 
-    for ca_role in CourseAccessRole.objects.create(user=user):
+    for ca_role in CourseAccessRole.objects.filter(user=user):
         delete_obj_recursive(ca_role)
 
 
