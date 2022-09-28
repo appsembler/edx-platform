@@ -551,7 +551,7 @@ def delete_obj_recursive(obj, using=None, keep_parents=False):
     )
 
     collector = Collector(using=using)
-    collector.collect([obj], keep_parents=keep_parents)
+    collector.collect([obj], keep_parents=keep_parents, reverse_dependency=True)
     collector.delete()
 
 
