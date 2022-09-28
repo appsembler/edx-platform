@@ -23,7 +23,7 @@ import cssutils
 import os
 import sass
 
-from django.db.models import Q
+from django.db.models import Q, Model
 from django.utils import timezone
 from django.core.files.storage import get_storage_class
 from django.conf import settings
@@ -550,6 +550,35 @@ class SlowDeleteCollector(Collector):
         return False
 
 
+# def delete_obj_recursive(obj, using=None, keep_parents=False):
+#     using = using or router.db_for_write(obj.__class__, instance=obj)  # noqa
+#     assert obj.pk is not None, (
+#         "%s object can't be deleted because its %s attribute is set to None." %
+#         (obj._meta.object_name, obj._meta.pk.attname)  # noqa
+#     )
+#
+#     collector = NestedObjects(using=using)
+#     collector.collect([obj], keep_parents=keep_parents)
+#     if obj.__class__.__name__ == 'User':
+#         print('DEBUG', 'collector.data', collector.data)
+#         collector.sort()
+#         print('DEBUG', 'collector.data', collector.data)
+#     collector.delete()
+
+
+def delete_objects_in_reverse(deletable_objects):
+    """
+
+    """
+    for obj in reversed(deletable_objects):
+        if isinstance(obj, Model):
+            obj.delete()
+        elif isinstance(obj, list):
+            delete_objects_in_reverse(obj)
+        else:
+            raise Exception('{} is unrecognized by delete_objects_in_reverse'.format(obj))
+
+
 def delete_obj_recursive(obj, using=None, keep_parents=False):
     using = using or router.db_for_write(obj.__class__, instance=obj)  # noqa
     assert obj.pk is not None, (
@@ -557,13 +586,25 @@ def delete_obj_recursive(obj, using=None, keep_parents=False):
         (obj._meta.object_name, obj._meta.pk.attname)  # noqa
     )
 
+
+    # get_deleted_objects
     collector = NestedObjects(using=using)
-    collector.collect([obj], keep_parents=keep_parents)
-    if obj.__class__.__name__ == 'User':
-        print('DEBUG', 'collector.data', collector.data)
-        collector.sort()
-        print('DEBUG', 'collector.data', collector.data)
-    collector.delete()
+    collector.collect([obj])
+
+    to_delete = collector.nested()
+    deletable_objects = to_delete
+
+    model_count = {model._meta.verbose_name_plural: len(objs) for model, objs in collector.model_objs.items()}
+
+    print('DEBUG collector.protected', collector.protected)
+    print('DEBUG model_count', model_count)
+
+    # if obj.__class__.__name__ == 'User':
+    #     import pytest; pytest.set_trace()
+
+    delete_objects_in_reverse(deletable_objects)
+
+
 
 # def delete_obj_recursive(obj):
 #     """
