@@ -31,7 +31,6 @@ from openedx.core.djangoapps.appsembler.sites.serializers import (
     AlternativeDomainSerializer,
 )
 from openedx.core.djangoapps.appsembler.sites.utils import (
-    delete_site,
     get_customer_files_storage,
     to_safe_file_name,
 )
@@ -70,7 +69,7 @@ class SiteConfigurationViewSet(viewsets.ModelViewSet):
         return super(SiteConfigurationViewSet, self).get_serializer_class()
 
     def perform_destroy(self, instance):
-        delete_site(instance.site)
+        raise NotImplementedError('Not implemented. Should be run via command line.')
 
 
 class FileUploadView(views.APIView):
