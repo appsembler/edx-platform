@@ -3,6 +3,8 @@ A big module for Tahoe Sites multi-tenancy helpers.
 
 A lot of this module should be migrated into more specific modules such as `tahoe-sites`.
 """
+from django.contrib.admin.actions import delete_selected
+from django.contrib.admin.utils import NestedObjects
 from django.db.models.deletion import Collector
 
 import tahoe_sites.api
@@ -543,6 +545,11 @@ def remove_course_creator_role(user):
         delete_obj_recursive(ca_role)
 
 
+class SlowDeleteCollector(Collector):
+    def can_fast_delete(self, objs, from_field=None):
+        return False
+
+
 def delete_obj_recursive(obj, using=None, keep_parents=False):
     using = using or router.db_for_write(obj.__class__, instance=obj)  # noqa
     assert obj.pk is not None, (
@@ -550,9 +557,33 @@ def delete_obj_recursive(obj, using=None, keep_parents=False):
         (obj._meta.object_name, obj._meta.pk.attname)  # noqa
     )
 
-    collector = Collector(using=using)
-    collector.collect([obj], keep_parents=keep_parents, reverse_dependency=True)
+    collector = SlowDeleteCollector(using=using)
+    collector.collect([obj], keep_parents=keep_parents)
+    if obj.__class__.__name__ == 'User':
+        print('DEBUG', 'collector.data', collector.data)
+        collector.sort()
+        print('DEBUG', 'collector.data', collector.data)
     collector.delete()
+
+# def delete_obj_recursive(obj):
+#     """
+#     Stolen from django.contrib.admin.actions.delete_selected
+#     """
+#     queryset = model.objects.filter(pk=obj.pk)
+#
+#     # Populate deletable_objects, a data structure of all related objects that
+#     # will also be deleted.
+#     class FakeModelAdmin():
+#         model = obj.__class__
+#         model = obj.__class__
+#
+#     delete_selected()
+#
+#     # The user has already confirmed the deletion.
+#     # Do the deletion and return None to display the change list view again.
+#     n = queryset.count()
+#     if n:
+#         queryset.delete()
 
 
 @beeline.traced(name="delete_site")
