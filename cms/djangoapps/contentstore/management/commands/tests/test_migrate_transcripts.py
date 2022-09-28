@@ -2,7 +2,7 @@
 """
 Tests for course transcript migration management command.
 """
-
+from unittest.mock import Mock
 
 import itertools
 import logging
@@ -81,11 +81,22 @@ class TestArgParsing(TestCase):
             call_command('migrate_transcripts', '--course-id', 'invalid-course')
 
 
+def get_all_courses():
+    """
+    Mock get_active_courses()
+    """
+    return [course.id for course in modulestore().get_course_summaries()]
+
+
 @skipIf(
     settings.TAHOE_NUTMEG_TEMP_SKIP_TEST,
     'Failing, these should be obsolete soon after we migrate all transcripts'
 )
 @ddt.ddt
+@patch(
+    'contentstore.management.commands.migrate_transcripts.get_active_courses_keys',
+    Mock(side_effect=get_all_courses),
+)
 class TestMigrateTranscripts(ModuleStoreTestCase):
     """
     Tests migrating video transcripts in courses from contentstore to django storage
