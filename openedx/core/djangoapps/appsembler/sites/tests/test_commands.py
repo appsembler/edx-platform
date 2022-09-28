@@ -9,11 +9,13 @@ from django.contrib.sites.models import Site
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import override_settings, TestCase
+
+from openedx.core.djangoapps.appsembler.sites.utils import add_course_creator_role
 from tahoe_sites.api import (
     create_tahoe_site_by_link,
     get_organization_for_user,
     get_users_of_organization,
-    get_uuid_by_organization,
+    get_uuid_by_organization, get_organization_by_site,
 )
 from tahoe_sites.tests.utils import create_organization_mapping
 
@@ -182,17 +184,26 @@ class RemoveSiteCommandTestCase(TestCase):
         """
         deleted_domain = '{}.localhost:18000'.format(self.to_be_deleted)
         remained_domain = '{}.localhost:18000'.format(self.shall_remain)
+        assert SiteConfiguration.objects.count() == 2, 'there are two sites'
+        remained_site = Site.objects.get(domain=remained_domain)
+
+        # TODO: Re-produce the error we face in staging
+        to_delete_site = Site.objects.get(domain=deleted_domain)
+        to_delete_organization = get_organization_by_site(to_delete_site)
+        users = get_users_of_organization(to_delete_organization)
+        assert len(users), 'Ensure the site has users'
+        for user in users:
+            add_course_creator_role(user)
 
         call_command('remove_site', deleted_domain, commit=True)
 
         # Ensure objects are removed correctly.
         assert not Site.objects.filter(domain=deleted_domain).exists()
-        site = Site.objects.get(domain=remained_domain)
 
-        assert SiteConfiguration.objects.count() == 1
-        assert SiteConfiguration.objects.get(site=site)
+        assert SiteConfiguration.objects.count() == 1, 'One site is deleted'
+        assert SiteConfiguration.objects.get(site=remained_site), 'remained_domain site config is kept'
 
-        assert SiteTheme.objects.filter(site=site).count() == site.themes.count()
+        assert SiteTheme.objects.filter(site=remained_site).count() == remained_site.themes.count()
 
     def test_remove_devstack_site_rollback(self):
         """
