@@ -112,16 +112,16 @@ def remove_open_edx_site(domain, commit=False) -> None:
         site = Site.objects.get(domain=domain)
         starting_objects = get_site_related_objects(site)
 
-        full_list_of_objects = generate_objects(*starting_objects)
-        check(full_list_of_objects)
+        full_list_of_items = generate_objects(*starting_objects)
+        check(full_list_of_items)
 
-        print('Number of objects: ', len(full_list_of_objects))
+        print('Number of objects: ', len(full_list_of_items))
         # TODO: print full list of user emails
         # TODO: print full list of domains
         # TODO: print full list of courses
 
-        for obj in full_list_of_objects:
-            obj.delete()
+        for item in full_list_of_items:
+            item['instance'].delete()
 
         if not commit:
             transaction.set_rollback(True)
@@ -173,13 +173,11 @@ def process_one_to_one_relation(
     attribute returns one instance when called instead of a Model Manager.
     """
     try:
-        obj = getattr(instance, field.name)
+        return [getattr(instance, field.name)]
     except ObjectDoesNotExist:
         # Nothing to do, we didn't find any object related to this
         # in the other model.
-        obj = None
-
-    return [obj, ]
+        return []
 
 
 def process_many_to_many_relation(
@@ -237,7 +235,6 @@ def generate_objects(*args: [Model], root_models=None) -> list:
     objects = []
     visited = {}
 
-
     processing_stack = list(args)
 
     print('Starting items:', len(processing_stack))
@@ -260,10 +257,13 @@ def generate_objects(*args: [Model], root_models=None) -> list:
         instance_key = instance_representation(instance)
 
         in_processing_stack[instance_key] = False
-        item, pending_items = process_instance(instance)
+        item, data, pending_items = process_instance(instance)
 
         if item:
-            objects.append(item)
+            objects.append({
+                'instance': item,
+                'data': data,
+            })
 
         for pending_item in pending_items:
             pending_item_key = instance_representation(pending_item)
@@ -289,6 +289,12 @@ def generate_objects(*args: [Model], root_models=None) -> list:
     return objects
 
 
+def assert_all(*items, msg, obj, field):
+    for item in items:
+        assert isinstance(item, Model)
+    assert all(items), 'All values should be actual instances (%s) %s --> %s ... %s' % (msg, obj, field, items)
+
+
 def process_instance(instance: Model):
     """
     Inspired from: django.forms.models.model_to_dict
@@ -296,8 +302,7 @@ def process_instance(instance: Model):
     as a Model's ``create`` keyword argument with all its discovered
     relations.
     """
-    if not instance:
-        return instance, []
+    assert instance, 'Should not get empty instance'
 
     to_process = set()
     content_type = ContentType.objects.get_for_model(instance)
@@ -316,18 +321,22 @@ def process_instance(instance: Model):
                 instance, field
             )
             data['fields'][field.name] = value
-            to_process.add(item)
+            if item:
+                assert_all(item, msg='fk', obj=instance, field=field)
+                to_process.add(item)
         elif field.one_to_many:
             items = process_one_to_many_relation(
                 instance,
                 field
             )
+            assert_all(*items, msg='1toM', obj=instance, field=field)
             to_process.update(items)
         elif field.one_to_one:
             items = process_one_to_one_relation(
                 instance,
                 field
             )
+            assert_all(*items, msg='1to1', obj=instance, field=field)
             to_process.update(items)
         elif field.many_to_many:
             value, items = process_many_to_many_relation(
@@ -338,6 +347,7 @@ def process_instance(instance: Model):
             if value is not None:
                 data['fields'][field.name] = value
 
+            assert_all(*items, msg='m2m', obj=instance, field=field)
             to_process.update(items)
         elif field in opts.concrete_fields \
                 or field in opts.private_fields:
@@ -353,8 +363,9 @@ def process_instance(instance: Model):
 
     print('Finished processing %s object' % data['model'])
     print('%d new items to process' % len(to_process))
+    assert_all(*to_process, msg='all', obj=instance, field='all')
 
-    return data, to_process
+    return instance, data, to_process
 
 
 def check(objects):
