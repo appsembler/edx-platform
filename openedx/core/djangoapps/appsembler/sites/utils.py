@@ -572,13 +572,15 @@ def delete_objects_in_reverse(deletable_objects):
     """
     for obj in reversed(deletable_objects):
         if isinstance(obj, Model):
-            print('DELETE one ', obj)
+            print('DELETE one ', type(obj), obj)
             obj.delete()
         elif isinstance(obj, list):
-            print('DELETE many ', obj)
+            print('DELETE many ', type(obj), obj)
             delete_objects_in_reverse(obj)
         else:
-            raise Exception('{} is unrecognized by delete_objects_in_reverse'.format(obj))
+            raise Exception(
+                '{} of type {} is unrecognized by delete_objects_in_reverse'.format(obj, type(obj))
+            )
 
 
 def delete_obj_recursive(obj, using=None, keep_parents=False):
