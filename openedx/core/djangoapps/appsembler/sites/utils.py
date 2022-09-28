@@ -3,10 +3,14 @@ A big module for Tahoe Sites multi-tenancy helpers.
 
 A lot of this module should be migrated into more specific modules such as `tahoe-sites`.
 """
+from django.db.models.deletion import Collector
+
 import tahoe_sites.api
 from django.apps import apps
 
 from datetime import timedelta
+
+from django.db import router
 
 import beeline
 from opaque_keys.edx.django.models import CourseKeyField
@@ -517,7 +521,7 @@ def delete_organization_courses(organization):
             '{field_name}__in'.format(field_name=field_name): course_keys,
         })
         for obj_to_delete in objects_to_delete:
-            obj_to_delete.delete()
+            delete_obj_recursive(obj_to_delete)
 
 
 def remove_course_creator_role(user):
@@ -532,18 +536,33 @@ def remove_course_creator_role(user):
     """
     from cms.djangoapps.course_creators.models import CourseCreator  # Fix LMS->CMS imports.
     from student.roles import CourseAccessRole, CourseCreatorRole  # Avoid circular import.
-    CourseCreator.objects.filter(user=user).delete()
-    CourseAccessRole.objects.create(user=user).delete()
+    for cc_role in CourseCreator.objects.filter(user=user):
+        delete_obj_recursive(cc_role)
+
+    for ca_role in CourseAccessRole.objects.create(user=user):
+        delete_obj_recursive(ca_role)
+
+
+def delete_obj_recursive(obj, using=None, keep_parents=False):
+    using = using or router.db_for_write(obj.__class__, instance=obj)  # noqa
+    assert obj.pk is not None, (
+        "%s object can't be deleted because its %s attribute is set to None." %
+        (obj._meta.object_name, obj._meta.pk.attname)  # noqa
+    )
+
+    collector = Collector(using=using)
+    collector.collect([obj], keep_parents=keep_parents)
+    collector.delete()
 
 
 @beeline.traced(name="delete_site")
 def delete_site(site):
     print('Deleting SiteConfiguration of', site)
-    site.configuration.delete()
+    delete_obj_recursive(site.configuration)
 
     print('Deleting theme of', site)
     for theme in site.themes.all():
-        theme.delete()
+        delete_obj_recursive(theme)
 
     organization = tahoe_sites.api.get_organization_by_site(site)
 
@@ -552,16 +571,16 @@ def delete_site(site):
     print('Deleting users of', site)
     for user in users:
         remove_course_creator_role(user)
-        user.delete()
+        delete_obj_recursive(user)
 
     print('Deleting courses of', site)
     delete_organization_courses(organization)
 
     print('Deleting organization', organization)
-    organization.delete()
+    delete_obj_recursive(organization)
 
     print('Deleting site', site)
-    site.delete()
+    delete_obj_recursive(site)
 
 
 @beeline.traced(name="add_course_creator_role")

@@ -192,9 +192,6 @@ class RemoveSiteCommandTestCase(TestCase):
         to_delete_organization = get_organization_by_site(to_delete_site)
         users = get_users_of_organization(to_delete_organization)
         assert len(users), 'Ensure the site has users'
-        for user in users:
-            add_course_creator_role(user)
-
         call_command('remove_site', deleted_domain, commit=True)
 
         # Ensure objects are removed correctly.
