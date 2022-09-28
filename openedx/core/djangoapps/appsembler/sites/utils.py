@@ -570,7 +570,7 @@ def delete_objects_in_reverse(deletable_objects):
     """
 
     """
-    for obj in deletable_objects:
+    for obj in reversed(deletable_objects):
         if isinstance(obj, Model):
             print('DELETE one ', obj)
             obj.delete()
@@ -603,7 +603,10 @@ def delete_obj_recursive(obj, using=None, keep_parents=False):
 
     # if obj.__class__.__name__ == 'User':
     #     import pytest; pytest.set_trace()
-
+    from pprint import pprint
+    print('DEBUG deletable_objects ---->')
+    pprint(deletable_objects)
+    print('<------- deletable_objects')
     delete_objects_in_reverse(deletable_objects)
 
 
