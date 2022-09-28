@@ -5,7 +5,6 @@ import unittest
 from django.db.models import QuerySet
 from mock import patch
 
-from django.core.exceptions import ImproperlyConfigured, MultipleObjectsReturned
 from django.test import TestCase
 from django.test.client import RequestFactory
 

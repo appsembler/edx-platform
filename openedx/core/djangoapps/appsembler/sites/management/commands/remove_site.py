@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.contrib.sites.models import Site
 from django.db import transaction
 
-from openedx.core.djangoapps.appsembler.sites.utils import delete_site
+from openedx.core.djangoapps.appsembler.sites.remove_site_utils import remove_open_edx_site
 
 
 class Command(BaseCommand):
@@ -27,32 +27,5 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        organization_domain = options['domain']
-
-        self.stdout.write('Removing "%s" in progress...' % organization_domain)
-        site = self._get_site(organization_domain)
-
-        with transaction.atomic():
-            delete_site(site)
-
-            if not options['commit']:
-                transaction.set_rollback(True)
-
-        self.stdout.write(self.style.SUCCESS(
-            '{message} removed site "{domain}"'.format(
-                message='Successfully' if options['commit'] else 'Dry run',
-                domain=organization_domain,
-            )
-        ))
-
-    def _get_site(self, domain):
-        """
-        Locates the site to be deleted and return its instance.
-
-        :param domain: The domain of the site to be returned.
-        :return: Returns the site object that has the given domain.
-        """
-        try:
-            return Site.objects.get(domain=domain)
-        except Site.DoesNotExist:
-            raise CommandError('Cannot find "%s" in Sites!' % domain)
+        self.stdout.write('Removing "%s" in progress...' % options['domain'])
+        remove_open_edx_site(domain=options['domain'], commit=options['commit'])
