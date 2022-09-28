@@ -526,7 +526,7 @@ def delete_site(site):
     site.configuration.delete()
 
     print('Deleting theme of', site)
-    for theme in site.themes:
+    for theme in site.themes.all():
         theme.delete()
 
     organization = tahoe_sites.api.get_organization_by_site(site)
