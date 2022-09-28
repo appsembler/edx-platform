@@ -1,6 +1,6 @@
 import hashlib
 import os
-from mock import patch, mock_open
+from unittest.mock import patch, mock_open, Mock
 from io import StringIO
 
 from django.conf import settings
@@ -10,7 +10,6 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import override_settings, TestCase
 
-from openedx.core.djangoapps.appsembler.sites.utils import add_course_creator_role
 from tahoe_sites.api import (
     create_tahoe_site_by_link,
     get_organization_for_user,
@@ -162,6 +161,10 @@ class TestCandidateSitesCleanupCommand(TestCase):
     'DISABLE_COURSE_CREATION': False,
     'ENABLE_CREATOR_GROUP': True,
 })
+@patch(  # Avoid CMS-related import issues in tests
+    'penedx.core.djangoapps.appsembler.sites.remove_site_utils.remove_course_creator_role',
+    Mock()
+)
 class RemoveSiteCommandTestCase(TestCase):
     """
     Test ./manage.py lms remove_site mysite
