@@ -570,10 +570,12 @@ def delete_objects_in_reverse(deletable_objects):
     """
 
     """
-    for obj in reversed(deletable_objects):
+    for obj in deletable_objects:
         if isinstance(obj, Model):
+            print('DELETE one ', obj)
             obj.delete()
         elif isinstance(obj, list):
+            print('DELETE many ', obj)
             delete_objects_in_reverse(obj)
         else:
             raise Exception('{} is unrecognized by delete_objects_in_reverse'.format(obj))
