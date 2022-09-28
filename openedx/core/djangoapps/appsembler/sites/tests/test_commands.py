@@ -162,7 +162,7 @@ class TestCandidateSitesCleanupCommand(TestCase):
     'ENABLE_CREATOR_GROUP': True,
 })
 @patch(  # Avoid CMS-related import issues in tests
-    'penedx.core.djangoapps.appsembler.sites.remove_site_utils.remove_course_creator_role',
+    'openedx.core.djangoapps.appsembler.sites.utils.remove_course_creator_role',
     Mock()
 )
 class RemoveSiteCommandTestCase(TestCase):
