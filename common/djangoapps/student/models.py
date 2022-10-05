@@ -1302,6 +1302,15 @@ class CourseEnrollment(models.Model):
         if user.id is None:
             user.save()
 
+        try:
+            # To avoid running into MongoDB vs. MySQL case sensitivity issues, and to avoid having
+            # CourseEnrollment.course_id returning the ID with the wrong letters case; we convert the key to
+            # the correct letter case one
+            course_key = CourseOverview.get_from_id(course_key).id
+        except CourseOverview.DoesNotExist:
+            # We allow enrollments to non-existence courses!
+            pass
+
         enrollment, __ = cls.objects.get_or_create(
             user=user,
             course_id=course_key,

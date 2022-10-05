@@ -1,5 +1,6 @@
 import datetime
 import hashlib
+from unittest import mock
 
 import ddt
 import factory
@@ -10,11 +11,13 @@ from django.db.models import signals
 from django.db.models.functions import Lower
 from django.test import TestCase
 from opaque_keys.edx.keys import CourseKey
+from six import text_type
 
 from course_modes.models import CourseMode
 from course_modes.tests.factories import CourseModeFactory
 from lms.djangoapps.courseware.models import DynamicUpgradeDeadlineConfiguration
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
+from openedx.core.djangoapps.content.course_overviews.tests.factories import CourseOverviewFactory
 from openedx.core.djangoapps.schedules.models import Schedule
 from openedx.core.djangoapps.schedules.tests.factories import ScheduleFactory
 from openedx.core.djangolib.testing.utils import skip_unless_lms
@@ -241,6 +244,44 @@ class CourseEnrollmentTests(SharedModuleStoreTestCase):
         enrollment_refetched = CourseEnrollment.objects.filter(id=enrollment.id)
         self.assertTrue(enrollment_refetched.exists())
         self.assertEqual(enrollment_refetched.all()[0], enrollment)
+
+    @skip_unless_lms
+    def test_get_or_create_enrollment_course_id_diff(self):
+        """
+        Sometimes, get_or_create_enrollment receives the course_key in the wrong case.
+        For example, (course-v1:org+name+number_number) instead of (course-v1:org+Name+Number_number)
+
+        This will still be evaluated correctly when we use (CourseOverview.get_from_id), but we must also ensure that
+        get_or_create_enrollment is creating the enrollment with the correct string. Because the value of
+        (CourseEnrollment.course_id) will return the wrong id that (CourseKey.from_string) will not fix
+        """
+        # Prepare course for testing
+        course_key = CourseKey.from_string('course-v1:org+Name+Number_number')
+        course = CourseOverviewFactory.create(id=course_key)
+        lowercase_key = CourseKey.from_string(text_type(course.id).lower())
+        self.assertNotEqual(course.id, lowercase_key)
+        self.assertEqual(text_type(course.id).lower(), text_type(lowercase_key).lower())
+
+        # Verify that CourseOverview.get_from_id works fine
+        self.assertEqual(CourseOverview.get_from_id(course.id), course)
+        with self.assertRaises(CourseOverview.DoesNotExist):
+            # In production: get_from_id will find the course because the database collation is set to case-insensitive
+            # but in tests it will fail because of SQLite limitations https://www.sqlite.org/faq.html#q18
+            CourseOverview.get_from_id(lowercase_key)
+        with mock.patch(
+            'openedx.core.djangoapps.content.course_overviews.models.CourseOverview.load_from_module_store'
+        ) as mocked:
+            # Therefore, when we can use this workaround to force get_from_id to return the course
+            mocked.return_value = course
+            self.assertEqual(CourseOverview.get_from_id(course.id), course)
+
+        # Now test get_or_create_enrollment
+        with mock.patch(
+            'openedx.core.djangoapps.content.course_overviews.models.CourseOverview.load_from_module_store'
+        ) as mocked:
+            mocked.return_value = course
+            enrollment = CourseEnrollment.get_or_create_enrollment(user=self.user, course_key=lowercase_key)
+        self.assertEqual(enrollment.course_id, course.id)
 
 
 class PendingNameChangeTests(SharedModuleStoreTestCase):
