@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 import tahoe_sites.api
 from django.contrib.auth import get_user_model
@@ -8,6 +10,7 @@ from organizations.models import OrganizationCourse
 from status.models import CourseMessage
 from student.models import AnonymousUserId
 
+from lms.djangoapps.courseware.models import StudentModule
 from openedx.core.djangoapps.appsembler.api.tests.factories import (
     CourseOverviewFactory,
     OrganizationCourseFactory,
@@ -22,6 +25,14 @@ from openedx.core.djangoapps.appsembler.sites.utils import (
     get_models_using_course_key,
     delete_organization_courses,
 )
+
+
+def delete_site_with_patched_cms_imports(red_site):
+    """
+    Delete a site without running the CMS-related code.
+    """
+    with patch('openedx.core.djangoapps.appsembler.sites.utils.remove_course_creator_role'):
+        delete_site(red_site)
 
 
 @pytest.fixture
@@ -49,7 +60,7 @@ def test_delete_site(make_site):
     Test `delete_site` happy path.
     """
     red_site = make_site('red')
-    delete_site(red_site)
+    delete_site_with_patched_cms_imports(red_site)
 
     with pytest.raises(User.DoesNotExist):
         User.objects.get(username='red')
@@ -63,7 +74,7 @@ def test_delete_one_site_keeps_another(make_site):
     red_site = make_site('red')
     make_site('blue')
 
-    delete_site(red_site)
+    delete_site_with_patched_cms_imports(red_site)
 
     with pytest.raises(User.DoesNotExist):
         User.objects.get(username='red')
@@ -87,6 +98,7 @@ def test_get_models_using_course_key():
     assert AnonymousUserId in classes, 'Should include AnonymousUserId due to course_id field'
     assert CourseMessage in classes, 'Should include CourseMessage due to course_key field'
     assert OrganizationCourse in classes, 'Should include OrganizationCourse'
+    assert StudentModule in classes, 'Should include models with LearningContextKeyField'
 
 
 @pytest.mark.django_db
