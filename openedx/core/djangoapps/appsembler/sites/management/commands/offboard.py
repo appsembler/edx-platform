@@ -11,7 +11,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.management.base import BaseCommand, CommandError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import ForeignKey
-from tahoe_sites.api import get_organization_by_site
+from tahoe_sites.api import get_organization_by_site, get_uuid_by_organization
 
 from opaque_keys.edx.keys import CourseKey
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
@@ -30,6 +30,7 @@ from student.models import (
 )
 
 from organizations.models import Organization, OrganizationCourse
+from tahoe_sites.api import get_users_of_organization
 
 
 class Command(BaseCommand):
@@ -118,7 +119,7 @@ class Command(BaseCommand):
         objects = {
             'site': self.process_site(site),
             'organizations': [
-                self.process_organization(org) for org in [organization]
+                self.process_organization(organization),
             ],
             'courses': self.process_courses(organization),
             'configurations': self.process_site_configurations(site),
@@ -411,7 +412,7 @@ class Command(BaseCommand):
             'description': organization.description,
             'logo': organization.logo.url if organization.logo else '',
             'active': organization.active,
-            'UUID': organization.edx_uuid,
+            'UUID': get_uuid_by_organization(organization=organization),
             'created': organization.created,
             'users': self.process_organization_users(organization)
         }
@@ -422,9 +423,9 @@ class Command(BaseCommand):
         """
         self.debug_message('Processing {} organization users...'.format(organization.name))
         return [{
-            'username': mapping.user.username,
-            'active': mapping.is_active,
-        } for mapping in organization.userorganizationmapping_set.all()]
+            'username': user.username,
+            'active': user.is_active,
+        } for user in get_users_of_organization(organization=organization, without_inactive_users=False)]
 
     def process_site_configurations(self, site):
         """

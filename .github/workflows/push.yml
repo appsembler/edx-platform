@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: pull-request-action
-        uses: vsoch/pull-request-action@1.0.12
+        uses: vsoch/pull-request-action@1.0.19
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH_PREFIX: "hawthorn/main"
@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: pull-request-action
-        uses: vsoch/pull-request-action@1.0.12
+        uses: vsoch/pull-request-action@1.0.19
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH_PREFIX: "hawthorn/main"
@@ -35,5 +35,5 @@ jobs:
             This is meant for making sure all of our Hawthorn changes gets merge into Juniper otherwise Juniper would stall.
             If tests passes merge this pull request.
             If there are merge conflicts, it needs to be resolved manually in a seperate pull request.
-          PULL_REQUEST_REVIEWERS: "melvinsoft estherjsuh OmarIthawi thraxil"
+          PULL_REQUEST_REVIEWERS: "melvinsoft shadinaif OmarIthawi thraxil"
 

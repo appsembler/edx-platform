@@ -1,23 +1,31 @@
 """
 Tests for appsembler.sites.tasks.
 """
+import logging
+
 import datetime
 from opaque_keys.edx.locator import CourseLocator
 from unittest.mock import patch, Mock
-
-from django.test import override_settings
+from testfixtures import LogCapture
+from django.test import (
+    TransactionTestCase,
+    override_settings,
+)
 from organizations.tests.factories import OrganizationFactory
-from tahoe_sites.tests.utils import create_organization_mapping
 
 from opaque_keys.edx.keys import CourseKey
+
+from student.models import CourseEnrollmentAllowed
 from openedx.core.djangoapps.appsembler.sites.tasks import (
     import_course_on_site_creation,
     import_course_on_site_creation_apply_async,
+    import_course_on_site_creation_after_transaction,
 )
-from student.roles import CourseAccessRole
-from student.tests.factories import UserFactory
+from openedx.core.djangolib.testing.utils import FilteredQueryCountMixin
 from xmodule.modulestore.django import modulestore
-from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
+from xmodule.modulestore.tests.django_utils import (
+    ModuleStoreTestCase, ModuleStoreTestUsersMixin, ModuleStoreIsolationMixin,
+)
 
 
 COURSE_NAME = 'TahoeWelcome'
@@ -29,6 +37,7 @@ IMPORT_SETTINGS = {
     'TAHOE_DEFAULT_COURSE_GITHUB_ORG': 'appsembler',
     'TAHOE_DEFAULT_COURSE_GITHUB_NAME': 'first-course',
     'TAHOE_DEFAULT_COURSE_VERSION': 'v0.0.1',
+    'TAHOE_DEFAULT_COURSE_CMS_TASK_DELAY': 0,
 }
 
 
@@ -41,15 +50,9 @@ class ImportCourseOnSiteCreationTestCase(ModuleStoreTestCase):
     organization_name = 'blue'
 
     def setUp(self):
-        super(ImportCourseOnSiteCreationTestCase, self).setUp()
+        super().setUp()
         self.m_store = modulestore()
-        self.user = UserFactory.create()
         self.organization = OrganizationFactory.create(short_name=self.organization_name)
-        create_organization_mapping(
-            user=self.user,
-            organization=self.organization,
-            is_admin=True,
-        )
 
     def get_course_id(self, use_new_format=False):
         """
@@ -57,7 +60,7 @@ class ImportCourseOnSiteCreationTestCase(ModuleStoreTestCase):
 
         :param use_new_format: Use the new `course-v1:Org+Course+Run` format.
 
-        # TODO: (Juniper??) Fix this and ONLY use new course format once Open edX test modulestore fix it
+        # TODO: (Nutmeg??) Fix this and ONLY use new course format once Open edX test modulestore fix it
         """
         this_year = datetime.datetime.now().year
         if use_new_format:
@@ -85,13 +88,16 @@ class ImportCourseOnSiteCreationTestCase(ModuleStoreTestCase):
         """
         assert not self.m_store.get_course(self.course_key), 'The course is not created yet!'
         assert not self.m_store.get_courses(), 'An empty module store on every test.'
-        assert not CourseAccessRole.objects.count(), 'No course staff roles yet.'
 
     def test_import_course_on_site_creation(self):
         """
         Ensure the task run properly.
         """
-        result = import_course_on_site_creation_apply_async(self.organization)
+        with LogCapture(level=logging.INFO) as log:
+            result = import_course_on_site_creation_apply_async(
+                organization=self.organization,
+                enrollment_emails=['admin@example.com', 'my_staff@example.com'],
+            )
         assert not result.failed(), 'Task should succeed instead of returning: "{}"'.format(result.result)
 
         courses = self.m_store.get_courses()
@@ -100,24 +106,57 @@ class ImportCourseOnSiteCreationTestCase(ModuleStoreTestCase):
             'Should use the correct ID "{}"'.format(str(courses[0].id))
         )
 
-        access_role = CourseAccessRole.objects.get(
-            user=self.user,
+        assert CourseEnrollmentAllowed.objects.filter(
+            course_id=self.get_course_id(use_new_format=True),
+            email__in=['admin@example.com', 'my_staff@example.com'],
+            auto_enroll=True,
+        ), 'Should create enrollment records for {}. [debug: all courses enrollments found: {}]\n\n'.format(
+            self.course_key,
+            CourseEnrollmentAllowed.objects.all(),
         )
 
-        assert access_role.role == 'instructor', 'Set the permission to instructor (aka Course Admin).'
-        assert access_role.org == self.organization_name, 'Correct org is used'  # TODO: Not sure if that's needed
-        assert str(access_role.course_id) == self.get_course_id(use_new_format=True)
+        assert 'Starting importing course for organization_id' in str(log)
+        assert 'course_published import signal emitted for course' in str(log)
 
-    @patch('xmodule.modulestore.django.SignalHandler.course_published')
+    @override_settings(TAHOE_DEFAULT_COURSE_VERSION='non-existing-version')
+    def test_import_invalid_course_url(self):
+        """
+        Ensure the task fails okay when using invalid GitHub configs.
+        """
+        with LogCapture() as log:
+            import_course_on_site_creation_apply_async(self.organization)
+
+        assert len(self.m_store.get_courses()) == 0, 'course should not be imported'
+
+        assert 'Course Clone Error' in str(log)
+        assert 'Deleting tahoe welcome course' in str(log)
+
+    def test_import_invalid_course_id(self):
+        """
+        Ensure the task fails okay when using invalid Course ID.
+        """
+        self.organization.short_name = 'invalid+org+id'
+        self.organization.save()
+
+        with LogCapture() as log:
+            import_course_on_site_creation_apply_async(self.organization)
+
+        assert len(self.m_store.get_courses()) == 0, 'course should not be imported'
+
+        assert 'Course Clone Error' in str(log)
+        assert 'course_published import signal emitted for course' not in str(log), \
+            'Should not finish the task due to invalid course ID'
+
     @patch('openedx.core.djangoapps.appsembler.sites.tasks.current_year', Mock(return_value=2020))
     @patch('cms.djangoapps.contentstore.signals.handlers.listen_for_course_publish')
-    def test_import_course_indexed(self, mock_listen_for_course_publish, mock_course_published):
+    def test_import_course_indexed(self, mock_listen_for_course_publish):
         """
         Ensure the task indexes the course.
         """
-        assert not mock_course_published.send.called, 'Sanity check: signal should not be called.'
+        with patch('xmodule.modulestore.django.SignalHandler.course_published') as mock_course_published:
+            assert not mock_course_published.send.called, 'Sanity check: signal should not be called.'
+            task_exception = import_course_on_site_creation(self.organization.id)
 
-        task_exception = import_course_on_site_creation(self.organization.id)
         assert not task_exception, 'Should not fail'
         course_key = CourseLocator.from_string('course-v1:blue+TahoeWelcome+2020')
         mock_course_published.send.assert_called_once_with(
@@ -127,4 +166,32 @@ class ImportCourseOnSiteCreationTestCase(ModuleStoreTestCase):
         mock_listen_for_course_publish.assert_called_once_with(
             sender='openedx.core.djangoapps.appsembler.sites.tasks',
             course_key=course_key,
+        )
+
+
+@override_settings(**IMPORT_SETTINGS)
+class SchedulingTasksAfterCommitTestCase(
+    ModuleStoreTestUsersMixin, FilteredQueryCountMixin, ModuleStoreIsolationMixin, TransactionTestCase
+):
+    """
+    Test case for import_course_on_site_creation_after_transaction.
+
+    The base class is similar to ModuleStoreTestCase but uses TransactionTestCase to make the `on_commit` work.
+
+    See the https://docs.djangoproject.com/en/2.2/topics/testing/tools/#django.test.TransactionTestCase doc
+    """
+    @patch.dict('django.conf.settings.FEATURES', {'APPSEMBLER_IMPORT_DEFAULT_COURSE_ON_SITE_CREATION': True})
+    @patch('openedx.core.djangoapps.appsembler.sites.tasks.import_course_on_site_creation')
+    def test_import_course_on_site_creation_after_transaction_helper(self, import_function):
+        """
+        Test that the task is created with the right params.
+        """
+        organization = OrganizationFactory.create()
+        import_course_on_site_creation_after_transaction(organization, ['test@example.com'])
+        import_function.apply_async.assert_called_once_with(
+            kwargs={
+                'organization_id': organization.id,
+                'enrollment_emails': ['test@example.com'],
+            },
+            retry=False,  # Attempting to import the course after a failure is unlikely to be helpful.
         )

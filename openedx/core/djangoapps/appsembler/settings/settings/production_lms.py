@@ -43,15 +43,17 @@ def plugin_settings(settings):
         )
         # This is used in the appsembler_sites.middleware.RedirectMiddleware to exclude certain paths
         # from the redirect mechanics.
-        settings.MAIN_SITE_REDIRECT_WHITELIST = [
-            'api',
-            'admin',
-            'oauth',
-            'status',
+        settings.MAIN_SITE_REDIRECT_ALLOWLIST = [
+            '/api/',
+            '/user_api/',  # still used by EdxRestAPIClient in integrations
+            '/admin',
+            'oauth',  # TODO: Add slashes during Nutmeg upgrade since this requires a lot of QA
+            'status',  # TODO: Add slashes during Nutmeg upgrade since this requires a lot of QA
             '/heartbeat',
             '/courses/yt_video_metadata',
             '/accounts/manage_user_standing',
             '/accounts/disable_account_ajax',
+            '/completion-aggregator/',  # :(  no /api/ in that API path
         ]
 
     settings.LMS_BASE = settings.ENV_TOKENS.get('LMS_BASE')
@@ -61,6 +63,13 @@ def plugin_settings(settings):
         settings.INSTALLED_APPS += [
             tpa_admin_app_name,
         ]
+
+    settings.INSTALLED_APPS += [
+        'user_tasks',  # Release upgrade note: This line can be removed if it causes errors,
+                       #                       but the `remove_site` must be tested afterwards
+                       # `user_tasks` is a CMS-only app, but adding it in LMS to fix an error with `remove_site` command
+                       # `user_tasks` helps to manage of user-triggered async tasks (course import/export, etc.)
+    ]
 
     settings.CORS_ORIGIN_ALLOW_ALL = True
 

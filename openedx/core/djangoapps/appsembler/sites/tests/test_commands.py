@@ -1,6 +1,6 @@
 import hashlib
 import os
-from mock import patch, mock_open
+from unittest.mock import patch, mock_open, Mock
 from io import StringIO
 
 from django.conf import settings
@@ -9,7 +9,15 @@ from django.contrib.sites.models import Site
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import override_settings, TestCase
-from tahoe_sites.api import create_tahoe_site_by_link
+
+from tahoe_sites.api import (
+    create_tahoe_site_by_link,
+    get_organization_for_user,
+    get_users_of_organization,
+    get_uuid_by_organization,
+    get_organization_by_site,
+)
+from tahoe_sites.tests.utils import create_organization_mapping
 
 from openedx.core.djangoapps.appsembler.sites.management.commands.create_devstack_site import Command
 from openedx.core.djangoapps.appsembler.sites.management.commands.offboard import Command as OffboardSiteCommand
@@ -23,7 +31,6 @@ from openedx.core.djangoapps.appsembler.api.tests.factories import (
     CourseOverviewFactory,
     OrganizationFactory,
     OrganizationCourseFactory,
-    UserOrganizationMappingFactory,
 )
 from openedx.core.djangoapps.appsembler.sites.tests.factories import (
     AlternativeDomainFactory,
@@ -50,7 +57,7 @@ from student.tests.factories import (
     UserStandingFactory,
 )
 
-from organizations.models import Organization, OrganizationCourse, UserOrganizationMapping
+from organizations.models import Organization, OrganizationCourse
 
 from oauth2_provider.models import AccessToken, RefreshToken, Application
 
@@ -95,15 +102,16 @@ class CreateDevstackSiteCommandTestCase(TestCase):
         with patch.object(Command, 'congrats') as mock_congrats:
             call_command('create_devstack_site', self.name, 'localhost')
 
-        mock_congrats.assert_called_once()  # Ensure that congrats message is printed
+        assert mock_congrats.called  # Ensure that congrats message is printed
+        assert mock_congrats.call_count == 1  # Ensure that congrats message is printed once
 
         # Ensure objects are created correctly.
         assert Site.objects.get(domain=self.site_name)
-        assert Organization.objects.get(name=self.name)
+        organization = Organization.objects.get(name=self.name)
         user = get_user_model().objects.get()
         assert user.check_password(self.name)
         assert user.profile.name == self.name
-        assert UserOrganizationMapping.objects.get(organization__name=self.name, user=user)
+        assert get_organization_for_user(user=user) == organization
 
         assert CourseCreatorRole().has_user(user), 'User should be a course creator'
 
@@ -155,6 +163,10 @@ class TestCandidateSitesCleanupCommand(TestCase):
     'DISABLE_COURSE_CREATION': False,
     'ENABLE_CREATOR_GROUP': True,
 })
+@patch(  # Avoid CMS-related import issues in tests
+    'openedx.core.djangoapps.appsembler.sites.utils.remove_course_creator_role',
+    Mock()
+)
 class RemoveSiteCommandTestCase(TestCase):
     """
     Test ./manage.py lms remove_site mysite
@@ -171,23 +183,37 @@ class RemoveSiteCommandTestCase(TestCase):
         call_command('create_devstack_site', self.to_be_deleted, 'localhost')
         call_command('create_devstack_site', self.shall_remain, 'localhost')
 
-    def test_create_devstack_site(self):
+    def test_remove_devstack_site_commit(self):
         """
-        Test that `create_devstack_site` and creates the required objects.
+        Test that `remove_site` and removes the site _with_ commit.
         """
-        call_command('remove_site', '{}.localhost:18000'.format(self.to_be_deleted))
-
-        # Ensure objects are removed correctly.
         deleted_domain = '{}.localhost:18000'.format(self.to_be_deleted)
         remained_domain = '{}.localhost:18000'.format(self.shall_remain)
+        assert SiteConfiguration.objects.count() == 2, 'there are two sites'
+        remained_site = Site.objects.get(domain=remained_domain)
 
+        # TODO: Re-produce the error we face in staging
+        to_delete_site = Site.objects.get(domain=deleted_domain)
+        to_delete_organization = get_organization_by_site(to_delete_site)
+        users = get_users_of_organization(to_delete_organization)
+        assert len(users), 'Ensure the site has users'
+        call_command('remove_site', deleted_domain, commit=True)
+
+        # Ensure objects are removed correctly.
         assert not Site.objects.filter(domain=deleted_domain).exists()
-        site = Site.objects.get(domain=remained_domain)
 
-        assert SiteConfiguration.objects.count() == 1
-        assert SiteConfiguration.objects.get(site=site)
+        assert SiteConfiguration.objects.count() == 1, 'One site is deleted'
+        assert SiteConfiguration.objects.get(site=remained_site), 'remained_domain site config is kept'
 
-        assert SiteTheme.objects.filter(site=site).count() == site.themes.count()
+        assert SiteTheme.objects.filter(site=remained_site).count() == remained_site.themes.count()
+
+    def test_remove_devstack_site_rollback(self):
+        """
+        Test that `remove_site` do not remove the site _without_ committing.
+        """
+        deleted_domain = '{}.localhost:18000'.format(self.to_be_deleted)
+        call_command('remove_site', deleted_domain)
+        assert Site.objects.filter(domain=deleted_domain).exists()
 
 
 class TestOffboardSiteCommand(ModuleStoreTestCase):
@@ -296,7 +322,9 @@ class TestOffboardSiteCommand(ModuleStoreTestCase):
 
     @patch('openedx.core.djangoapps.appsembler.sites.management.commands.offboard.Command.process_organization_users', return_value=['user1', 'user2'])
     def test_process_organization(self, mock_process_organization_users):
+        site = SiteFactory(domain='test')
         organization = OrganizationFactory.create(name='test')
+        create_tahoe_site_by_link(organization=organization, site=site)
         data = self.command.process_organization(organization)
         assert data == {
             'name': organization.name,
@@ -304,7 +332,7 @@ class TestOffboardSiteCommand(ModuleStoreTestCase):
             'description': organization.description,
             'logo': '',
             'active': organization.active,
-            'UUID': organization.edx_uuid,
+            'UUID': get_uuid_by_organization(organization=organization),
             'created': organization.created,
             'users': ['user1', 'user2']
         }
@@ -313,16 +341,16 @@ class TestOffboardSiteCommand(ModuleStoreTestCase):
         organization = OrganizationFactory.create(name='test')
         new_user_count = 3
 
-        assert organization.userorganizationmapping_set.count() == 0
+        assert get_users_of_organization(organization=organization).count() == 0
         self.create_org_users(org=organization, new_user_count=new_user_count)
-        assert organization.userorganizationmapping_set.count() == new_user_count
+        assert get_users_of_organization(organization=organization).count() == new_user_count
 
         data = self.command.process_organization_users(organization)
         assert len(data) == new_user_count
         assert data == [{
-            'username': mapping.user.username,
-            'active': mapping.is_active,
-        } for mapping in organization.userorganizationmapping_set.all()]
+            'username': user.username,
+            'active': user.is_active,
+        } for user in get_users_of_organization(organization=organization).all()]
 
     def test_process_site_configurations(self):
         data = self.command.process_site_configurations(self.site)
@@ -674,8 +702,11 @@ class TestOffboardSiteCommand(ModuleStoreTestCase):
 
     @staticmethod
     def create_org_users(org, new_user_count):
-        return [UserOrganizationMappingFactory(
-            organization=org).user for i in range(new_user_count)]
+        result = []
+        for i in range(new_user_count):
+            result.append(UserFactory())
+            create_organization_mapping(user=result[i], organization=org)
+        return result
 
 
 class DisableCustomDomainCommandTestCase(TestCase):

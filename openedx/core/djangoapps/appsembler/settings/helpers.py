@@ -75,8 +75,8 @@ def get_tahoe_multitenant_auth_backends(settings):
 
         # Use multi-tenant Tahoe backends instead of the upstream EdxRateLimitedAllowAllUsersModelBackend backend.
         authentication_backends = settings.AUTHENTICATION_BACKENDS[:upstream_backend_index] + [
-            'organizations.backends.DefaultSiteBackend',
-            'organizations.backends.OrganizationMemberBackend',
+            'tahoe_sites.backends.DefaultSiteBackend',
+            'tahoe_sites.backends.OrganizationMemberBackend',
         ] + settings.AUTHENTICATION_BACKENDS[upstream_backend_index + 1:]
 
     return authentication_backends

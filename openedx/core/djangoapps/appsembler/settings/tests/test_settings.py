@@ -23,13 +23,16 @@ def fake_production_settings(settings):
     settings.AUTH_TOKENS = {}
     settings.CELERY_QUEUES = {}
     settings.ALTERNATE_QUEUE_ENVS = []
+    settings.INSTALLED_APPS = settings.INSTALLED_APPS.copy()  # Prevent polluting the original list
+    settings.FEATURES = settings.FEATURES.copy()  # Prevent polluting other tests.
     settings.ENV_TOKENS = {
         'LMS_BASE': 'fake-lms-base',
         'LMS_ROOT_URL': 'fake-lms-root-url',
         'EMAIL_BACKEND': 'fake-email-backend',
         'FEATURES': {}
     }
-    settings.MAIN_SITE_REDIRECT_WHITELIST = []
+    settings.MAIN_SITE_REDIRECT_ALLOWLIST = []
+    settings.CELERY_ROUTES = ()
     return settings
 
 
@@ -57,6 +60,8 @@ def test_production_lms(fake_production_settings, retval, additional_count):
             expected_dir_len = len(settings.STATICFILES_DIRS) + additional_count
             production_lms.plugin_settings(settings)
             assert len(settings.STATICFILES_DIRS) == expected_dir_len
+
+    assert settings.FEATURES['TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT'], 'Should be on by default on prod.'
 
 
 @pytest.fixture(scope='function')

@@ -4,6 +4,7 @@ APIs for the Platform 2.0.
 
 import logging
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import IntegrityError
 
 from rest_framework import views, status
 from rest_framework.authentication import TokenAuthentication
@@ -46,7 +47,6 @@ class CompileSassView(views.APIView):
             }, status=status.HTTP_404_NOT_FOUND)
 
         configuration = SiteConfiguration.objects.get(site=site)
-        configuration.init_api_client_adapter(site)
         sass_status = configuration.compile_microsite_sass()
 
         if sass_status['successful_sass_compile']:
@@ -68,8 +68,14 @@ class TahoeSiteCreateView(views.APIView):
 
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        site_data = serializer.save()
+        try:
+            serializer.is_valid(raise_exception=True)
+            site_data = serializer.save()
+        except IntegrityError as e:
+            return Response({
+                'message': 'Failed to create a site.',
+                'exception': str(e),
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         # Make some of the fields serializable
         site_data['organization'] = site_data['organization'].short_name

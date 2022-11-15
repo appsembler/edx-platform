@@ -12,16 +12,13 @@ from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.files.storage import get_storage_class
 from django.db import models
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.encoding import python_2_unicode_compatible
 from jsonfield.fields import JSONField
 from model_utils.models import TimeStampedModel
 
-from .exceptions import TahoeConfigurationException
-from ..appsembler.sites.waffle import ENABLE_CONFIG_VALUES_MODIFIER
 from ..appsembler.preview.helpers import is_preview_mode
-
 
 logger = getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -67,8 +64,6 @@ class SiteConfiguration(models.Model):
 
     .. no_pii:
     """
-
-    api_adapter = None  # Tahoe: Placeholder for `site_config_client`'s `SiteConfigAdapter`
     tahoe_config_modifier = None  # Tahoe: Placeholder for `TahoeConfigurationValueModifier` instance
 
     site = models.OneToOneField(Site, related_name='configuration', on_delete=models.CASCADE)
@@ -91,19 +86,23 @@ class SiteConfiguration(models.Model):
     def __repr__(self):
         return self.__str__()
 
-    @beeline.traced('site_config.init_api_client_adapter')
-    def init_api_client_adapter(self, site):
-        """
-        Initialize `api_adapter`, this method is managed externally by `get_current_site_configuration()`.
-        """
-        # Tahoe: Import is placed here to avoid model import at project startup
-        from openedx.core.djangoapps.appsembler.sites import (
-            site_config_client_helpers as site_helpers,
-        )
-        if site_helpers.is_enabled_for_site(site):
-            self.api_adapter = site_helpers.get_configuration_adapter(site)
+    @property
+    def api_adapter(self):
+        if hasattr(self, '_api_adapter'):
+            # Avoid re-initializing a `None`/disabled adapter.
+            return self._api_adapter
 
-    @beeline.traced('site_config.get_value')
+        self._api_adapter = None
+        with beeline.tracer('site_config.init_api_client_adapter'):
+            # Tahoe: Import is placed here to avoid model import at project startup
+            from openedx.core.djangoapps.appsembler.sites import (
+                site_config_client_helpers as site_helpers,
+            )
+            if site_helpers.is_enabled_for_site(self.site):
+                self._api_adapter = site_helpers.init_site_configuration_adapter(self.site)
+
+        return self._api_adapter
+
     def get_value(self, name, default=None):
         """
         Return Configuration value for the key specified as name argument.
@@ -117,7 +116,6 @@ class SiteConfiguration(models.Model):
         Returns:
             Configuration value for the given key or returns `None` if configuration is not enabled.
         """
-        beeline.add_context_field('value_name', name)
         if self.enabled:
             if self.tahoe_config_modifier:
                 name, default = self.tahoe_config_modifier.normalize_get_value_params(name, default)
@@ -128,11 +126,9 @@ class SiteConfiguration(models.Model):
             try:
                 if self.api_adapter:
                     # Tahoe: Use `SiteConfigAdapter` if available.
-                    beeline.add_context_field('value_source', 'site_config_service')
                     return self.api_adapter.get_value_of_type(self.api_adapter.TYPE_SETTING, name, default)
                 else:
-                    beeline.add_context_field('value_source', 'django_model')
-                    return self.site_values.get(name, default)
+                    return self.site_values.get(name, default) if self.site_values else default
             except AttributeError as error:
                 logger.exception(u'Invalid JSON data. \n [%s]', error)
         else:
@@ -182,7 +178,7 @@ class SiteConfiguration(models.Model):
             return self.api_adapter.get_value_of_type(self.api_adapter.TYPE_ADMIN, name, default)
         else:
             beeline.add_context_field('setting_source', 'django_model')
-            return self.site_values.get(name, default)
+            return self.site_values.get(name, default) if self.site_values else default
 
     @beeline.traced('site_config.get_secret_value')
     def get_secret_value(self, name, default=None):
@@ -204,7 +200,7 @@ class SiteConfiguration(models.Model):
             return self.api_adapter.get_value_of_type(self.api_adapter.TYPE_SECRET, name, default)
         else:
             beeline.add_context_field('setting_source', 'django_model')
-            return self.site_values.get(name, default)
+            return self.site_values.get(name, default) if self.site_values else default
 
     @classmethod
     def get_configuration_for_org(cls, org, select_related=None):
@@ -216,12 +212,11 @@ class SiteConfiguration(models.Model):
             org (str): Org to use to filter SiteConfigurations
             select_related (list or None): A list of values to pass as arguments to select_related
         """
-        query = cls.objects.filter(site_values__contains=org, enabled=True)
+        if settings.FEATURES.get('TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT', False):
+            from .tahoe_organization_helpers import get_configuration_for_org  # Local import mitigating import errors
+            return get_configuration_for_org(org)
 
-        if hasattr(SiteConfiguration, 'sass_variables'):
-            # TODO: Clean up Site Configuration hacks: https://github.com/appsembler/edx-platform/issues/329
-            query = query.defer('page_elements', 'sass_variables')
-
+        query = cls.objects.filter(site_values__contains=org, enabled=True).all()
         if select_related is not None:
             query = query.select_related(*select_related)
         for configuration in query:
@@ -263,14 +258,13 @@ class SiteConfiguration(models.Model):
         Returns:
             A set of all organizations present in site configuration.
         """
+        if settings.FEATURES.get('TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT', False):
+            from .tahoe_organization_helpers import get_all_orgs  # Local import mitigating import errors
+            return get_all_orgs()
+
         org_filter_set = set()
 
-        query = cls.objects.filter(site_values__contains='course_org_filter', enabled=True)
-        if hasattr(SiteConfiguration, 'sass_variables'):
-            # TODO: Clean up Site Configuration hacks: https://github.com/appsembler/edx-platform/issues/329
-            query = query.defer('page_elements', 'sass_variables')
-
-        for configuration in query:
+        for configuration in cls.objects.filter(site_values__contains='course_org_filter', enabled=True).all():
             course_org_filter = configuration.get_value('course_org_filter', [])
             if not isinstance(course_org_filter, list):
                 course_org_filter = [course_org_filter]
@@ -454,39 +448,6 @@ class SiteConfiguration(models.Model):
         if 'customer-sass-input' in path:
             return [(path, self.get_value('customer_sass_input', ''))]
         return None
-
-
-@receiver(pre_save, sender=SiteConfiguration)
-def tahoe_update_site_values_on_save(sender, instance, **kwargs):
-    """
-    Temp. helper until ENABLE_CONFIG_VALUES_MODIFIER is enabled on production.
-
-    # TODO: RED-2828 Clean up after production QA
-    """
-    if not ENABLE_CONFIG_VALUES_MODIFIER.is_enabled():
-        logger.info('ENABLE_CONFIG_VALUES_MODIFIER: switch is disabled, saving override values inline.')
-        from openedx.core.djangoapps.appsembler.sites.config_values_modifier import TahoeConfigurationValueModifier
-        tahoe_config_modifier = TahoeConfigurationValueModifier(site_config_instance=instance)
-
-        if not instance.site_values:
-            instance.site_values = {}
-
-        if not instance.site_values.get('platform_name'):
-            instance.site_values['platform_name'] = instance.site.name
-
-        if not instance.site_values.get('PLATFORM_NAME'):  # First-time the config is saved with save()
-            instance.site_values['css_overrides_file'] = tahoe_config_modifier.get_css_overrides_file()
-            instance.site_values['ENABLE_COMBINED_LOGIN_REGISTRATION'] = True
-
-        # Everytime the config is saved with save()
-        instance.site_values.update({
-            'PLATFORM_NAME': instance.site_values.get('platform_name', ''),
-            'LANGUAGE_CODE': instance.site_values.get('LANGUAGE_CODE', 'en'),
-            'LMS_ROOT_URL': tahoe_config_modifier.get_lms_root_url(),
-            'SITE_NAME': tahoe_config_modifier.get_domain(),
-            'ACTIVATION_EMAIL_SUPPORT_LINK': tahoe_config_modifier.get_activation_email_support_link(),
-            'PASSWORD_RESET_SUPPORT_LINK': tahoe_config_modifier.get_password_reset_support_link(),
-        })
 
 
 @receiver(post_save, sender=SiteConfiguration)

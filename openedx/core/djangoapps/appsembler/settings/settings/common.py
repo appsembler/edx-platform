@@ -76,5 +76,16 @@ def plugin_settings(settings):
 
     settings.COPY_SEGMENT_EVENT_PROPERTIES_TO_TOP_LEVEL = False
 
+    settings.EVENT_TRACKING_PROCESSORS += [
+        # This processor does nothing outside of LMS but it's easier to keep this in common settings
+        # but we could look at just putting this in the `_lms` modules, too.
+        {
+            'ENGINE': 'openedx.core.djangoapps.appsembler.eventtracking.tahoeusermetadata.TahoeUserMetadataProcessor'
+        }
+    ]
+
     # Appsembler allows generating honor certs
     settings.FEATURES['TAHOE_AUTO_GENERATE_HONOR_CERTS'] = True
+
+    # Off by default. See the `site_configuration.tahoe_organization_helpers.py` module.
+    settings.FEATURES['TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT'] = False

@@ -61,7 +61,7 @@ from openedx.core.djangoapps.appsembler.api.v1.serializers import (
     BulkEnrollmentSerializer,
     UserIndexSerializer,
 )
-from openedx.core.djangoapps.appsembler.api.v1.waffle import FIX_ENROLLMENT_RESULTS_BUG
+from openedx.core.djangoapps.appsembler.tahoe_idp import helpers as tahoe_idp_helpers
 
 # TODO: Just move into v1 directory
 from openedx.core.djangoapps.appsembler.api.permissions import (
@@ -152,6 +152,12 @@ class RegistrationViewSet(TahoeAuthMixin, viewsets.ViewSet):
         The code here is adapted from the LMS ``appsembler_api`` bulk registration
         code. See the ``appsembler/ginkgo/master`` branch
         """
+        if tahoe_idp_helpers.is_tahoe_idp_enabled():
+            return Response(
+                dict(user_message='This API is not available for this site. Please use the Identity Provider API.'),
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
         # Using .copy() to make the POST data mutable
         # see: https://stackoverflow.com/a/49794425/161278
         data = request.data.copy()
@@ -339,7 +345,15 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
                     results = []
 
                     for course_id in serializer.data.get('courses'):
-                        course_key = as_course_key(course_id)
+                        try:
+                            # To avoid running into MongoDB vs. MySQL case sensitivity issues, and to avoid having
+                            # CourseEnrollment.course_id returning the ID with the wrong letters case; we convert
+                            # the key to the correct letter case one. RED-3540
+                            course_key = CourseOverview.get_from_id(course_id).id
+                        except CourseOverview.DoesNotExist:
+                            # We allow enrollments to non-existence courses!
+                            course_key = as_course_key(course_id)
+
                         # TODO: The two checks below deserve a refactor to make it clearer or a v2 API that works on a
                         #       single course and use `instructor/views/api.py:students_update_enrollment` directly.
                         # Ensuring the course is linked to an organization. It's somewhat a legacy code, keeping
@@ -353,11 +367,6 @@ class EnrollmentViewSet(TahoeAuthMixin, viewsets.ModelViewSet):
                                                             secure=request.is_secure())
                         else:
                             email_params = {}
-
-                        if not FIX_ENROLLMENT_RESULTS_BUG.is_enabled():  # TODO: RED-1387 Clean up after release
-                            # RED-1386: Preserve the original bug behaviour and put it behind a feature flag to
-                            # decouple deployment from release.
-                            results = []
 
                         if action == 'enroll':
                             results += enroll_learners_in_course(

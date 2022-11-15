@@ -4,6 +4,7 @@ import requests
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import generics, views, viewsets
 from rest_framework import status
 from rest_framework.generics import CreateAPIView
@@ -11,7 +12,8 @@ from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from organizations.models import Organization, UserOrganizationMapping
+from organizations.models import Organization
+from tahoe_sites.api import get_organization_user_by_email, get_organization_for_user, get_site_by_organization
 from branding.api import get_base_url
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 from rest_framework.views import APIView
@@ -47,7 +49,8 @@ class SiteViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = Site.objects.exclude(id=settings.SITE_ID)
         user = self.request.user
         if not user.is_superuser:
-            queryset = queryset.filter(organizations__in=user.organizations.all())
+            organization = get_organization_for_user(user=user)
+            queryset = queryset.filter(id=get_site_by_organization(organization=organization).id)
         return queryset
 
 
@@ -233,9 +236,9 @@ class FindUsernameByEmailView(APIView):
         if user_email and organization_name:
             try:
                 organization = Organization.objects.get(name=organization_name)
-                mapping = UserOrganizationMapping.objects.get(user__email=user_email, organization=organization)
-                return Response({'username': mapping.user.username}, status=status.HTTP_200_OK)
-            except (Organization.DoesNotExist, UserOrganizationMapping.DoesNotExist):
+                user = get_organization_user_by_email(email=user_email, organization=organization)
+                return Response({'username': user.username}, status=status.HTTP_200_OK)
+            except ObjectDoesNotExist:
                 pass
 
         return Response({}, status=status.HTTP_404_NOT_FOUND)

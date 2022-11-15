@@ -5,21 +5,19 @@ Test cases to cover CourseEnrollmentAllowed models (and its feature) with APPSEM
 import json
 from mock import patch
 from rest_framework import status
-from unittest import skipIf
 from xmodule.modulestore.tests.factories import CourseFactory
 
 from django.urls import reverse
 from django.contrib.auth.models import User
-from django.conf import settings
 from student.models import CourseEnrollment, CourseEnrollmentAllowed
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from student.tests.factories import UserFactory
+from tahoe_sites.tests.utils import create_organization_mapping
 
 from .test_utils import with_organization_context, lms_multi_tenant_test
 from openedx.core.djangoapps.appsembler.api.tests.factories import (
     CourseOverviewFactory,
     OrganizationCourseFactory,
-    UserOrganizationMappingFactory,
 )
 
 
@@ -52,9 +50,7 @@ class TestCourseEnrollmentAllowedMultitenant(ModuleStoreTestCase):
         """
         client = self.client_class()
         caller = UserFactory.create(password=self.PASSWORD)
-        UserOrganizationMappingFactory(user=caller,
-                                       organization=org,
-                                       is_amc_admin=True)
+        create_organization_mapping(user=caller, organization=org, is_admin=True)
         client.login(username=caller.username, password=self.PASSWORD)
         url = reverse('tahoe-api:v1:enrollments-list')
         body = json.dumps({
@@ -97,6 +93,24 @@ class TestCourseEnrollmentAllowedMultitenant(ModuleStoreTestCase):
             self.invite(org, course.id, self.JOHN_EMAIL)
             assert CourseEnrollmentAllowed.objects.get(email=self.JOHN_EMAIL), 'EnrollmentAllowed should be created.'
             john_b = self.register_user(org.name, email=self.JOHN_EMAIL, password=self.PASSWORD)
+
+        assert list(CourseEnrollment.objects.all()), 'Should be enrolled'
+        assert CourseEnrollment.is_enrolled(john_b, course.id), 'Should be enrolled'
+
+    def test_enrollment_allowed_no_current_request(self):
+        """
+        Test CourseEnrollmentAllowed without `request` when the APPSEMBLER_MULTI_TENANT_EMAILS feature is enabled.
+        """
+        with with_organization_context(site_color=self.RED) as org:
+            course = self.create_org_course(org)
+            assert not CourseEnrollmentAllowed.objects.count(), 'No enrollment allowed yet.'
+            self.invite(org, course.id, self.JOHN_EMAIL)
+            john_b = self.register_user(org.name, email='another.email@exmple.com', password=self.PASSWORD)
+
+        assert not CourseEnrollment.is_enrolled(john_b, course.id), 'Should not be enrolled yet'
+
+        john_b.email = self.JOHN_EMAIL  # Change email
+        john_b.save()  # Simulate a command-line save.
 
         assert list(CourseEnrollment.objects.all()), 'Should be enrolled'
         assert CourseEnrollment.is_enrolled(john_b, course.id), 'Should be enrolled'

@@ -11,6 +11,9 @@ from unittest.mock import patch, Mock
 import ddt
 from urllib.parse import urlsplit
 
+from organizations.models import Organization
+from organizations.tests.factories import OrganizationFactory
+
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.test import TestCase
@@ -18,23 +21,10 @@ from django.test.utils import override_settings
 
 from site_config_client.openedx.adapter import SiteConfigAdapter
 
-from openedx.core.djangoapps.appsembler.sites.waffle import ENABLE_CONFIG_VALUES_MODIFIER
+from openedx.core.djangoapps.appsembler.multi_tenant_emails.tests.test_utils import with_organization_context
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 from openedx.core.djangoapps.site_configuration.tests.factories import SiteConfigurationFactory
-
-
-def ddt_without_and_with_modifier(test_func):
-    """
-    Decorator to pass `use_modifier` parameter.
-    """
-    test_func = ddt.data({
-        'use_modifier': False,
-    }, {
-        'use_modifier': True,
-    })(test_func)
-
-    test_func = ddt.unpack(test_func)
-    return test_func
+from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 
 
 @pytest.fixture
@@ -95,98 +85,75 @@ class SiteConfigurationTests(TestCase):
         cls.expected_site_root_url = '{scheme}://{domain}'.format(
             scheme=cls.scheme, domain=cls.domain)
 
-    @ddt_without_and_with_modifier
-    def test_site_configuration_compile_sass_on_save(self, use_modifier):
+    def test_site_configuration_compile_sass_on_save(self):
         """
-        Test compile_microsite_sass with and without the TahoeConfigurationValueModifier.
+        Test compile_microsite_sass
         """
-        with ENABLE_CONFIG_VALUES_MODIFIER.override(use_modifier):
-            # add SiteConfiguration to database
-            site_configuration = SiteConfigurationFactory.build(
-                site=self.site,
-            )
+        # add SiteConfiguration to database
+        site_configuration = SiteConfigurationFactory.build(
+            site=self.site,
+        )
 
-            site_configuration.save()  # Should not throw an exception
+        site_configuration.save()  # Should not throw an exception
 
-    @ddt_without_and_with_modifier
-    def test_get_value(self, use_modifier):
+    def test_get_value(self):
         """
         Test that get_value returns correct value for Tahoe custom keys.
         """
         # add SiteConfiguration to database
-        with ENABLE_CONFIG_VALUES_MODIFIER.override(use_modifier):
-            site_configuration = SiteConfigurationFactory.build(
-                site=self.site,
-                site_values=self.test_config
-            )
-            site_configuration.save()
-            site_configuration.refresh_from_db()
-            assert bool(site_configuration.tahoe_config_modifier) == use_modifier, 'Sanity check for `override()`'
+        site_configuration = SiteConfigurationFactory.build(
+            site=self.site,
+            site_values=self.test_config
+        )
+        site_configuration.save()
+        site_configuration.refresh_from_db()
+        assert bool(site_configuration.tahoe_config_modifier), 'Sanity check for `override()`'
 
-            # Make sure entry is saved and retrieved correctly
-            assert site_configuration.get_value("PLATFORM_NAME") == self.test_config['platform_name']
-            assert site_configuration.get_value("LMS_ROOT_URL") == self.expected_site_root_url
-            assert site_configuration.get_value('ACTIVATION_EMAIL_SUPPORT_LINK')
-            assert site_configuration.get_value('ACTIVATION_EMAIL_SUPPORT_LINK').endswith('/help')
-            assert site_configuration.get_value('PASSWORD_RESET_SUPPORT_LINK')
-            assert site_configuration.get_value('PASSWORD_RESET_SUPPORT_LINK').endswith('/help')
+        # Make sure entry is saved and retrieved correctly
+        assert site_configuration.get_value("PLATFORM_NAME") == self.test_config['platform_name']
+        assert site_configuration.get_value("LMS_ROOT_URL") == self.expected_site_root_url
+        assert site_configuration.get_value('ACTIVATION_EMAIL_SUPPORT_LINK')
+        assert site_configuration.get_value('ACTIVATION_EMAIL_SUPPORT_LINK').endswith('/help')
+        assert site_configuration.get_value('PASSWORD_RESET_SUPPORT_LINK')
+        assert site_configuration.get_value('PASSWORD_RESET_SUPPORT_LINK').endswith('/help')
 
-            site_configuration.site_values['platform_name'] = 'new platform name'
-            site_configuration.save()
-            site_configuration.refresh_from_db()
-            assert site_configuration.get_value('platform_name') == 'new platform name'
-            assert site_configuration.get_value('PLATFORM_NAME') == 'new platform name'
+        site_configuration.site_values['platform_name'] = 'new platform name'
+        site_configuration.save()
+        site_configuration.refresh_from_db()
+        assert site_configuration.get_value('platform_name') == 'new platform name'
+        assert site_configuration.get_value('PLATFORM_NAME') == 'new platform name'
 
-    @ddt_without_and_with_modifier
-    def test_hardcoded_values_for_unsaved_config_instance(self, use_modifier):
+    def test_hardcoded_values_for_unsaved_config_instance(self):
         """
         If a SiteConfiguration has no site yet, the `get_value` will work safely.
         """
-        with ENABLE_CONFIG_VALUES_MODIFIER.override(use_modifier):
-            site_config = SiteConfiguration(enabled=True)
+        site_config = SiteConfiguration(enabled=True)
 
         assert site_config.get_value('SITE_NAME') is None
         assert site_config.get_value('SITE_NAME', 'test.com') == 'test.com'
 
-    def test_hardcoded_values_for_config_instance_with_site_without_modifier(self):
-        """
-        If a SiteConfiguration has a site the `get_value` should return the right one.
-
-        with ENABLE_CONFIG_VALUES_MODIFIER disabled.
-        """
-        with ENABLE_CONFIG_VALUES_MODIFIER.override(False):
-            site = Site.objects.create(domain='my-site.com')
-            site_config = SiteConfiguration(enabled=True, site=site)
-            site_config.save()
-            assert site_config.get_value('SITE_NAME', 'test.com') == 'my-site.com'
-
     def test_hardcoded_values_for_config_instance_with_site_with_modifier(self):
         """
         If a SiteConfiguration has a site the `get_value` should return the right one.
-
-        with ENABLE_CONFIG_VALUES_MODIFIER enabled.
         """
-        with ENABLE_CONFIG_VALUES_MODIFIER.override(True):
-            site = Site.objects.create(domain='my-site.com')
-            site_config = SiteConfiguration(enabled=True, site=site)  # No need to save for the value modifier to work
-            assert site_config.get_value('SITE_NAME', 'test.com') == 'my-site.com'
+        site = Site.objects.create(domain='my-site.com')
+        site_config = SiteConfiguration(enabled=True, site=site)  # No need to save for the value modifier to work
+        assert site_config.get_value('SITE_NAME', 'test.com') == 'my-site.com'
 
-    @ddt_without_and_with_modifier
-    def test_get_value_for_org(self, use_modifier):
+    def test_get_value_for_org(self):
         """
         Test that get_value_for_org returns correct value for Tahoe custom keys.
         """
-        with ENABLE_CONFIG_VALUES_MODIFIER.override(use_modifier):
-            # add SiteConfiguration to database
-            site_config = SiteConfigurationFactory.create(
-                site=self.site,
-                site_values=self.test_config
-            )
-            site_config.save()
+        # add SiteConfiguration to database
+        site_config = SiteConfigurationFactory.create(
+            site=self.site,
+            site_values=self.test_config
+        )
+        site_config.save()
 
-            # Test that LMS_ROOT_URL is assigned to the SiteConfiguration on creation
-            tahoex_org_name = self.test_config['course_org_filter']
-            assert SiteConfiguration.get_value_for_org(tahoex_org_name, 'LMS_ROOT_URL') == self.expected_site_root_url
+        # Test that LMS_ROOT_URL is assigned to the SiteConfiguration on creation
+        tahoex_org_name = self.test_config['course_org_filter']
+        assert SiteConfiguration.get_value_for_org(tahoex_org_name, 'LMS_ROOT_URL') == self.expected_site_root_url
 
     def test_get_css_url_in_live_mode(self):
         site_config = SiteConfigurationFactory.create(site=self.site)
@@ -336,7 +303,7 @@ class SiteConfigAPIClientTests(TestCase):
             site=self.site,
             site_values={},
         )
-        site_configuration.api_adapter = self.api_adapter
+        site_configuration._api_adapter = self.api_adapter
         site_configuration.save()
         assert site_configuration.get_value('platform_name') == 'API Adapter Platform'
 
@@ -383,7 +350,7 @@ class SiteConfigAPIClientTests(TestCase):
             site_values={},
             sass_variables={},
         )
-        site_configuration.api_adapter = self.api_adapter
+        site_configuration._api_adapter = self.api_adapter
         assert site_configuration._get_theme_v2_variables_overrides()
 
     def test_page_content_without_adapter(self):
@@ -414,7 +381,7 @@ class SiteConfigAPIClientTests(TestCase):
                 },
             },
         )
-        site_configuration.api_adapter = self.api_adapter
+        site_configuration._api_adapter = self.api_adapter
         assert site_configuration.get_page_content('about') == {
             'title': 'About page from site configuration service',
         }
@@ -438,7 +405,7 @@ class SiteConfigAPIClientTests(TestCase):
         site_configuration = SiteConfigurationFactory.create(
             site=self.site,
         )
-        site_configuration.api_adapter = self.api_adapter
+        site_configuration._api_adapter = self.api_adapter
         assert site_configuration.get_secret_value('SEGMENT_KEY') == 'test-secret-from-service'
 
     def test_admin_config_without_adapter(self):
@@ -460,5 +427,71 @@ class SiteConfigAPIClientTests(TestCase):
         site_configuration = SiteConfigurationFactory.create(
             site=self.site,
         )
-        site_configuration.api_adapter = self.api_adapter
+        site_configuration._api_adapter = self.api_adapter
         assert site_configuration.get_admin_setting('IDP_TENANT_ID') == 'dummy-tenant-id'
+
+
+@pytest.mark.django_db
+@patch.dict('django.conf.settings.FEATURES', {'TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT': True})
+@patch('openedx.core.djangoapps.appsembler.sites.utils.get_active_organizations')
+def test_get_all_orgs_filters_by_active(mock_active_orgs):
+    """
+    Test `get_all_orgs()` while using TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT.
+    """
+    OrganizationFactory.create(short_name='red')
+    OrganizationFactory.create(short_name='blue')
+    inactive_org = OrganizationFactory.create(short_name='inactive')
+
+    fake_active_orgs = Organization.objects.exclude(pk=inactive_org.pk)
+    mock_active_orgs.return_value = fake_active_orgs
+
+    all_orgs = configuration_helpers.get_all_orgs()
+    assert set(all_orgs) == {'red', 'blue'}, 'Should rely on get_active_organizations'
+
+
+@pytest.mark.django_db
+@patch.dict('django.conf.settings.FEATURES', {'TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT': True})
+@patch('openedx.core.djangoapps.appsembler.sites.utils.get_active_organizations')
+def test_get_configuration_for_org_via_short_name(mock_active_orgs, settings):
+    """
+    Test `get_configuration_for_org()` while using TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT.
+
+    This method tests get_configuration_for_org indirectly.
+    """
+    assert settings.FEATURES['TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT'], 'Patched as True in tests'
+
+    mock_active_orgs.return_value = Organization.objects.all()
+
+    unconfigured_url = configuration_helpers.get_value_for_org('blue1', 'blog_url', default='default_url')
+    assert unconfigured_url == 'default_url', 'Should return default value'
+
+    with with_organization_context(site_color='blue1', configs={'blog_url': 'http://blog.com'}):
+        # Configure the organization
+        configured_blog_url = configuration_helpers.get_value_for_org('blue1', 'blog_url', default='default_url')
+
+    assert configured_blog_url == 'http://blog.com', 'should read from site configs properly'
+
+
+@pytest.mark.django_db
+@patch.dict('django.conf.settings.FEATURES', {'TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT': True})
+@patch('openedx.core.djangoapps.appsembler.sites.utils.get_active_organizations')
+def test_get_configuration_for_org_via_short_name_inactive_org(mock_active_orgs, settings):
+    """
+    Test `get_configuration_for_org()` with expired subscription while using
+
+    This method tests get_configuration_for_org with TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT indirectly.
+    """
+    assert settings.FEATURES['TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT'], 'Patched as True in tests'
+
+    mock_active_orgs.return_value = Organization.objects.none()
+    inactive_org_url = configuration_helpers.get_value_for_org('blue1', 'blog_url', default='default_url')
+    assert inactive_org_url == 'default_url', 'If the organization is not active, ignore its configurations'
+
+
+def test_site_config_client_organizations_support_feature_disabled_by_default(settings):
+    """
+    Ensure TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT is disabled in testing by default.
+
+    This ensures that upstream Open edX won't fail.
+    """
+    assert not settings.FEATURES['TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT'], 'Disabled by default'

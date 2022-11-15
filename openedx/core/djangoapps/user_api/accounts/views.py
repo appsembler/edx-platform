@@ -84,6 +84,11 @@ from .permissions import CanDeactivateUser, CanReplaceUsername, CanRetireUser
 from .serializers import UserRetirementPartnerReportSerializer, UserRetirementStatusSerializer
 from .signals import USER_RETIRE_LMS_CRITICAL, USER_RETIRE_LMS_MISC, USER_RETIRE_MAILINGS
 
+from openedx.core.djangoapps.appsembler.tahoe_idp import helpers as tahoe_idp_helpers
+
+from tahoe_idp import api as tahoe_idp_api
+
+
 log = logging.getLogger(__name__)
 
 USER_PROFILE_PII = {
@@ -419,6 +424,8 @@ class DeactivateLogoutView(APIView):
         and logs the user out.
         """
         user_model = get_user_model()
+        idp_user_id = None
+
         try:
             # Get the username from the request and check that it exists
             verify_user_password_response = self._verify_user_password(request)
@@ -431,6 +438,11 @@ class DeactivateLogoutView(APIView):
                 # Add user to retirement queue.
                 UserRetirementStatus.create_retirement(request.user)
                 # Unlink LMS social auth accounts
+
+                if tahoe_idp_helpers.is_tahoe_idp_enabled():
+                    # Get the Tahoe IdP user UUID before it's deleted.
+                    idp_user_id = tahoe_idp_api.get_tahoe_idp_id_by_user(request.user)
+
                 UserSocialAuth.objects.filter(user_id=request.user.id).delete()
                 # Change LMS password & email
                 request.user.email = get_retired_email_by_email(request.user.email)
@@ -464,6 +476,10 @@ class DeactivateLogoutView(APIView):
                 except Exception as exc:
                     log.exception('Error sending out deletion notification email')
                     raise
+
+                if idp_user_id:
+                    # If all goes well, deactivate the Tahoe IdP user.
+                    tahoe_idp_api.deactivate_user(idp_user_id)
 
                 # Log the user out.
                 logout(request)
@@ -519,6 +535,10 @@ class DeactivateLogoutView(APIView):
         Args:
             request (HttpRequest): A request object where the password should be included in the POST fields.
         """
+        if tahoe_idp_helpers.is_tahoe_idp_enabled():
+            # Tahoe IdP do not always have password, so we skip this check.
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
         try:
             self._check_excessive_login_attempts(request.user)
             user = authenticate(username=request.user.username, password=request.POST['password'], request=request)

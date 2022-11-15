@@ -63,14 +63,13 @@ def plugin_settings(settings):
     if settings.FEATURES.get('ENABLE_TIERS_APP', False):
         settings.TIERS_ORGANIZATION_MODEL = 'organizations.Organization'
         settings.TIERS_EXPIRED_REDIRECT_URL = settings.ENV_TOKENS.get('TIERS_EXPIRED_REDIRECT_URL', None)
-        settings.TIERS_ORGANIZATION_TIER_GETTER_NAME = 'get_tier_for_org'
 
         settings.TIERS_DATABASE_URL = settings.AUTH_TOKENS.get('TIERS_DATABASE_URL')
         settings.DATABASES['tiers'] = dj_database_url.parse(settings.TIERS_DATABASE_URL, ssl_require=True)
-        settings.DATABASE_ROUTERS.insert(0, 'openedx.core.djangoapps.appsembler.sites.routers.TiersDbRouter')
+        settings.DATABASE_ROUTERS.insert(0, 'openedx.core.djangoapps.appsembler.tahoe_tiers.db_routers.TiersDbRouter')
 
         settings.MIDDLEWARE += [
-            'tiers.middleware.TierMiddleware',
+            'openedx.core.djangoapps.appsembler.tahoe_tiers.middleware.TahoeTierMiddleware',
         ]
         settings.INSTALLED_APPS += [
             'tiers',
@@ -81,10 +80,18 @@ def plugin_settings(settings):
             'openedx.core.djangoapps.appsembler.multi_tenant_emails',
         ]
 
+    # On by default on production. See the `site_configuration.tahoe_organization_helpers.py` module.
+    settings.FEATURES['TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT'] = settings.ENV_TOKENS['FEATURES'].get(
+        'TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT', True
+    )
+
     settings.TAHOE_DEFAULT_COURSE_NAME = settings.ENV_TOKENS.get('TAHOE_DEFAULT_COURSE_NAME', '')
     settings.TAHOE_DEFAULT_COURSE_GITHUB_ORG = settings.ENV_TOKENS.get('TAHOE_DEFAULT_COURSE_GITHUB_ORG', '')
     settings.TAHOE_DEFAULT_COURSE_GITHUB_NAME = settings.ENV_TOKENS.get('TAHOE_DEFAULT_COURSE_GITHUB_NAME', '')
     settings.TAHOE_DEFAULT_COURSE_VERSION = settings.ENV_TOKENS.get('TAHOE_DEFAULT_COURSE_VERSION', '')
+    settings.TAHOE_DEFAULT_COURSE_CMS_TASK_DELAY = int(settings.ENV_TOKENS.get(
+        'TAHOE_DEFAULT_COURSE_CMS_TASK_DELAY', 0
+    ))
     settings.CMS_UPDATE_SEARCH_INDEX_JOB_QUEUE = settings.ENV_TOKENS.get(
         'CMS_UPDATE_SEARCH_INDEX_JOB_QUEUE', 'edx.cms.core.default'
     )
@@ -110,3 +117,24 @@ def plugin_settings(settings):
     settings.TAHOE_COURSE_OUTLINE_COMPLETABLE_BLOCK_TYPES = settings.ENV_TOKENS.get(
         'TAHOE_COURSE_OUTLINE_COMPLETABLE_BLOCK_TYPES', []
     )
+
+    settings.CELERY_ROUTES = (
+        settings.CELERY_ROUTES,
+        {
+            'lms.djangoapps.grades.tasks.recalculate_subsection_grade_v3': {
+                'queue': settings.ENV_TOKENS.get('RECALCULATE_GRADES_ROUTING_KEY', settings.DEFAULT_PRIORITY_QUEUE),
+                'routing_key': settings.ENV_TOKENS.get('RECALCULATE_GRADES_ROUTING_KEY', settings.DEFAULT_PRIORITY_QUEUE)
+            }
+        }
+    )
+
+    # add a cache for user profile metadata for use by the TahoeUserMetadataProcessor
+    # must be done here as lms/envs/production sets via ENV_TOKENS['CACHES']
+    settings.CACHES.update({
+        'tahoe_userprofile_metadata_cache': {
+            'KEY_PREFIX': 'tahoe_userprofile_metadata',
+            'LOCATION': settings.ENV_TOKENS.get('MEMCACHE_LOCATION', ['localhost:11211']),
+            'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+            'MAX_ENTRIES': 100000  # estimated at <=30Mb. See BLACK-2636
+        }
+    })

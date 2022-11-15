@@ -1,10 +1,15 @@
-from uuid import UUID
+"""
+A big module for Tahoe Sites multi-tenancy helpers.
 
-import logging
+A lot of this module should be migrated into more specific modules such as `tahoe-sites`.
+"""
+import tahoe_sites.api
+from django.apps import apps
 
 from datetime import timedelta
 
 import beeline
+from opaque_keys.edx.django.models import CourseKeyField, LearningContextKeyField
 
 from urllib.parse import urlparse
 
@@ -12,13 +17,12 @@ import cssutils
 import os
 import sass
 
-from django.db.models import Q, F
+from django.db.models import Q
 from django.utils import timezone
 from django.core.files.storage import get_storage_class
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
-from django.core.exceptions import ImproperlyConfigured
 
 from oauth2_provider.models import AccessToken, RefreshToken, Application
 from oauth2_provider.generators import generate_client_id
@@ -27,18 +31,29 @@ from django.utils.text import slugify
 
 from organizations import api as org_api
 from organizations import models as org_models
-from organizations.models import UserOrganizationMapping, Organization
-from tahoe_sites.api import create_tahoe_site_by_link
+from organizations.models import OrganizationCourse
 
+from organizations.models import Organization
+
+from tahoe_sites.api import (
+    add_user_to_organization,
+    create_tahoe_site_by_link,
+    get_organization_by_site,
+    get_organization_for_user,
+    get_organizations_from_uuids,
+    get_sites_from_organizations,
+    update_admin_role_in_organization,
+)
+
+from common.djangoapps.util.organizations_helpers import get_organization_courses
 from openedx.core.lib.api.api_key_permissions import is_request_has_valid_api_key
 from openedx.core.lib.log_utils import audit_log
 from openedx.core.djangoapps.theming.helpers import get_current_request, get_current_site
 from openedx.core.djangoapps.theming.models import SiteTheme
 
-from site_config_client.exceptions import SiteConfigurationError
-
-
-log = logging.getLogger(__name__)
+from ..tahoe_tiers.legacy_amc_helpers import get_active_tiers_uuids_from_amc_postgres
+from .site_config_client_helpers import get_active_site_uuids_from_site_config_service
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 
 
 @beeline.traced(name="get_lms_link_from_course_key")
@@ -56,48 +71,6 @@ def get_lms_link_from_course_key(base_lms_url, course_key):
     if course_site:
         return course_site.domain
     return base_lms_url
-
-
-def get_active_tiers_uuids_from_amc_postgres():
-    """
-    Get active Tier organization UUIDs from the Tiers (AMC Postgres) database.
-
-    Note: This mostly a hack that's needed for improving the performance of
-          batch operations by excluding dead sites.
-
-    Return a list of UUID objects.
-
-    TODO: This helper should live in a future Tahoe Sites package.
-    """
-    from tiers.models import Tier
-    # This queries the AMC Postgres database
-    active_tiers_uuids = Tier.objects.filter(
-        Q(tier_enforcement_exempt=True) |
-        Q(tier_expires_at__gte=timezone.now())
-    ).annotate(
-        organization_edx_uuid=F('organization__edx_uuid')
-    ).values_list('organization_edx_uuid', flat=True)
-    return list(active_tiers_uuids)
-
-
-def get_active_site_uuids_from_site_config_service():
-    """
-    Get active Tier organization UUIDs via the client of the Site Configuration service.
-
-    Return a list of UUID objects.
-    TODO: Move this helper into another package.
-    """
-    client = getattr(settings, 'SITE_CONFIG_CLIENT', None)
-    if client:
-        try:
-            active_sites_response = client.list_active_sites()
-            active_sites = active_sites_response['results']
-            site_uuids = [UUID(site['uuid']) for site in active_sites]
-            return site_uuids
-        except SiteConfigurationError:
-            log.exception('An error occurred while fetching site config active sites, returning an empty list.')
-
-    return []
 
 
 def get_active_organizations_uuids():
@@ -123,10 +96,7 @@ def get_active_organizations():
     """
     active_tiers_uuids = get_active_organizations_uuids()
 
-    # Now back to the LMS MySQL database
-    return Organization.objects.filter(
-        edx_uuid__in=[str(edx_uuid) for edx_uuid in active_tiers_uuids],
-    )
+    return get_organizations_from_uuids(uuids=active_tiers_uuids)
 
 
 def get_active_sites(order_by='domain'):
@@ -138,9 +108,7 @@ def get_active_sites(order_by='domain'):
 
     TODO: This helper should live in a future Tahoe Sites package.
     """
-    return Site.objects.filter(
-        organizations__in=get_active_organizations()
-    ).order_by(order_by)
+    return get_sites_from_organizations(organizations=get_active_organizations()).order_by(order_by)
 
 
 @beeline.traced(name="get_amc_oauth_app")
@@ -241,16 +209,22 @@ def make_amc_admin(user, org_name):
       - Reset access and reset tokens, and set the expire one year ahead.
       - Return the recent tokens.
     """
-    org = Organization.objects.get(Q(name=org_name) | Q(short_name=org_name))
+    expected_org = Organization.objects.get(Q(name=org_name) | Q(short_name=org_name))
 
-    uom, _ = UserOrganizationMapping.objects.get_or_create(user=user, organization=org)
-    uom.is_active = True
-    uom.is_amc_admin = True
-    uom.save()
+    try:
+        real_org = get_organization_for_user(user=user)
+    except Organization.DoesNotExist:
+        add_user_to_organization(user=user, organization=expected_org, is_admin=True)
+        real_org = expected_org
+
+    if real_org == expected_org:
+        update_admin_role_in_organization(user=user, organization=expected_org, set_as_admin=True)
+    else:
+        raise Exception('make_amc_admin, user already member of another organization')
 
     return {
         'user_email': user.email,
-        'organization_name': org.name,
+        'organization_name': expected_org.name,
         'tokens': reset_amc_tokens(user),
     }
 
@@ -332,22 +306,8 @@ def _get_current_organization(failure_return_none=False):
                     )
             else:
                 try:
-                    if settings.FEATURES.get('TAHOE_ENABLE_MULTI_ORGS_PER_SITE', False):
-                        if settings.FEATURES.get('APPSEMBLER_MULTI_TENANT_EMAILS', False):
-                            raise ImproperlyConfigured(
-                                'TAHOE_ENABLE_MULTI_ORGS_PER_SITE and '
-                                'APPSEMBLER_MULTI_TENANT_EMAILS are incompatible as '
-                                'we are not able to determine the exact Org when more than one '
-                                'is associated with a Site.')
-                        current_org = current_site.organizations.first()
-                        if not current_org:
-                            raise Organization.DoesNotExist(
-                                'TAHOE_ENABLE_MULTI_ORGS_PER_SITE: Could not find current '
-                                'organization for site `{}`'.format(repr(current_site))
-                            )
-                    else:
-                        current_org = current_site.organizations.get()
-                except (Organization.DoesNotExist, ImproperlyConfigured):
+                    current_org = get_organization_by_site(site=current_site)
+                except Organization.DoesNotExist:
                     if not failure_return_none:
                         raise  # Re-raise the exception
         else:
@@ -505,7 +465,7 @@ def bootstrap_site(site, org_data=None, username=None):
         organization_data = org_api.add_organization({
             'name': organization_slug,
             'short_name': organization_slug,
-            'edx_uuid': org_data.get('edx_uuid')
+            'edx_uuid': org_data.get('edx_uuid')  # TODO: RED-2845 Remove this line when AMC is migrated
         })
         organization = org_models.Organization.objects.get(id=organization_data.get('id'))
         create_tahoe_site_by_link(organization=organization, site=site)
@@ -515,17 +475,107 @@ def bootstrap_site(site, org_data=None, username=None):
         organization = {}
     if username:
         user = User.objects.get(username=username)
-        org_models.UserOrganizationMapping.objects.create(user=user, organization=organization, is_amc_admin=True)
+        add_user_to_organization(user=user, organization=organization, is_admin=True)
     else:
         user = {}
     return organization, site, user
 
 
+def get_models_using_course_key():
+    """
+    Get all course related model classes.
+    """
+    course_key_field_names = {
+        'course_key',
+        'course_id',
+    }
+
+    models_with_course_key = {
+        (CourseOverview, 'id'),  # The CourseKeyField with a `id` name. Hard-coding it for simplicity.
+        (OrganizationCourse, 'course_id'),  # course_id is CharField
+    }
+
+    model_classes = apps.get_models()
+    for model_class in model_classes:
+        for field_name in course_key_field_names:
+            field_object = getattr(model_class, field_name, None)
+            if field_object:
+                field_definition = getattr(field_object, 'field', None)
+                if field_definition and isinstance(field_definition, (CourseKeyField, LearningContextKeyField)):
+                    models_with_course_key.add(
+                        (model_class, field_name,)
+                    )
+
+    return models_with_course_key
+
+
+def delete_organization_courses(organization):
+    """
+    Delete all course related model instances.
+    """
+    course_keys = []
+
+    for course in get_organization_courses({'id': organization.id}):
+        course_keys.append(course['course_id'])
+
+    model_classes = get_models_using_course_key()
+
+    print('Deleting course related models:', ', '.join([
+        '{model}.{field}'.format(model=model_class.__name__, field=field_name)
+        for model_class, field_name in model_classes
+    ]))
+
+    for model_class, field_name in model_classes:
+        objects_to_delete = model_class.objects.filter(**{
+            '{field_name}__in'.format(field_name=field_name): course_keys,
+        })
+        objects_to_delete.delete()
+
+
+def remove_course_creator_role(users):
+    """
+    Remove course creator role to fix `delete_site` issue.
+
+    This will fail in when running tests from within the LMS because the CMS migrations
+    don't run during tests. Patch this function to avoid such errors.
+    TODO: RED-2853 Remove this helper when AMC is removed
+          This helper is being replaced by `update_course_creator_role_for_cms` which has unit tests.
+    """
+    from cms.djangoapps.course_creators.models import CourseCreator  # Fix LMS->CMS imports.
+    from student.roles import CourseAccessRole  # Avoid circular import.
+    CourseCreator.objects.filter(user__in=users).delete()
+    CourseAccessRole.objects.filter(user__in=users).delete()
+
+
 @beeline.traced(name="delete_site")
 def delete_site(site):
+    from third_party_auth.models import SAMLConfiguration  # local import to avoid import-time errors
+
+    print('Deleting SiteConfiguration of', site)
     site.configuration.delete()
+
+    print('Deleting theme of', site)
     site.themes.all().delete()
 
+    organization = tahoe_sites.api.get_organization_by_site(site)
+
+    print('Deleting users of', site)
+    users = tahoe_sites.api.get_users_of_organization(organization, without_inactive_users=False)
+    remove_course_creator_role(users)
+
+    # Prepare removing users by avoiding on_delete=models.PROTECT error
+    # SAMLConfiguration will be deleted with `site.delete()`
+    SAMLConfiguration.objects.filter(changed_by__in=users).update(changed_by=None)
+
+    users.delete()
+
+    print('Deleting courses of', site)
+    delete_organization_courses(organization)
+
+    print('Deleting organization', organization)
+    organization.delete()
+
+    print('Deleting site', site)
     site.delete()
 
 
