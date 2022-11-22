@@ -1,15 +1,14 @@
 import json
 
+from openedx.core.djangoapps.appsembler.sites.models import AlternativeDomain
+
 from django.core.management import BaseCommand
-from django.db import connections
 
 
 class Command(BaseCommand):
     help = "Outputs the list of custom domains that will be used to generate let's encrypt certs"
 
     def handle(self, *args, **options):
-        cursor = connections['tiers'].cursor()
-        cursor.execute("SELECT custom_domain FROM organizations_microsite WHERE custom_domain != '';")
-        rows = cursor.fetchall()
-        domains = [{'domains': row} for row in rows]
+        altertive_domains = AlternativeDomain.objects.values_list('site__domain', flat=True)
+        domains = [{'domains': [domain]} for domain in altertive_domains]
         self.stdout.write(json.dumps(domains))
