@@ -77,9 +77,10 @@ def get_active_organizations_uuids():
 
     Return a list of UUID objects.
     """
-    amc_uuids = get_active_tiers_uuids_from_amc_postgres()
+    # amc_uuids = get_active_tiers_uuids_from_amc_postgres()
     site_config_uuids = get_active_site_uuids_from_site_config_service()
-    all_uuids_unique = set(amc_uuids + site_config_uuids)  # Combine results and remove duplicates
+    # all_uuids_unique = set(amc_uuids + site_config_uuids)  # Combine results and remove duplicates
+    all_uuids_unique = set(site_config_uuids)
     return list(all_uuids_unique)  # Covert to list for convenience.
 
 
