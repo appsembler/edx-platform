@@ -17,26 +17,26 @@ def get_tahoe_theme_static_dirs(settings):
         get_theme_base_dirs_from_settings
     )
 
-    if settings.ENABLE_COMPREHENSIVE_THEMING:
-        themes_dirs = get_theme_base_dirs_from_settings(settings.COMPREHENSIVE_THEME_DIRS)
-        themes = get_themes_unchecked(themes_dirs, settings.PROJECT_ROOT)
-
-        assert len(themes), 'Customer themes enabled, but it seems that there is no Tahoe theme.'
-        assert len(themes) == 1, (
-            'Customer themes enabled, but it looks like there is more than one theme, '
-            'however Tahoe does only supports having a single instance of `edx-theme-codebase`'
-            'and no other theme should be installed.'
-        )
-
-        theme = themes[0]
-
-        # Allow the theme to override the platform files transparently
-        # without having to change the Open edX code.
-        theme_static = theme.path / 'static'
-        static_files_dir_setting = settings.STATICFILES_DIRS
-        if path.isdir(theme_static):
-            static_files_dir_setting += [theme_static]
-        return static_files_dir_setting
+    # if settings.ENABLE_COMPREHENSIVE_THEMING:
+    #     themes_dirs = get_theme_base_dirs_from_settings(settings.COMPREHENSIVE_THEME_DIRS)
+    #     themes = get_themes_unchecked(themes_dirs, settings.PROJECT_ROOT)
+    #
+    #     assert len(themes), 'Customer themes enabled, but it seems that there is no Tahoe theme.'
+    #     assert len(themes) == 1, (
+    #         'Customer themes enabled, but it looks like there is more than one theme, '
+    #         'however Tahoe does only supports having a single instance of `edx-theme-codebase`'
+    #         'and no other theme should be installed.'
+    #     )
+    #
+    #     theme = themes[0]
+    #
+    #     # Allow the theme to override the platform files transparently
+    #     # without having to change the Open edX code.
+    #     theme_static = theme.path / 'static'
+    #     static_files_dir_setting = settings.STATICFILES_DIRS
+    #     if path.isdir(theme_static):
+    #         static_files_dir_setting += [theme_static]
+    #     return static_files_dir_setting
     # comprehensive theming not enabled
     return settings.STATICFILES_DIRS
 
