@@ -47,6 +47,7 @@ from six import text_type, iteritems
 from social_core.exceptions import AuthAlreadyAssociated, AuthException
 from social_django import utils as social_utils
 from xmodule.modulestore.django import modulestore
+from edx_ace.recipient import Recipient
 
 import openedx.core.djangoapps.external_auth.views
 import third_party_auth
@@ -72,6 +73,7 @@ from openedx.core.djangoapps.user_api.config.waffle import PREVENT_AUTH_USER_WRI
 from openedx.core.djangolib.markup import HTML, Text
 from student.cookies import set_logged_in_cookies
 from student.forms import AccountCreationForm, PasswordResetFormNoActive, get_registration_extension_form
+from student.message_types import AccountActivation, EmailChange, EmailChangeConfirmation, RecoveryEmailCreate
 from student.helpers import (
     DISABLE_UNENROLL_CERT_STATES,
     AccountValidationError,
@@ -247,32 +249,58 @@ def register_user(request, extra_context=None):
 
     return render_to_response('register.html', context)
 
+def compose_activation_email(root_url, user, user_registration=None, route_enabled=False, profile_name=''):
+    """
+    Construct all the required params for the activation email
+    through celery task
+    """
+    if user_registration is None:
+        user_registration = Registration.objects.get(user=user)
+
+    message_context = generate_activation_email_context(user, user_registration)
+    message_context.update({
+        'confirm_activation_link': '{root_url}/activate/{activation_key}'.format(
+            root_url=root_url,
+            activation_key=message_context['key']
+        ),
+        'route_enabled': route_enabled,
+        'routed_user': user.username,
+        'routed_user_email': user.email,
+        'routed_profile_name': profile_name,
+    })
+
+    if route_enabled:
+        dest_addr = settings.FEATURES['REROUTE_ACTIVATION_EMAIL']
+    else:
+        dest_addr = user.email
+
+    msg = AccountActivation().personalize(
+        recipient=Recipient(user.username, dest_addr),
+        language=preferences_api.get_user_preference(user, LANGUAGE_KEY),
+        user_context=message_context,
+    )
+
+    return msg
 
 def compose_and_send_activation_email(user, profile, user_registration=None):
     """
     Construct all the required params and send the activation email
     through celery task
-
     Arguments:
         user: current logged-in user
         profile: profile object of the current logged-in user
         user_registration: registration of the current logged-in user
     """
-    dest_addr = user.email
-    if user_registration is None:
-        user_registration = Registration.objects.get(user=user)
-    context = generate_activation_email_context(user, user_registration)
-    subject = render_to_string('emails/activation_email_subject.txt', context)
-    # Email subject *must not* contain newlines
-    subject = ''.join(subject.splitlines())
-    message_for_activation = render_to_string('emails/activation_email.txt', context)
-    from_address = configuration_helpers.get_value('email_from_address', settings.DEFAULT_FROM_EMAIL)
-    from_address = configuration_helpers.get_value('ACTIVATION_EMAIL_FROM_ADDRESS', from_address)
-    if settings.FEATURES.get('REROUTE_ACTIVATION_EMAIL'):
-        dest_addr = settings.FEATURES['REROUTE_ACTIVATION_EMAIL']
-        message_for_activation = ("Activation for %s (%s): %s\n" % (user, user.email, profile.name) +
-                                  '-' * 80 + '\n\n' + message_for_activation)
-    send_activation_email.delay(subject, message_for_activation, from_address, dest_addr)
+    route_enabled = settings.FEATURES.get('REROUTE_ACTIVATION_EMAIL')
+
+    root_url = configuration_helpers.get_value('LMS_ROOT_URL', settings.LMS_ROOT_URL)
+    msg = compose_activation_email(root_url, user, user_registration, route_enabled, profile.name)
+
+    from_address = configuration_helpers.get_value('ACTIVATION_EMAIL_FROM_ADDRESS') or (
+        configuration_helpers.get_value('email_from_address', settings.DEFAULT_FROM_EMAIL)
+    )
+    site = theming_helpers.get_current_site()
+    send_activation_email.delay(str(msg), site_id=site.pk, from_address=from_address)
 
 
 @login_required
