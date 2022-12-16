@@ -47,6 +47,7 @@ from six import text_type, iteritems
 from social_core.exceptions import AuthAlreadyAssociated, AuthException
 from social_django import utils as social_utils
 from xmodule.modulestore.django import modulestore
+from edx_ace.recipient import Recipient
 
 import openedx.core.djangoapps.external_auth.views
 import third_party_auth
