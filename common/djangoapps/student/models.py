@@ -908,6 +908,12 @@ class Registration(models.Model):
         self.save()
 
     def activate(self):
+        import inspect
+        tracelines = ['{:40}| {}:{}\n'.format(x.function, x.filename, x.lineno) for x in inspect.stack()]
+        str_tracelines = ''
+        for line in tracelines:
+            str_tracelines += line + '\n'
+        log.exception('SHADI-TEMP-TRACE: {}'.format(str_tracelines))
         self.user.is_active = True
         self.user.save(update_fields=['is_active'])
         USER_ACCOUNT_ACTIVATED.send_robust(self.__class__, user=self.user)
