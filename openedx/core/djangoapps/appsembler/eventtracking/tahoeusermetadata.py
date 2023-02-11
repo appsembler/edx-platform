@@ -12,7 +12,7 @@ from crum import get_current_user
 from django.core.cache import caches
 from django.core.cache.backends.base import InvalidCacheBackendError
 
-from . import app_variant
+from . import app_variant, utils
 
 
 logger = logging.getLogger(__name__)
@@ -166,14 +166,31 @@ class TahoeUserMetadataProcessor(object):
         # WARNING:
         # We have to be careful to not add SQL queries that would require updating upstream tests
         # which count SQL queries; e.g., `cms.djangoapps.contentstore.views.tests.test_course_index)
-        # currently we can do this by only enabling the event processor for LMS
-        if app_variant.is_not_lms():  # we don't care about user metadata for Studio, at this point
-            return event
+        # We should not let this run in any CMS tests and any LMS tests other than from
+        # within openedx/core/djangoapps/eventtracking/  Ugh.
+        # We don't care about user metadata for Studio, at this point.
+        # Allow to run in LMS or it's own LMS env tests.
+        if not app_variant.is_lms():  # this returns False if a test in LMS
+            if app_variant.is_test():
+                if not app_variant.is_self_test():  # expensive, make sure it's a test first.
+                    return event
+            else:
+                return event
+
+        # eventtracking Processors are loaded before apps are ready
+        from django.contrib.auth.models import User
 
         user = get_current_user()
         if not user or not user.pk:
-            # should be an AnonymousUser or in tests
-            return event
+            # should be an AnonymousUser or in tests or Celery
+            user_id = utils.get_user_id_from_event(event.get('data'))
+            if user_id:
+                try:
+                    user = User.objects.get(id=user_id)
+                except User.DoesNotExist:
+                    return event
+            else:
+                return event
 
         # Add any Tahoe metadata context
         tahoe_user_metadata = self._get_user_tahoe_metadata(user.pk)
