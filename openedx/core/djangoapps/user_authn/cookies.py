@@ -73,14 +73,17 @@ def delete_logged_in_cookies(response):
         HttpResponse
     """
     for cookie_name in ALL_LOGGED_IN_COOKIE_NAMES:
-        response.delete_cookie(
+        response.set_cookie(
             cookie_name,
+            '',
+            max_age=0,
+            expires='Thu, 01 Jan 1970 00:00:00 GMT',
             path='/',
-            domain=settings.SESSION_COOKIE_DOMAIN
+            domain=settings.SESSION_COOKIE_DOMAIN,
+            secure=True if settings.HTTPS == 'on' else False
         )
 
     return response
-
 
 def standard_cookie_settings(request):
     """ Returns the common cookie settings (e.g. expiration time). """
