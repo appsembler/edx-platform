@@ -8,6 +8,7 @@ from social_django.models import UserSocialAuth
 
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from rest_framework.test import APITestCase
 from rest_framework import status
 
@@ -67,6 +68,7 @@ class MultiTenantDeactivateLogoutViewTest(APITestCase):
     @patch('tahoe_idp.api.get_tahoe_idp_id_by_user')
     @patch('tahoe_idp.api.deactivate_user')
     @patch.dict('django.conf.settings.FEATURES', {'ENABLE_TAHOE_IDP': True})
+    @override_settings(TAHOE_IDP_CONFIGS={'API_KEY':'fake', 'BASE_URL': 'http://localhost'})
     def test_disallow_email_reuse_after_deactivate(
         self, mock_deactivate_user, mock_get_tahoe_idp_id_by_user
     ):
