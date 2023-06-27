@@ -9,8 +9,12 @@ from social_django.models import UserSocialAuth
 from django.db.models.signals import post_save
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
+
 from rest_framework.test import APITestCase
 from rest_framework import status
+
+from student.models import UserProfile
 
 from ...multi_tenant_emails.tests.test_utils import with_organization_context
 

@@ -4,12 +4,14 @@ Tests to ensure the Tahoe Registration API is disabled if `tahoe-idp` is in use.
 import ddt
 from mock import patch
 
+from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.urls import reverse_lazy
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from openedx.core.djangolib.testing.utils import skip_unless_lms
+from student.models import User
 
 from ...multi_tenant_emails.tests.test_utils import with_organization_context
 

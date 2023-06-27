@@ -5,6 +5,7 @@ Test the various password reset flow with `tahoe-idp` package.
 import ddt
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core import mail
 from django.db.models.signals import post_save
 from django.test import RequestFactory, TestCase
@@ -12,6 +13,7 @@ from unittest.mock import Mock, patch
 from openedx.core.djangoapps.user_authn.views.password_reset import password_reset
 from openedx.core.djangolib.testing.utils import skip_unless_lms
 
+from student.models import UserProfile
 from student.tests.factories import UserFactory
 
 
