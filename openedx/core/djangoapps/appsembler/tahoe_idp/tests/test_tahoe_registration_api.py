@@ -4,6 +4,7 @@ Tests to ensure the Tahoe Registration API is disabled if `tahoe-idp` is in use.
 import ddt
 from mock import patch
 
+from django.db.models.signals import post_save
 from django.urls import reverse_lazy
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -61,6 +62,10 @@ class TahoeIdPDisablesRegisrationAPITest(APITestCase):
         """
         Both v1 and v2 API shouldn't work with Tahoe IdP.
         """
+
+        post_save.connect(mock_user_sync_to_idp, sender=User, dispatch_uid='tahoe_idp.receivers.user_sync_to_idp')
+        post_save.connect(mock_user_sync_to_idp, sender=UserProfile, dispatch_uid='tahoe_idp.receivers.user_sync_to_idp')
+
         color1 = 'red1'
         with with_organization_context(site_color=color1):
             response = self.register_user(url, 'red_learner')

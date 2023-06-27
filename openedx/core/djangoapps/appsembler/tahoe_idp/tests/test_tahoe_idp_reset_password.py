@@ -6,6 +6,7 @@ import ddt
 
 from django.conf import settings
 from django.core import mail
+from django.db.models.signals import post_save
 from django.test import RequestFactory, TestCase
 from unittest.mock import Mock, patch
 from openedx.core.djangoapps.user_authn.views.password_reset import password_reset
@@ -41,6 +42,11 @@ class TahoeIdpResetPasswordTests(TestCase):
         req.get_host = Mock(return_value=None)
         req.site = Mock(domain='example.com')
         req.user = user
+
+        # mock out receivers which rely on a real Tenant Id
+        post_save.connect(mock_user_sync_to_idp, sender=User, dispatch_uid='tahoe_idp.receivers.user_sync_to_idp')
+        post_save.connect(mock_user_sync_to_idp, sender=UserProfile, dispatch_uid='tahoe_idp.receivers.user_sync_to_idp')
+
 
         with patch.dict(settings.FEATURES, {'ENABLE_TAHOE_IDP': enable_tahoe_idp}):
             with patch('crum.get_current_request', return_value=req):

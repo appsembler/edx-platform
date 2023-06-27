@@ -6,6 +6,7 @@ from mock import patch, Mock
 import pytest
 from social_django.models import UserSocialAuth
 
+from django.db.models.signals import post_save
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
@@ -64,7 +65,7 @@ class MultiTenantDeactivateLogoutViewTest(APITestCase):
         })
         return response
 
-    @patch('tahoe_idp.receivers.user_sync_to_idp')  # no-op
+    @patch('tahoe_idp.receivers.user_sync_to_idp')
     @patch('tahoe_idp.api.get_tahoe_idp_id_by_user')
     @patch('tahoe_idp.api.deactivate_user')
     @patch.dict('django.conf.settings.FEATURES', {'ENABLE_TAHOE_IDP': True})
@@ -76,6 +77,10 @@ class MultiTenantDeactivateLogoutViewTest(APITestCase):
         """
         social_auth_uid = 'e1ede4d8-f6f6-11ec-9eb7-f778f1c67e22'
         mock_get_tahoe_idp_id_by_user.return_value = social_auth_uid
+
+        # mock out receivers which rely on a real Tenant Id
+        post_save.connect(mock_user_sync_to_idp, sender=User, dispatch_uid='tahoe_idp.receivers.user_sync_to_idp')
+        post_save.connect(mock_user_sync_to_idp, sender=UserProfile, dispatch_uid='tahoe_idp.receivers.user_sync_to_idp')
 
         with with_organization_context(site_color=self.RED):
             register_res = self.register_user(self.RED)
