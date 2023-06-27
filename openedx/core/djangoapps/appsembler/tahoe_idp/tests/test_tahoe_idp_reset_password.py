@@ -6,7 +6,7 @@ import ddt
 
 from django.conf import settings
 from django.core import mail
-from django.test import override_settings, RequestFactory, TestCase
+from django.test import RequestFactory, TestCase
 from unittest.mock import Mock, patch
 from openedx.core.djangoapps.user_authn.views.password_reset import password_reset
 from openedx.core.djangolib.testing.utils import skip_unless_lms
@@ -16,6 +16,7 @@ from student.tests.factories import UserFactory
 
 @ddt.ddt
 @skip_unless_lms
+@patch('tahoe_idp.receivers.user_sync_to_idp')  # no-op
 @patch('tahoe_idp.api.request_password_reset')
 class TahoeIdpResetPasswordTests(TestCase):
     """
@@ -23,7 +24,6 @@ class TahoeIdpResetPasswordTests(TestCase):
     """
     request_factory = RequestFactory()
 
-    @override_settings(TAHOE_IDP_CONFIGS={'API_KEY':'fake', 'BASE_URL': 'http://localhost'})
     @ddt.unpack
     @ddt.data({
         'enable_tahoe_idp': False,
@@ -32,7 +32,7 @@ class TahoeIdpResetPasswordTests(TestCase):
         'enable_tahoe_idp': True,
         'message': 'Tahoe 2.0 logic: should NOT send email via Open edX, `tahoe_idp` takes care of that',
     })
-    def test_reset_password_with_tahoe_idp(self, mock_request_password_reset, enable_tahoe_idp, message):
+    def test_reset_password_with_tahoe_idp(self, mock_request_password_reset, mock_user_sync_to_idp, enable_tahoe_idp, message):
         """
         Tests Tahoe IdP/non-idp password reset.
         """

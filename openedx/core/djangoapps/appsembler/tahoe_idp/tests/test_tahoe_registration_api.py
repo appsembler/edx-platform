@@ -4,7 +4,6 @@ Tests to ensure the Tahoe Registration API is disabled if `tahoe-idp` is in use.
 import ddt
 from mock import patch
 
-from django.test import override_settings
 from django.urls import reverse_lazy
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -52,13 +51,13 @@ class TahoeIdPDisablesRegisrationAPITest(APITestCase):
             content = response.content.decode('utf-8')
             assert response.status_code == status.HTTP_200_OK, '{} {}'.format(color1, content)
 
-    @override_settings(TAHOE_IDP_CONFIGS={'API_KEY':'fake', 'BASE_URL': 'http://localhost'})
+    @patch('tahoe_idp.receivers.user_sync_to_idp')  # no-op
     @patch.dict('django.conf.settings.FEATURES', {'ENABLE_TAHOE_IDP': True})
     @ddt.data(
         reverse_lazy('tahoe-api:v1:registrations-list'),
         reverse_lazy('tahoe-api:v2:registrations-list'),
     )
-    def test_api_wit_tahoe_idp(self, url):
+    def test_api_wit_tahoe_idp(self, mock_user_sync_to_idp, url):
         """
         Both v1 and v2 API shouldn't work with Tahoe IdP.
         """
