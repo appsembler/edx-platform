@@ -4,7 +4,7 @@ Tests the email change when ENABLE_TAHOE_IDP is enabled.
 
 from django.conf import settings
 from django.core import mail
-from django.test import TestCase
+from django.test import override_settings, TestCase
 from django.urls import reverse
 from unittest.mock import patch
 
@@ -37,6 +37,7 @@ class EmailChangeWithIdpTests(TestCase):
             'Should not use idp unless explicitly enabled via ENABLE_TAHOE_IDP'
         )
 
+    @override_settings(TAHOE_IDP_CONFIGS={'API_KEY':'fake', 'BASE_URL': 'http://localhost'})
     @patch('tahoe_idp.api.update_user_email')
     def test_successful_email_change_with_idp(self, mock_update_user_email):
         """
