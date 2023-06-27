@@ -3,13 +3,15 @@ Tests the email change when ENABLE_TAHOE_IDP is enabled.
 """
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core import mail
-from django.test import override_settings, TestCase
+from django.db.models.signals import post_save
+from django.test import TestCase
 from django.urls import reverse
 from unittest.mock import patch
 
 from openedx.core.djangolib.testing.utils import skip_unless_lms
-from student.models import PendingEmailChange
+from student.models import PendingEmailChange, UserProfile
 from student.tests.factories import PendingEmailChangeFactory, UserFactory
 
 
@@ -37,12 +39,15 @@ class EmailChangeWithIdpTests(TestCase):
             'Should not use idp unless explicitly enabled via ENABLE_TAHOE_IDP'
         )
 
-    @override_settings(TAHOE_IDP_CONFIGS={'API_KEY':'fake', 'BASE_URL': 'http://localhost'})
     @patch('tahoe_idp.api.update_user_email')
-    def test_successful_email_change_with_idp(self, mock_update_user_email):
+    def test_successful_email_change_with_idp(self, mock_update_user_email, mock_user_sync_to_idp):
         """
         Test `confirm_email_change` with ENABLE_TAHOE_IDP = True.
         """
+
+        post_save.connect(mock_user_sync_to_idp, sender=User, dispatch_uid='tahoe_idp.receivers.user_sync_to_idp')
+        post_save.connect(mock_user_sync_to_idp, sender=UserProfile, dispatch_uid='tahoe_idp.receivers.user_sync_to_idp')
+
         with patch.dict(settings.FEATURES, {'ENABLE_TAHOE_IDP': True}):
             response = self.client.get(reverse('confirm_email_change', args=[self.key]))
 
