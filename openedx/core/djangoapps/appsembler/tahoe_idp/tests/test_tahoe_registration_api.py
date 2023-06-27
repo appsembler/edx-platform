@@ -11,7 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from openedx.core.djangolib.testing.utils import skip_unless_lms
-from student.models import User
+from student.models import UserProfile
 
 from ...multi_tenant_emails.tests.test_utils import with_organization_context
 
