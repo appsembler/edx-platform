@@ -34,7 +34,7 @@ class TahoeIdpResetPasswordTests(TestCase):
         'enable_tahoe_idp': True,
         'message': 'Tahoe 2.0 logic: should NOT send email via Open edX, `tahoe_idp` takes care of that',
     })
-    def test_reset_password_with_tahoe_idp(self, mock_request_password_reset, mock_receivers_is_idp_enabled, enable_tahoe_idp, message):
+    def test_reset_password_with_tahoe_idp(self, mock_request_password_reset, enable_tahoe_idp, message):
         """
         Tests Tahoe IdP/non-idp password reset.
         """

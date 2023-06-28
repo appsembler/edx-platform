@@ -59,7 +59,7 @@ class TahoeIdPDisablesRegisrationAPITest(APITestCase):
         reverse_lazy('tahoe-api:v1:registrations-list'),
         reverse_lazy('tahoe-api:v2:registrations-list'),
     )
-    def test_api_wit_tahoe_idp(self, mock_receivers_is_idp_enabled, url):
+    def test_api_wit_tahoe_idp(self, url):
         """
         Both v1 and v2 API shouldn't work with Tahoe IdP.
         """

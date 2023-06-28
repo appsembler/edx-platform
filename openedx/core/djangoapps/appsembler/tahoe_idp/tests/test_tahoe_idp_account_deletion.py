@@ -72,7 +72,7 @@ class MultiTenantDeactivateLogoutViewTest(APITestCase):
     @patch('tahoe_idp.api.deactivate_user')
     @patch.dict('django.conf.settings.FEATURES', {'ENABLE_TAHOE_IDP': True})
     def test_disallow_email_reuse_after_deactivate(
-        self, mock_deactivate_user, mock_get_tahoe_idp_id_by_user, mock_receivers_is_idp_enabled
+        self, mock_deactivate_user, mock_get_tahoe_idp_id_by_user
     ):
         """
         Test the account deletion with Tahoe IdP support.
