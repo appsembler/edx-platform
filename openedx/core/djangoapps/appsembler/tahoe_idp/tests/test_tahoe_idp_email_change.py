@@ -39,7 +39,7 @@ class EmailChangeWithIdpTests(TestCase):
             'Should not use idp unless explicitly enabled via ENABLE_TAHOE_IDP'
         )
 
-    @patch('tahoe_idp.receivers.helpers.is_idp_enabled', new=patches.dummy_receivers_idp_not_enabled)
+    @patch('tahoe_idp.receivers.helpers.is_tahoe_idp_enabled', new=patches.dummy_receivers_idp_not_enabled)
     @patch('tahoe_idp.api.update_user_email')
     def test_successful_email_change_with_idp(self, mock_update_user_email, mock_receivers_is_idp_enabled):
         """

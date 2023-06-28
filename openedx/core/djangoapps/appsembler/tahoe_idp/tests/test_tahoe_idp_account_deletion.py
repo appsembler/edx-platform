@@ -67,7 +67,7 @@ class MultiTenantDeactivateLogoutViewTest(APITestCase):
         })
         return response
 
-    @patch('tahoe_idp.receivers.helpers.is_idp_enabled', new=patches.dummy_receivers_idp_not_enabled)
+    @patch('tahoe_idp.receivers.helpers.is_tahoe_idp_enabled', new=patches.dummy_receivers_idp_not_enabled)
     @patch('tahoe_idp.api.get_tahoe_idp_id_by_user')
     @patch('tahoe_idp.api.deactivate_user')
     @patch.dict('django.conf.settings.FEATURES', {'ENABLE_TAHOE_IDP': True})

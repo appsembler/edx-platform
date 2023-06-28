@@ -53,7 +53,7 @@ class TahoeIdPDisablesRegisrationAPITest(APITestCase):
             content = response.content.decode('utf-8')
             assert response.status_code == status.HTTP_200_OK, '{} {}'.format(color1, content)
 
-    @patch('tahoe_idp.receivers.helpers.is_idp_enabled', new=patches.dummy_receivers_idp_not_enabled)
+    @patch('tahoe_idp.receivers.helpers.is_tahoe_idp_enabled', new=patches.dummy_receivers_idp_not_enabled)
     @patch.dict('django.conf.settings.FEATURES', {'ENABLE_TAHOE_IDP': True})
     @ddt.data(
         reverse_lazy('tahoe-api:v1:registrations-list'),
