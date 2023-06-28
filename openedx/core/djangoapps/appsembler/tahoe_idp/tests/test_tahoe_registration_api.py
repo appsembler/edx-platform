@@ -4,16 +4,15 @@ Tests to ensure the Tahoe Registration API is disabled if `tahoe-idp` is in use.
 import ddt
 from mock import patch
 
-from django.contrib.auth.models import User
-from django.db.models.signals import post_save
 from django.urls import reverse_lazy
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from openedx.core.djangolib.testing.utils import skip_unless_lms
-from student.models import UserProfile
 
 from ...multi_tenant_emails.tests.test_utils import with_organization_context
+
+from . import patches
 
 APPSEMBLER_API_VIEWS_MODULE = 'openedx.core.djangoapps.appsembler.api.v1.views'
 
@@ -54,19 +53,16 @@ class TahoeIdPDisablesRegisrationAPITest(APITestCase):
             content = response.content.decode('utf-8')
             assert response.status_code == status.HTTP_200_OK, '{} {}'.format(color1, content)
 
-    @patch('tahoe_idp.receivers.user_sync_to_idp')  # no-op
+    @patch('tahoe_idp.receivers.helpers.is_idp_enabled', new=patches.dummy_receivers_idp_not_enabled)
     @patch.dict('django.conf.settings.FEATURES', {'ENABLE_TAHOE_IDP': True})
     @ddt.data(
         reverse_lazy('tahoe-api:v1:registrations-list'),
         reverse_lazy('tahoe-api:v2:registrations-list'),
     )
-    def test_api_wit_tahoe_idp(self, mock_user_sync_to_idp, url):
+    def test_api_wit_tahoe_idp(self, mock_receivers_is_idp_enabled, url):
         """
         Both v1 and v2 API shouldn't work with Tahoe IdP.
         """
-
-        post_save.connect(mock_user_sync_to_idp, sender=User, dispatch_uid='tahoe_idp.receivers.user_sync_to_idp')
-        post_save.connect(mock_user_sync_to_idp, sender=UserProfile, dispatch_uid='tahoe_idp.receivers.user_sync_to_idp')
 
         color1 = 'red1'
         with with_organization_context(site_color=color1):

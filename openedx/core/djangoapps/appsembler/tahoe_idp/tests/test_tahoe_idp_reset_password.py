@@ -5,21 +5,20 @@ Test the various password reset flow with `tahoe-idp` package.
 import ddt
 
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.core import mail
-from django.db.models.signals import post_save
 from django.test import RequestFactory, TestCase
 from unittest.mock import Mock, patch
 from openedx.core.djangoapps.user_authn.views.password_reset import password_reset
 from openedx.core.djangolib.testing.utils import skip_unless_lms
 
-from student.models import UserProfile
 from student.tests.factories import UserFactory
+
+from . import patches
 
 
 @ddt.ddt
 @skip_unless_lms
-@patch('tahoe_idp.receivers.user_sync_to_idp')  # no-op
+@patch('tahoe_idp.receivers.helpers.is_idp_enabled', new=patches.dummy_receivers_idp_not_enabled)
 @patch('tahoe_idp.api.request_password_reset')
 class TahoeIdpResetPasswordTests(TestCase):
     """
@@ -35,7 +34,7 @@ class TahoeIdpResetPasswordTests(TestCase):
         'enable_tahoe_idp': True,
         'message': 'Tahoe 2.0 logic: should NOT send email via Open edX, `tahoe_idp` takes care of that',
     })
-    def test_reset_password_with_tahoe_idp(self, mock_request_password_reset, mock_user_sync_to_idp, enable_tahoe_idp, message):
+    def test_reset_password_with_tahoe_idp(self, mock_request_password_reset, mock_receivers_is_idp_enabled, enable_tahoe_idp, message):
         """
         Tests Tahoe IdP/non-idp password reset.
         """
@@ -44,11 +43,6 @@ class TahoeIdpResetPasswordTests(TestCase):
         req.get_host = Mock(return_value=None)
         req.site = Mock(domain='example.com')
         req.user = user
-
-        # mock out receivers which rely on a real Tenant Id
-        post_save.connect(mock_user_sync_to_idp, sender=User, dispatch_uid='tahoe_idp.receivers.user_sync_to_idp')
-        post_save.connect(mock_user_sync_to_idp, sender=UserProfile, dispatch_uid='tahoe_idp.receivers.user_sync_to_idp')
-
 
         with patch.dict(settings.FEATURES, {'ENABLE_TAHOE_IDP': enable_tahoe_idp}):
             with patch('crum.get_current_request', return_value=req):
