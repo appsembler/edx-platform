@@ -107,4 +107,15 @@ class AllowedCourseOrgFilterSet(filters.FilterSet):
 
 class AppsemblerMultiTenantFilterBackend(filters.DjangoFilterBackend):
 
-    filterset_base = AllowedCourseOrgFilterSet
+    def get_filterset_class(self, view, queryset=None):
+      """
+      If view has explicitly set a FilterSet class or FilterSet fields, use those.
+      These should be features we don't use, or the Tahoe API itself.
+      Otherwise, use our default FilterSet class.
+      """
+      filterset_class = getattr(view, "filterset_class", None)
+      filterset_fields = getattr(view, "filterset_fields", None)
+      if filterset_class or filterset_fields:
+          return super(AppsemblerMultiTenantFilterBackend, self).get_filterset_class(view, queryset)
+      else:
+          return AllowedCourseOrgFilterSet
