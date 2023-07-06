@@ -32,6 +32,8 @@ User (User.organizations__contains)
 
 """
 
+import copy
+
 from django.contrib.auth.models import User
 
 from django_filters import rest_framework as filters
@@ -137,8 +139,9 @@ class AppsemblerMultiTenantFilterBackend(filters.DjangoFilterBackend):
           user_allowed_org = request.user.organizations.first()
         except Organization.DoesNotExist:
             raise  # TODO: do something else
+        q_params = copy.deepcopy(request.query_params)
         return {
-            "data": request.query_params.update({"allowed_org": user_allowed_org}),
+            "data": q_params.update({"allowed_org": user_allowed_org}),
             "queryset": queryset,
             "request": request,
         }
