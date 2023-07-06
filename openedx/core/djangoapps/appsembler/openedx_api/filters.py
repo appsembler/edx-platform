@@ -105,26 +105,20 @@ class AllowedCourseOrgFilterSet(filters.FilterSet):
     # don't declare an explicit model via Meta
 
 
-class CourseKeySequenceMultitenancyFilter(object):
+def filter_courselike_sequence_qs(request, queryset):
     """Filter get_queryset return values that return CourseKey Sequences instead of actual QuerySets."""
 
-    def __init__(self, data=None, queryset=None, *, request=None, prefix=None):
-      self.data = data
-      self.queryset = queryset
-      self.request = request
-
-    @property
-    def qs(self):
-        import pdb; pdb.set_trace()
-        #  yield []
-
-class CourseOverviewSequenceMultitenancyFilter(object):
-    """Filter get_queryset return values that return CourseOverview Sequences instead of actual QuerySets."""
-
-
+    allowed_org = request.user.organizations.first()
+    yield filter(lambda key: key.org == allowed_org, queryset)
 
 
 class AppsemblerMultiTenantFilterBackend(filters.DjangoFilterBackend):
+
+    def filter_queryset(self, request, queryset, view):
+        if not getattr(queryset, "model", None):
+            return filter_courselike_sequence(request, queryset)
+        else:
+            return super(AppsemblerMultitenantFilterBackend, self).filter_queryset(requeset, queryset, view)
 
     def get_filterset_class(self, view, queryset=None):
       """
@@ -136,11 +130,5 @@ class AppsemblerMultiTenantFilterBackend(filters.DjangoFilterBackend):
       filterset_fields = getattr(view, "filterset_fields", None)
       if filterset_class or filterset_fields:
           return super(AppsemblerMultiTenantFilterBackend, self).get_filterset_class(view, queryset)
-      elif not getattr(queryset, "model", None):
-          try:
-              # return SEQUENCE_QS_FILTERS[]
-              return CourseKeySequenceMultitenancyFilter
-          except KeyError:
-              raise  # TODO: something else
       else:
           return AllowedCourseOrgFilterSet
