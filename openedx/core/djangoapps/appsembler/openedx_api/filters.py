@@ -109,7 +109,7 @@ def filter_courselike_sequence_qs(request, queryset):
     """Filter get_queryset return values that return CourseKey Sequences instead of actual QuerySets."""
 
     allowed_org = request.user.organizations.first()
-    return filter(lambda key: key.org == allowed_org, queryset)
+    return [courselike for courselike in queryset if courselike.org == allowed_org]
 
 
 class AppsemblerMultiTenantFilterBackend(filters.DjangoFilterBackend):
