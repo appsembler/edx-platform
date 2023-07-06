@@ -65,7 +65,6 @@ class AllowedCourseOrgFilterSet(filters.FilterSet):
       CourseUserGroup: 'course_id__startswith',
       GeneratedCertificate: 'course_id__startswith',
       BlockCompletion: 'context_key__startswith',
-      ...
     }
     
     # have no ForeignKey to CourseOverview or other path to Organization,
