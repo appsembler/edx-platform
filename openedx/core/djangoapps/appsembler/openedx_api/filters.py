@@ -50,11 +50,6 @@ COURSE_PREFIX = 'course-v1:'
 # TODO: Need to figure out how to limit this FilterBackend (or make essentially no-op) for some parts of API 
 
 
-class AppsemblerMultiTenantFilterBackend(filters.DjangoFilterBackend):
-    
-    filterset_base = AllowedCourseOrgFilterSet
-
-
 class AllowedCourseOrgFilterSet(filters.FilterSet):
     """Filter by allowed organization, with dynamic queryset filter. 
     """
@@ -107,3 +102,8 @@ class AllowedCourseOrgFilterSet(filters.FilterSet):
             return queryset.filter(**{lookup: user_allowed_org})
           
     # don't declare an explicit model via Meta
+
+
+class AppsemblerMultiTenantFilterBackend(filters.DjangoFilterBackend):
+
+    filterset_base = AllowedCourseOrgFilterSet
