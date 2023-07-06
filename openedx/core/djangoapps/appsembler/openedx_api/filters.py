@@ -60,7 +60,7 @@ class AllowedCourseOrgFilterSet(filters.FilterSet):
     """
     MODEL_COURSE_ORG_LOOKUPS = {
       User: 'organizations__contains',
-      CourseEnrollment: 'course__org__',
+      CourseEnrollment: 'course__org',
       CourseOverview: 'org',
       CourseUserGroup: 'course_id__startswith',
       GeneratedCertificate: 'course_id__startswith',
