@@ -83,7 +83,6 @@ class AllowedCourseOrgFilterSet(filters.FilterSet):
 
     def filter_allowed_org(self, queryset, name, value):
         import pdb; pdb.set_trace()
-        requesting_user = self.request.user
 
         try:
           user_allowed_org = self.request.user.organizations.first()
@@ -132,3 +131,15 @@ class AppsemblerMultiTenantFilterBackend(filters.DjangoFilterBackend):
           return super(AppsemblerMultiTenantFilterBackend, self).get_filterset_class(view, queryset)
       else:
           return AllowedCourseOrgFilterSet
+
+    def get_filterset_kwargs(self, request, queryset, view):
+        try:
+          user_allowed_org = self.request.user.organizations.first()
+        except Organization.DoesNotExist:
+            raise  # TODO: do something else
+
+        return {
+            "data": request.query_params.update({"allowed_org": user_allowed_org}),
+            "queryset": queryset,
+            "request": request,
+        }
