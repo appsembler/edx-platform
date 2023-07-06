@@ -100,7 +100,7 @@ class AllowedCourseOrgFilterSet(filters.FilterSet):
             raise  # TODO: do something else
                 
         if model in OPAQUE_KEY_FIELD_LOOKUP_MODELS:
-            return queryset.filter(**{lookup: "{}{}+".format(COURSE_PREFIX, user_allowed_org))})
+            return queryset.filter(**{lookup: "{}{}+".format(COURSE_PREFIX, user_allowed_org)})
         elif model in STRING_ORG_NAME_LOOKUP_MODELS:
             return queryset.filter(**{lookup: user_allowed_org.short_name})        
         else:
