@@ -134,10 +134,9 @@ class AppsemblerMultiTenantFilterBackend(filters.DjangoFilterBackend):
 
     def get_filterset_kwargs(self, request, queryset, view):
         try:
-          user_allowed_org = self.request.user.organizations.first()
+          user_allowed_org = request.user.organizations.first()
         except Organization.DoesNotExist:
             raise  # TODO: do something else
-
         return {
             "data": request.query_params.update({"allowed_org": user_allowed_org}),
             "queryset": queryset,
