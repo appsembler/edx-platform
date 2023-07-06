@@ -89,3 +89,12 @@ def plugin_settings(settings):
 
     # Off by default. See the `site_configuration.tahoe_organization_helpers.py` module.
     settings.FEATURES['TAHOE_SITE_CONFIG_CLIENT_ORGANIZATIONS_SUPPORT'] = False
+
+    # Use default DRF API FilterBackend to handle multi-tenancy protections for Open edX API
+    settings.REST_FRAMEWORK.update(
+        {
+            'DEFAULT_FILTER_BACKENDS': [
+                'openedx.core.djangoapps.appsembler.openedx_api.filters.AppsemblerMultiTenantFilterBackend'
+            ]
+        }
+    )
