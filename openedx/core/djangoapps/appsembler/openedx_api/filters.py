@@ -116,7 +116,7 @@ class AppsemblerMultiTenantFilterBackend(filters.DjangoFilterBackend):
 
     def filter_queryset(self, request, queryset, view):
         if not getattr(queryset, "model", None):
-            return filter_courselike_sequence(request, queryset)
+            return filter_courselike_sequence_qs(request, queryset)
         else:
             return super(AppsemblerMultitenantFilterBackend, self).filter_queryset(requeset, queryset, view)
 
