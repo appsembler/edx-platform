@@ -38,7 +38,7 @@ from django_filters import rest_framework as filters
 from django_filters import rest_framework  
 
 from completion.models import BlockCompletion
-from lms.djangoapps.content.course_overviews.models import CourseOverview
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from lms.djangoapps.certificates.models import GeneratedCertificate
 from organizations.models import Organization
 from student.models import CourseEnrollment
