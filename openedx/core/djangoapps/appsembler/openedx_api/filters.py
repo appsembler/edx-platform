@@ -81,7 +81,7 @@ class AllowedCourseOrgFilterSet(filters.FilterSet):
 
     # TODO: Allow a superuser to bypass filter
 
-    allowed_org = filters.BooleanFilter(method="filter_allowed_org")
+    allowed_org = filters.Filter(method="filter_allowed_org")
 
     def filter_allowed_org(self, queryset, name, value):
         import pdb; pdb.set_trace()
