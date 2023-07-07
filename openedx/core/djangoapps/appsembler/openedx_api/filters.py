@@ -92,13 +92,13 @@ class AllowedCourseOrgFilterSet(filters.FilterSet):
             raise  # TODO: do something else
 
         try:
-            lookup = MODEL_COURSE_ORG_LOOKUPS[self.queryset.model]
+            lookup = self.MODEL_COURSE_ORG_LOOKUPS[self.queryset.model]
         except KeyError:
             raise  # TODO: do something else
 
-        if model in OPAQUE_KEY_FIELD_LOOKUP_MODELS:
+        if model in self.OPAQUE_KEY_FIELD_LOOKUP_MODELS:
             return queryset.filter(**{lookup: "{}{}+".format(COURSE_PREFIX, user_allowed_org)})
-        elif model in STRING_ORG_NAME_LOOKUP_MODELS:
+        elif model in self.STRING_ORG_NAME_LOOKUP_MODELS:
             return queryset.filter(**{lookup: user_allowed_org.short_name})        
         else:
             return queryset.filter(**{lookup: user_allowed_org})
@@ -136,7 +136,7 @@ class AppsemblerMultiTenantFilterBackend(filters.DjangoFilterBackend):
 
     def get_filterset_kwargs(self, request, queryset, view):
         try:
-          user_allowed_org = request.user.organizations.first()
+            user_allowed_org = request.user.organizations.first()
         except Organization.DoesNotExist:
             raise  # TODO: do something else
         q_params = copy.deepcopy(request.query_params)
