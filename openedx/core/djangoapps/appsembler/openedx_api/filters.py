@@ -91,10 +91,12 @@ class AllowedCourseOrgFilterSet(filters.FilterSet):
         except KeyError:
             raise  # TODO: do something else
 
+        user_allowed_org = self.data['allowed_org']
+
         if self.queryset.model in self.OPAQUE_KEY_FIELD_LOOKUP_MODELS:
             return queryset.filter(**{lookup: "{}{}+".format(COURSE_PREFIX, user_allowed_org)})
         elif self.queryset.model in self.STRING_ORG_NAME_LOOKUP_MODELS:
-            return queryset.filter(**{lookup: user_allowed_org.short_name})        
+            return queryset.filter(**{lookup: user_allowed_org.short_name})
         else:
             return queryset.filter(**{lookup: user_allowed_org})
 
