@@ -87,18 +87,13 @@ class AllowedCourseOrgFilterSet(filters.FilterSet):
         import pdb; pdb.set_trace()
 
         try:
-          user_allowed_org = self.request.user.organizations.first()
-        except Organization.DoesNotExist:
-            raise  # TODO: do something else
-
-        try:
             lookup = self.MODEL_COURSE_ORG_LOOKUPS[self.queryset.model]
         except KeyError:
             raise  # TODO: do something else
 
-        if model in self.OPAQUE_KEY_FIELD_LOOKUP_MODELS:
+        if self.queryset.model in self.OPAQUE_KEY_FIELD_LOOKUP_MODELS:
             return queryset.filter(**{lookup: "{}{}+".format(COURSE_PREFIX, user_allowed_org)})
-        elif model in self.STRING_ORG_NAME_LOOKUP_MODELS:
+        elif self.queryset.model in self.STRING_ORG_NAME_LOOKUP_MODELS:
             return queryset.filter(**{lookup: user_allowed_org.short_name})        
         else:
             return queryset.filter(**{lookup: user_allowed_org})
@@ -140,8 +135,9 @@ class AppsemblerMultiTenantFilterBackend(filters.DjangoFilterBackend):
         except Organization.DoesNotExist:
             raise  # TODO: do something else
         q_params = copy.deepcopy(request.query_params)
+        q_params.update({"allowed_org": user_allowed_org})
         return {
-            "data": q_params.update({"allowed_org": user_allowed_org}),
+            "data": q_params,
             "queryset": queryset,
             "request": request,
         }
