@@ -27,7 +27,9 @@ import dateutil
 import yaml
 from corsheaders.defaults import default_headers as corsheaders_default_headers
 from django.core.exceptions import ImproperlyConfigured
+from django.contrib.sites.models import Site
 from path import Path as path
+from django.conf import settings
 
 from openedx.core.djangoapps.plugins import plugin_settings, constants as plugin_constants
 from openedx.core.lib.derived import derive_settings
@@ -210,12 +212,16 @@ for feature, value in ENV_FEATURES.items():
 
 CMS_BASE = ENV_TOKENS.get('CMS_BASE', 'studio.edx.org')
 
-ALLOWED_HOSTS = [
-    # TODO: bbeggs remove this before prod, temp fix to get load testing running
-    "*",
-    ENV_TOKENS.get('LMS_BASE'),
-    FEATURES['PREVIEW_LMS_BASE'],
+# Fetching all domain names from the Site model
+site_domains = [site.domain for site in Site.objects.all()]
+
+ALLOWED_HOSTS = site_domains + [
+    ENV_TOKENS.get('LMS_BASE', ''),
+    FEATURES.get('PREVIEW_LMS_BASE', '')
 ]
+
+# Ensure that no empty strings are in ALLOWED_HOSTS
+ALLOWED_HOSTS = [host for host in ALLOWED_HOSTS if host]
 
 # allow for environments to specify what cookie name our login subsystem should use
 # this is to fix a bug regarding simultaneous logins between edx.org and edge.edx.org which can
