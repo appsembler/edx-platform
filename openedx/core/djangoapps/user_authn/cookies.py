@@ -271,6 +271,7 @@ def _create_and_set_jwt_cookies(response, request, cookie_settings, user=None):
 
     # set a JWT cookie as session cookie
     del cookie_settings['expires']
+    del cookie_settings['max_age']
 
     _set_jwt_cookies(
         response,
