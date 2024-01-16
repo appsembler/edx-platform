@@ -269,6 +269,9 @@ def _create_and_set_jwt_cookies(response, request, cookie_settings, user=None):
     jwt = _create_jwt(request, user, expires_in)
     jwt_header_and_payload, jwt_signature = _parse_jwt(jwt)
 
+    # set a JWT cookie as session cookie
+    del cookie_settings['expires']
+
     _set_jwt_cookies(
         response,
         cookie_settings,
