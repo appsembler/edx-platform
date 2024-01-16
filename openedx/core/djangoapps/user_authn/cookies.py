@@ -263,7 +263,7 @@ def _create_and_set_jwt_cookies(response, request, cookie_settings, user=None):
     # Kate wants these cookies to be invalidated at browser close, in part because
     # users are sharing computers.
 
-    # expires_in = settings.JWT_AUTH['JWT_IN_COOKIE_EXPIRATION']
+    expires_in = settings.JWT_AUTH['JWT_IN_COOKIE_EXPIRATION']
     # _set_expires_in_cookie_settings(cookie_settings, expires_in)
 
     jwt = _create_jwt(request, user, expires_in)
