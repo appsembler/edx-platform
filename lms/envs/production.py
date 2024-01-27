@@ -212,6 +212,7 @@ CMS_BASE = ENV_TOKENS.get('CMS_BASE', 'studio.edx.org')
 
 ALLOWED_HOSTS = [
     ENV_TOKENS.get('LMS_BASE', ''),
+    ENV_TOKENS.get('CMS_BASE', ''),
     FEATURES.get('PREVIEW_LMS_BASE', '')
 ]
 
