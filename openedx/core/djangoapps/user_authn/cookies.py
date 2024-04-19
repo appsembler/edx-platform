@@ -257,11 +257,21 @@ def _create_and_set_jwt_cookies(response, request, cookie_settings, user=None):
     if settings.FEATURES.get('DISABLE_SET_JWT_COOKIES_FOR_TESTS', False):
         return
 
+    # going to set these as session cookies per PSU request.
+    # The Magnento code checks for edx-jwt-cookie-header-payload to determine if a learner
+    # is logged into the LMS.  If none found, a new login_session API call is made
+    # Kate wants these cookies to be invalidated at browser close, in part because
+    # users are sharing computers.
+
     expires_in = settings.JWT_AUTH['JWT_IN_COOKIE_EXPIRATION']
-    _set_expires_in_cookie_settings(cookie_settings, expires_in)
+    # _set_expires_in_cookie_settings(cookie_settings, expires_in)
 
     jwt = _create_jwt(request, user, expires_in)
     jwt_header_and_payload, jwt_signature = _parse_jwt(jwt)
+
+    # set a JWT cookie as session cookie
+    del cookie_settings['expires']
+    del cookie_settings['max_age']
 
     _set_jwt_cookies(
         response,
