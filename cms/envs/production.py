@@ -192,9 +192,9 @@ IDA_LOGOUT_URI_LIST = ENV_TOKENS.get('IDA_LOGOUT_URI_LIST', [])
 SITE_NAME = ENV_TOKENS['SITE_NAME']
 
 ALLOWED_HOSTS = [
-    # TODO: bbeggs remove this before prod, temp fix to get load testing running
-    "*",
-    CMS_BASE,
+    ENV_TOKENS.get('LMS_BASE', ''),
+    ENV_TOKENS.get('CMS_BASE', ''),
+    FEATURES.get('PREVIEW_LMS_BASE', '')
 ]
 
 LOG_DIR = ENV_TOKENS['LOG_DIR']
