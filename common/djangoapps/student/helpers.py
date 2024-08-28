@@ -3,7 +3,7 @@ Helpers for the student app.
 """
 
 
-ґimport json
+import json
 import logging
 import mimetypes
 import re
