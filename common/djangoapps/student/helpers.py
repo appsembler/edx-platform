@@ -3,7 +3,7 @@ Helpers for the student app.
 """
 
 
-import json
+ґimport json
 import logging
 import mimetypes
 import re
@@ -19,7 +19,6 @@ from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.core.validators import ValidationError
 from django.db import IntegrityError, transaction
-from django.shortcuts import redirect
 from django.urls import NoReverseMatch, reverse
 from django.utils.translation import ugettext as _
 from pytz import UTC
@@ -740,16 +739,3 @@ def sanitize_next_parameter(next_param):
         return sanitized_next_parameter
 
     return next_param
-
-
-def add_hide_elements_cookie_to_redirect(redirect_to):
-    if 'hide_elements' in redirect_to:
-        # Perform the redirect and set the cookie only if 'hide_elements' is present
-        response = redirect(redirect_to)
-
-        # Set a cookie to indicate that elements should be hidden
-        response.set_cookie('hideElements', 'true', max_age=86400)
-
-        return response
-    else:
-        return redirect(redirect_to)
