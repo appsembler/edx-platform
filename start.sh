@@ -1,7 +1,10 @@
+#!/bin/bash
+
 if [[ $DYNO == "mysql"* ]]; then
-  # Start MySQL server in the background
+  # Start MySQL server in the background as the 'mysql' user
   echo "Starting MySQL..."
-  mysqld &
+  chown -R mysql:mysql /var/lib/mysql
+  su mysql -s /bin/bash -c "mysqld" &
 
   # Wait for MySQL to be ready
   until mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "SHOW DATABASES;" > /dev/null 2>&1; do
@@ -9,14 +12,26 @@ if [[ $DYNO == "mysql"* ]]; then
     sleep 5
   done
 
-#  /usr/local/bin/mysql-init.sh
+  # Initialize MySQL if the init script is available
+  if [ -f /usr/local/bin/mysql-init.sh ]; then
+    echo "Running MySQL init script..."
+    /usr/local/bin/mysql-init.sh
+  fi
+
   wait
-elif  [[ $DYNO == "worker"* ]]; then
-  echo "Starting worker..."
-fi
-elif  [[ $DYNO == "rabbitmq"* ]]; then
+
+elif [[ $DYNO == "rabbitmq"* ]]; then
   echo "Starting RabbitMQ..."
-fi
-elif  [[ $DYNO == "memcache"* ]]; then
-  echo "Starting memcache..."
+  rabbitmq-server &
+
+  wait
+
+elif [[ $DYNO == "memcache"* ]]; then
+  echo "Starting Memcache..."
+  memcached -u memcache &
+
+  wait
+
+else
+  echo "No valid service specified."
 fi
