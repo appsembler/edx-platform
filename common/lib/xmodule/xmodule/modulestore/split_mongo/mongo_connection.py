@@ -538,7 +538,8 @@ class MongoConnection(object):
                 key_attr: getattr(course_key, key_attr)
                 for key_attr in ('org', 'course', 'run')
             }
-            return self.course_index.remove(query)
+            result = self.course_index.delete_many(query)
+            return result.deleted_count
 
     def get_definition(self, key, course_context=None):
         """
@@ -614,9 +615,9 @@ class MongoConnection(object):
             self.structures.drop()
             self.definitions.drop()
         else:
-            self.course_index.remove({})
-            self.structures.remove({})
-            self.definitions.remove({})
+            self.course_index.delete_many({})
+            self.structures.delete_many({})
+            self.definitions.delete_many({})
 
         if connections:
             connection.close()

@@ -65,6 +65,7 @@ django-user-tasks
 django-waffle==0.18.0
 django-webpack-loader               # Used to wire webpack bundles into the django asset pipeline
 djangorestframework==3.9.4
+dnspython
 edx-ace
 edx-analytics-data-api-client
 edx-api-doc-tools
@@ -88,7 +89,6 @@ edx-submissions
 edx-user-state-client
 edx-when
 edxval
-event-tracking
 fs==2.0.18
 fs-s3fs==0.1.8
 geoip2                              # Python API for the GeoIP web services and databases
