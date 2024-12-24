@@ -65,7 +65,7 @@ class MongoBackend(BaseBackend):
             port=port,
             username=user,
             password=password,
-            authSource=auth_source, 
+            authSource=auth_source,
             **extra
         )
 
