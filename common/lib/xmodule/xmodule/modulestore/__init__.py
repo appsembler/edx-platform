@@ -899,7 +899,7 @@ class ModuleStoreRead(six.with_metaclass(ABCMeta, ModuleStoreAssetBase)):
         """
         if isinstance(target, list):
             return any(self._value_matches(ele, criteria) for ele in target)
-        elif isinstance(criteria, re._pattern_type):  # pylint: disable=protected-access
+        elif isinstance(criteria, re.Pattern):
             return criteria.search(target) is not None
         elif callable(criteria):
             return criteria(target)
