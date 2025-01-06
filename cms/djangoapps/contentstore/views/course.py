@@ -708,7 +708,7 @@ def get_courses_accessible_to_user(request, org=None):
     return courses, in_process_course_actions
 
 
-def _process_courses_list(courses_iter, in_process_course_actions, split_archived=False):
+def _process_courses_list(courses_iter, in_process_course_actions, split_archived=False, ignore_archived=False):
     """
     Iterates over the list of courses to be displayed to the user, and:
 
@@ -738,6 +738,9 @@ def _process_courses_list(courses_iter, in_process_course_actions, split_archive
     archived_courses = []
 
     for course in courses_iter:
+        if course.has_ended() and ignore_archived:
+            continue
+
         if isinstance(course, ErrorDescriptor) or (course.id in in_process_action_course_keys):
             continue
 
@@ -1118,7 +1121,7 @@ def settings_handler(request, course_key_string):
                 # exclude current course from the list of available courses
                 courses = (course for course in courses if course.id != course_key)
                 if courses:
-                    courses, __ = _process_courses_list(courses, in_process_course_actions)
+                    courses, __ = _process_courses_list(courses, in_process_course_actions, ignore_archived=True)
                 settings_context.update({'possible_pre_requisite_courses': list(courses)})
 
             if credit_eligibility_enabled:
