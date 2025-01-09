@@ -738,8 +738,22 @@ def _process_courses_list(courses_iter, in_process_course_actions, split_archive
     archived_courses = []
 
     for course in courses_iter:
+        # BEGIN temp fix for Sounds Write
+
+        # TODO: if a user has tons of courses like Sounds Write (571), some pages will time out.
+        # This is a temporary patch to prevent Sounds-Write requets timing out. The right fix
+        # is to optimize the DB queries.
+
+
+        # This skipping step can be potentially kept since it's just used for the "prerequisite" course list
+        # where we do not need to list archived courses.
         if course.has_ended() and ignore_archived:
             continue
+
+        if course.has_ended() and course.location.org == "sounds-write":
+            continue
+
+        # END temp fix for Sounds Write
 
         if isinstance(course, ErrorDescriptor) or (course.id in in_process_action_course_keys):
             continue
