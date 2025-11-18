@@ -1,0 +1,34 @@
+# Release upgrade note: Change the release name below to build for another release
+FROM edxops/edxapp:juniper.master
+
+# This Docker image will be pushed to DockerHub with `appsembler/edxapp`
+#
+# This Docker image is similar to the `edxops/edxapp` devstack image except for the
+# following differences:
+#
+#   1. Install appsembler.txt requirements
+#   2. Use the https://github.com/appsembler/edxapp-envs environment files
+#
+
+# Build this docker image with the following command:
+#
+#  $ make devstack-docker-build
+#
+#  To push to dockerhub:
+#
+#  $ make devstack-docker-push
+#
+
+RUN rm -rf /edx/app/edxapp/edx-platform
+COPY . /edx/app/edxapp/edx-platform
+
+RUN cd /edx/app/edxapp/edx-platform \
+    && . ../edxapp_env \
+    && paver install_prereqs \
+    && pip install -r requirements/edx/appsembler.txt \
+    && rm -rf /edx/app/edxapp/edx-platform \
+    && rm -f /edx/etc/lms.yml /edx/etc/studio.yml \
+    && ln -s /edx/src/edxapp-envs/lms.yml /edx/etc/ \
+    && ln -s /edx/src/edxapp-envs/studio.yml /edx/etc/
+
+WORKDIR /edx/app/edxapp/edx-platform

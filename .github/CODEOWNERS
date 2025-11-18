@@ -1,0 +1,9 @@
+# see: https://appsembler.atlassian.net/wiki/spaces/ED/pages/2227503161/CODEOWNERS
+# note: this conflicts with edX's upstream CODEOWNERS file, to resolve the conflict ignore all upstream changes.
+
+
+# default code owner
+* @bryanlandia
+
+# default set of reviewers
+* @amirtds @xscrio
