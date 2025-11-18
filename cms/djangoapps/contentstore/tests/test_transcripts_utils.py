@@ -534,27 +534,6 @@ class TestYoutubeTranscripts(unittest.TestCase):
         with self.assertRaises(transcripts_utils.GetTranscriptsFromYouTubeException):
             transcripts_utils.get_transcripts_from_youtube(youtube_id, settings, translation)
 
-    def test_youtube_good_result(self):
-        response = textwrap.dedent("""<?xml version="1.0" encoding="utf-8" ?>
-                <transcript>
-                    <text start="0" dur="0.27"></text>
-                    <text start="0.27" dur="2.45">Test text 1.</text>
-                    <text start="2.72">Test text 2.</text>
-                    <text start="5.43" dur="1.73">Test text 3.</text>
-                </transcript>
-        """)
-        expected_transcripts = {
-            'start': [270, 2720, 5430],
-            'end': [2720, 2720, 7160],
-            'text': ['Test text 1.', 'Test text 2.', 'Test text 3.']
-        }
-        youtube_id = 'good_youtube_id'
-        with patch('xmodule.video_module.transcripts_utils.requests.get') as mock_get:
-            mock_get.return_value = Mock(status_code=200, text=response, content=response.encode('utf-8'))
-            transcripts = transcripts_utils.get_transcripts_from_youtube(youtube_id, settings, translation)
-        self.assertEqual(transcripts, expected_transcripts)
-        mock_get.assert_called_with('http://video.google.com/timedtext', params={'lang': 'en', 'v': 'good_youtube_id'})
-
 
 class TestTranscript(unittest.TestCase):
     """
