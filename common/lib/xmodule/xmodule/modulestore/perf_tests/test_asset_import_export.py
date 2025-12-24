@@ -11,7 +11,6 @@ from tempfile import mkdtemp
 
 import ddt
 import pytest
-from bson.code import Code
 from path import Path as path
 
 from xmodule.assetstore import AssetMetadata
@@ -172,29 +171,25 @@ class TestModulestoreAssetSize(unittest.TestCase):
 
             asset_collection = source_ms.asset_collection()
             # Ensure the asset collection exists.
-            if asset_collection.name in asset_collection.database.collection_names():
-
-                # Map gets the size of each structure.
-                mapper = Code("""
-                    function() { emit("size", (this == null) ? 0 : Object.bsonsize(this)) }
-                    """)
-
-                # Reduce finds the largest structure size and returns only it.
-                reducer = Code("""
-                    function(key, values) {
-                        var max_size = 0;
-                        for (var i=0; i < values.length; i++) {
-                            if (values[i] > max_size) {
-                                max_size = values[i];
-                            }
+            if asset_collection.name in asset_collection.database.list_collection_names():
+                # Get the size of each structure, and finds the largest structure size 
+                pipeline = [
+                    {
+                        "$project": {
+                            "size": {"$bsonSize": "$$ROOT"}
                         }
-                        return max_size;
+                    },
+                    {
+                        "$group": {
+                            "_id": None,
+                            "max_size": {"$max": "$size"}
+                        }
                     }
-                """)
+                ]
 
-                results = asset_collection.map_reduce(mapper, reducer, "size_results")
+                results = list(asset_collection.aggregate(pipeline))
                 result_str = "{} - Store: {:<15} - Num Assets: {:>6} - Result: {}\n".format(
-                    self.test_run_time, SHORT_NAME_MAP[source_ms], num_assets, [r for r in results.find()]
+                    self.test_run_time, SHORT_NAME_MAP[source_ms], num_assets, results
                 )
                 with open("bson_sizes.txt", "a") as f:
                     f.write(result_str)

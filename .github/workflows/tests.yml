@@ -8,7 +8,6 @@ on:
 
 jobs:
   test:
-
     runs-on: ubuntu-20.04
     services:
       mongodb:
@@ -17,7 +16,7 @@ jobs:
           - 27017:27017
     strategy:
       matrix:
-        python-version: [3.5]
+        python-version: [3.7]
         tox-env:
           - pep8
           - common
